@@ -1,0 +1,512 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://idea-validation.local/schemas/structured-report.v1.schema.json",
+  "title": "Project Report Submission v1",
+  "description": "Declarative, presentation-only project report submitted by an AI client.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "projectId",
+    "clientRequestId",
+    "basedOnRevision",
+    "locale",
+    "title",
+    "sections"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "projectId": {
+      "$ref": "#/$defs/projectId"
+    },
+    "clientRequestId": {
+      "$ref": "#/$defs/requestId"
+    },
+    "basedOnRevision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "locale": {
+      "type": "string",
+      "pattern": "^[a-z]{2,3}(?:-[A-Z]{2})?$",
+      "maxLength": 16
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "generator": {
+      "$ref": "#/$defs/generator"
+    },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/section"
+      }
+    }
+  },
+  "$defs": {
+    "safeId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_\\-]{2,63}$"
+    },
+    "projectId": {
+      "type": "string",
+      "pattern": "^proj_[0-9A-Za-z]{10,64}$"
+    },
+    "requestId": {
+      "type": "string",
+      "pattern": "^req_[0-9A-Za-z_\\-]{10,96}$"
+    },
+    "evidenceId": {
+      "type": "string",
+      "pattern": "^evi_[0-9A-Za-z]{10,64}$"
+    },
+    "attentionItemId": {
+      "type": "string",
+      "pattern": "^attn_[0-9A-Za-z]{10,64}$"
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 40
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title",
+        "blocks"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "blocks": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 30,
+          "items": {
+            "$ref": "#/$defs/block"
+          }
+        }
+      }
+    },
+    "block": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/textBlock"
+        },
+        {
+          "$ref": "#/$defs/metricsBlock"
+        },
+        {
+          "$ref": "#/$defs/listBlock"
+        },
+        {
+          "$ref": "#/$defs/tableBlock"
+        },
+        {
+          "$ref": "#/$defs/timelineBlock"
+        },
+        {
+          "$ref": "#/$defs/evidenceRefsBlock"
+        },
+        {
+          "$ref": "#/$defs/actionRefsBlock"
+        }
+      ]
+    },
+    "textBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "markdown"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "type": {
+          "const": "text"
+        },
+        "markdown": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 10000
+        }
+      }
+    },
+    "metricsBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "items"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "type": {
+          "const": "metrics"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 12,
+          "items": {
+            "$ref": "#/$defs/metricItem"
+          }
+        }
+      }
+    },
+    "metricItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "value"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "value": {
+          "oneOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            {
+              "type": "number"
+            }
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 24
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240
+        },
+        "trend": {
+          "enum": [
+            "up",
+            "down",
+            "flat",
+            "unknown"
+          ]
+        }
+      }
+    },
+    "listBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "ordered",
+        "items"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "type": {
+          "const": "list"
+        },
+        "ordered": {
+          "type": "boolean"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/listItem"
+          }
+        }
+      }
+    },
+    "listItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "text"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "checked": {
+          "type": "boolean"
+        }
+      }
+    },
+    "tableBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "columns",
+        "rows"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "type": {
+          "const": "table"
+        },
+        "columns": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/tableColumn"
+          }
+        },
+        "rows": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "$ref": "#/$defs/tableRow"
+          }
+        }
+      }
+    },
+    "tableColumn": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "key",
+        "label"
+      ],
+      "properties": {
+        "key": {
+          "$ref": "#/$defs/safeId"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "align": {
+          "enum": [
+            "start",
+            "center",
+            "end"
+          ],
+          "default": "start"
+        }
+      }
+    },
+    "tableRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "cells"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "cells": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 8,
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "timelineBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "items"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "type": {
+          "const": "timeline"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/timelineItem"
+          }
+        }
+      }
+    },
+    "timelineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "title"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "happenedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/evidenceId"
+          }
+        }
+      }
+    },
+    "evidenceRefsBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "evidenceIds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "type": {
+          "const": "evidence_refs"
+        },
+        "evidenceIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/evidenceId"
+          }
+        }
+      }
+    },
+    "actionRefsBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "attentionItemIds"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/safeId"
+        },
+        "type": {
+          "const": "action_refs"
+        },
+        "attentionItemIds": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/attentionItemId"
+          }
+        }
+      }
+    }
+  }
+}
