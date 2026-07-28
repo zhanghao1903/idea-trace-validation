@@ -6,8 +6,8 @@
 - Requirements: [requirements.md](./requirements.md)
 - Requirements commit: `b4f9a802744431c5ef424787b363c08a24d64d5b`
 - Requirements SHA-256: `9ca2a55d914d614c9c3d85772a041cbffdd2318407c99db38b6214ff14e51bdc`
-- Current lifecycle stage: `PLAN_DRAFTING`
-- Prior review: cycle 1 `FAIL`, message `e9c7509f71bffd28bc0206b18ef503ee860eb9aea1ab1ac8d780076c9c721605`
+- Current lifecycle stage: `PLAN_CHANGES_REQUESTED`
+- Prior review: cycle 2 `FAIL`, message `b0efdf9bb7fa2a94e12c104196f93c099e9eef9dcc10e7aee88e695fa3b183e0`
 - Updated: 2026-07-28
 
 ## 1. Background
@@ -201,32 +201,58 @@ IP-01 -> IP-02 -> IP-03 -> IP-04/IP-05 -> IP-06 -> IP-07 -> IP-08
 | `RecordId` | `AR-<PlanId>-v<Version>-<sequence>` | yes | Main | 全局唯一、只追加 |
 | `PlanId` | stable Plan ID | yes | Main | 与文件一致 |
 | `PlanVersion` | positive integer | yes | Main | 决定时的精确版本 |
-| `SubmittedCommit` | 40-char lowercase SHA | yes | Main | 本次验收对象 |
-| `Result` | `Accepted`, `Rejected`, `Superseded` | yes | 指定验收方/Main | 受下述 guard 限制 |
+| `SubmittedCommit` | 40-char lowercase SHA | yes | Main | 本次决定或重开针对的提交 |
+| `Result` | `Accepted`, `Rejected`, `Superseded` | yes | authority；Main 记录 | 受下述 result-specific guard 限制 |
 | `AcceptanceOwner` | text | yes | Requirements | 与独立需求确认一致 |
-| `Actor` | text | yes | 指定验收方 | Main 不得冒充验收方 |
-| `DecidedAt` | strict UTC timestamp | yes | 指定验收方 | 不晚于记录提交时间 |
-| `Evidence` | link list | yes | Main | 指向 Review、checks、merge/验收证明 |
-| `FailedItems` | ID list or `None` | yes | 指定验收方/Main | `Rejected` 时非空 |
+| `DecisionActor` | text | yes | result authority | 必须满足下表对应 authority |
+| `DecisionAt` | strict UTC timestamp | yes | result authority | 来自精确 authority 结果 |
+| `RecordedBy` | text | yes | Main | 只能抄录 authority，不得代替 `DecisionActor` |
+| `RecordedAt` | strict UTC timestamp | yes | Main | 不早于 `DecisionAt` |
+| `AcceptedBy` | text or `None` | yes | 指定验收方 | 仅 `Accepted` 非空，且等于 `DecisionActor` |
+| `AcceptedAt` | strict UTC or `None` | yes | 指定验收方 | 仅 `Accepted` 非空，且等于 `DecisionAt` |
+| `AcceptedCommit` | 40-char lowercase SHA or `None` | yes | 指定验收方 | 仅 `Accepted` 非空，且等于 `SubmittedCommit` |
+| `AcceptanceEvidence` | link list | yes | result authority；Main 记录 | 指向精确决定与支撑证据，不得为空 |
+| `FailedItems` | ID list or `None` | yes | 指定验收方；Main 记录 | `Rejected` 时非空 |
 | `RecoveryAction` | text or `None` | yes | Main | `Rejected` 时非空 |
 | `RelatedRecordId` | record ID or `None` | yes | Main | `Superseded` 时指向旧 `Accepted` |
-| `Reason` | text | yes | Main/验收方 | 不得只写“更新” |
+| `Reason` | text | yes | result authority；Main 记录 | 不得只写“更新” |
 
 规则：
 
-- `Accepted` 只能在当前 `PlanVersion`、精确 commit、依赖、Must、Review、merge 和验收
-  证据完整时追加；随后 `LatestAcceptanceRecordId` 与
-  `CurrentAcceptedRecordId` 都指向该记录。
-- `Rejected` 记录提交的精确 commit、失败项和恢复动作；只更新
+- `Accepted` 的 `DecisionActor` 必须等于 `AcceptanceOwner`。只有当前
+  `PlanVersion`、精确 commit、依赖、Must、Review、merge 和验收证据完整时，
+  Main 才能原样抄录指定验收方的决定；`AcceptedBy`、`AcceptedAt`、
+  `AcceptedCommit` 分别等于 `DecisionActor`、`DecisionAt`、
+  `SubmittedCommit`。随后两个 acceptance pointer 都指向该记录。
+- `Rejected` 只能来自指定验收方的明确拒绝，`DecisionActor` 必须等于
+  `AcceptanceOwner`；`AcceptedBy`、`AcceptedAt`、`AcceptedCommit` 均为
+  `None`，`FailedItems` 与 `RecoveryAction` 非空。它只更新
   `LatestAcceptanceRecordId`，`CurrentAcceptedRecordId` 保持 `None`。
-- 已接受版本发生实质变化时，先递增 `Version` 或明确重开，再追加
-  `Superseded` 记录引用旧 `Accepted`；`CurrentAcceptedRecordId` 置 `None`，
-  旧行保持原样。
-- `Superseded` 的 `PlanVersion` 与 `SubmittedCommit` 复制被替代的原
-  `Accepted` 记录；触发重开的新 commit 只写入 `Evidence`，避免把新实现误写成
-  已验收对象。
-- 补偿修订只能追加新行；任何历史行的 actor、时间、commit、结果和证据都不可覆盖。
+- Code Review 的 `REQUEST_CHANGES`/失败不是验收拒绝：只引用 Review 生成的
+  immutable result/finding，并追加 `ChangeRecord`；不得创建 `Rejected`
+  `AcceptanceRecord`，也不得把 Review 冒充为 `AcceptanceOwner`。
+- `Superseded` 只能来自用户或 Requirements 对实质范围/版本变化的明确 authority；
+  `DecisionActor` 记录该 authority，`RecordedBy` 为 Main，
+  `RelatedRecordId` 指向被替代的旧 `Accepted`。其 `AcceptedBy`、
+  `AcceptedAt`、`AcceptedCommit` 均为 `None`，`SubmittedCommit` 是触发重开
+  的新提交，`AcceptanceEvidence` 同时引用变化 authority 与旧记录。
+- 追加 `Superseded` 后递增 `Version` 或明确重开，
+  `CurrentAcceptedRecordId` 置 `None`；旧 `Accepted` 行及其
+  `AcceptedBy`、`AcceptedAt`、`AcceptedCommit`、`AcceptanceEvidence`
+  保持原样。
+- Main 只负责验证并抄录精确 authority 结果、分配 `RecordId`、填写
+  `RecordedBy/RecordedAt` 和维护 pointer；Main 不生成验收或 supersede 决定。
+- 补偿修订只能追加新行；任何历史行的 authority、actor、时间、commit、结果和
+  证据都不可覆盖。
 - 项目入口只保存两个 record pointer 和验收摘要，完整历史只在对应 IP 计划。
+
+按 `Result` 的合法 authority 与字段约束如下：
+
+| Result | Decision authority | Recorder | Required result fields |
+| --- | --- | --- | --- |
+| `Accepted` | `AcceptanceOwner` | Main | 四个确认字段全部非空且满足等值约束 |
+| `Rejected` | `AcceptanceOwner` | Main | `FailedItems`、`RecoveryAction`、`AcceptanceEvidence` 非空；三个 `Accepted*` 字段为 `None` |
+| `Superseded` | 用户或 Requirements 的明确范围/版本变化决定 | Main | `RelatedRecordId` 指向旧 `Accepted`；三个 `Accepted*` 字段为 `None`；旧记录不变 |
 
 ### 7.4 `BlockerRecord`
 
@@ -329,13 +355,15 @@ stateDiagram-v2
 | `In Progress` | `Deferred` | 明确延期决定并安全停止当前工作 | 用户 + Main | 决定、Goal 收尾/阻塞证据 | `Blocked` 或保持 `In Progress` |
 | `Blocked` | `In Progress` | 原 GoalRun 被授权恢复且解除条件满足 | Main/platform | resume 记录、解除证据 | 保持 `Blocked` |
 | `Blocked` | `Deferred` | 明确延期决定 | 用户/Requirements | 决定和 BlockerRecord | 保持 `Blocked` |
-| `In Review` | `In Progress` | Review/验收拒绝且可立即修复 | Review/验收方 + Main | finding、`Rejected` record、恢复动作 | 保持 `In Review` |
-| `In Review` | `Blocked` | Review/验收拒绝且修复受真实 impasse 阻塞 | Review/验收方 + Main/platform | finding、`Rejected` record、BlockerRecord | `In Progress` |
+| `In Review` | `In Progress` | Code Review 要求修改且可立即修复 | Review + Main | immutable review result/finding、ChangeRecord、恢复动作；无 AcceptanceRecord | 保持 `In Review` |
+| `In Review` | `In Progress` | 指定验收方拒绝且可立即修复 | 验收方 + Main 记录 | `Rejected` AcceptanceRecord、恢复动作 | 保持 `In Review` |
+| `In Review` | `Blocked` | Code Review 要求修改且修复受真实 impasse 阻塞 | Review + Main/platform | immutable review result/finding、ChangeRecord、BlockerRecord；无 AcceptanceRecord | `In Progress` |
+| `In Review` | `Blocked` | 指定验收方拒绝且修复受真实 impasse 阻塞 | 验收方 + Main/platform | `Rejected` AcceptanceRecord、BlockerRecord | `In Progress` |
 | `In Review` | `Deferred` | 明确延期决定 | 用户/Requirements | 决定、PR/Review 当前状态 | 保持 `In Review` |
 | `In Review` | `Accepted` | 精确实现已合并，Must、依赖、Review 和指定验收全部通过 | 外部 merge owner + 验收方 + Main 记录 | merge proof、`Accepted` record、checks | `In Progress` 或 `Blocked` |
 | `Deferred` | `Draft` | 需求/计划/authority 需要重做 | Requirements + Main | 恢复决定、版本/范围原因 | 保持 `Deferred` |
 | `Deferred` | `Ready` | 同一版本 authority 仍有效，依赖已接受，明确恢复 | 用户/Requirements + Main | 恢复决定、重新验证的 plan/依赖证据 | `Draft` |
-| `Accepted` | `Draft` | 实质范围/实现变化；递增版本或明确重开 | Requirements + Main | 新需求/变化证据、`Superseded` record | 保持 `Accepted`，不修改历史 |
+| `Accepted` | `Draft` | 实质范围/实现变化；递增版本或明确重开 | 用户/Requirements 决定 + Main 记录 | 新需求/变化 authority、`Superseded` record | 保持 `Accepted`，不修改历史 |
 
 任一转换在 `ProjectionState=Stale` 时禁止执行，唯一允许动作是补偿同步并恢复
 `ProjectionState=Current`。
@@ -407,7 +435,8 @@ sequenceDiagram
 - 项目入口与独立计划的版本、状态、依赖一致；
 - REQ、AC、Slice 追踪满足覆盖与唯一性；
 - 相对 Markdown 链接解析到仓库内文件；
-- `Accepted` 必须指向当前版本的追加式 `AcceptanceRecord`，历史记录只追加；
+- `Accepted` 必须指向当前版本的追加式 `AcceptanceRecord`；四个确认字段完整，
+  result-specific authority 合法，历史记录只追加；
 - staleness 置位、清除和历史记录满足 7.6 节；
 - 文档不包含密钥值、个人配置或真实私密数据；
 - `git diff --check` 通过。
@@ -422,7 +451,8 @@ sequenceDiagram
 | 依赖环或未知 ID | 阻止受影响计划开始，修订依赖 |
 | 入口与计划状态/freshness 不同 | 两处标记 `Stale`，停止晋级，同提交纠正并留存清除证据 |
 | 证据缺失或 head 不匹配 | 拒绝 `In Review`/`Accepted` |
-| Review/验收要求修改 | 追加 `Rejected` record；可修复则回 `In Progress`，真实 impasse 则进入 `Blocked` |
+| Code Review 要求修改 | 引用 immutable review result 并追加 `ChangeRecord`；不得创建验收记录；可修复则回 `In Progress`，真实 impasse 则进入 `Blocked` |
+| 指定验收方拒绝 | 追加 `Rejected` AcceptanceRecord；可修复则回 `In Progress`，真实 impasse 则进入 `Blocked` |
 | 验收后实质变化 | 递增版本或重开，追加 `Superseded` record，旧 `Accepted` 行保持不变 |
 | 延期后恢复 | authority 需重做则回 `Draft`；仍有效且依赖满足才可回 `Ready` |
 | 外部部署条件缺失 | IP-08 保持 `Blocked`/`Draft`，不影响无依赖本地工作 |

@@ -5,8 +5,8 @@
 - Branch: `codex/v0-1-project-management`
 - Requirements: [requirements.md](./requirements.md)
 - Design: [design.md](./design.md)
-- Current phase: F3 / `PLAN_DRAFTING`
-- Prior review: cycle 1 `FAIL`, message `e9c7509f71bffd28bc0206b18ef503ee860eb9aea1ab1ac8d780076c9c721605`
+- Current phase: F3 / `PLAN_CHANGES_REQUESTED`
+- Prior review: cycle 2 `FAIL`, message `b0efdf9bb7fa2a94e12c104196f93c099e9eef9dcc10e7aee88e695fa3b183e0`
 - Target outcome: 一份项目管理入口和八份独立实施计划
 - Updated: 2026-07-28
 
@@ -80,7 +80,10 @@ docs/implementation-plans/v0-1/*.md
 6. 初始化 `LatestAcceptanceRecordId`、`CurrentAcceptedRecordId`、
    `ActiveStalenessRecordId` 为 `None`，`AcceptanceHistory` 与
    `StalenessHistory` 为空表；不创建虚假记录。
-7. 写入完整状态转换表、staleness 规则、追加式验收记录和恢复规则。
+7. 写入完整状态转换表、staleness 规则、追加式验收记录和恢复规则；验收记录必须
+   显式包含 `AcceptedBy`、`AcceptedAt`、`AcceptedCommit`、
+   `AcceptanceEvidence`，并按 `Accepted`、`Rejected`、`Superseded`
+   分别约束 decision authority 与 Main recorder。
 8. 说明每份计划需要独立 RequirementsHandoff 和完整 lifecycle。
 
 门禁：
@@ -91,6 +94,8 @@ docs/implementation-plans/v0-1/*.md
 - 不声称任何运行时实现已经完成；
 - 不把当前 management handoff 写成 IP authority。
 - 验收历史只追加，当前验收指针与 plan version 一致。
+- Code Review result 只通过 immutable review evidence 与 `ChangeRecord` 记录，
+  不创建或冒充 `Rejected` AcceptanceRecord。
 
 Rollback：
 
@@ -159,25 +164,31 @@ Rollback：
 文件：
 
 ```text
-docs/project-management.md
+None（验证只读取最终提交；运行证据保存在 lifecycle/PR，不回写被验证文档）
 ```
 
 工作：
 
-1. 按第 7 节 checker contract 生成 `/private/tmp/validate-v0-1-project-plans.mjs`
-   并运行全部自动检查。
-2. 把 checker contract version、命令、结果、精确 commit、UTC、证据 digest
-   和未运行项记录到项目管理入口的治理证明区。
-3. 检查 Git diff 只包含批准范围。
-4. 提交并推送 feature branch，准备独立 PR。
-5. 通过 lifecycle 生成精确 head 的 CodeReviewRequest。
+1. 完成 PM-S1–PM-S3，检查 diff 只包含批准范围，并把全部目标文档提交为最终
+   content commit。
+2. 确认工作树 clean，以该 commit 的 40 字符 SHA 为 `CheckedCommit`，按第 7 节
+   checker contract 生成 `/private/tmp/validate-v0-1-project-plans.mjs` 并运行
+   全部自动检查。
+3. 将 checker 输出、digest 与时间保留在 `/private/tmp` 和本次任务证据中；不得把
+   run-specific `CheckedCommit` 或 digest 回写到被检查的 tracked 文档。
+4. 推送精确 content commit，创建独立 PR；若 PR 创建或任何修订改变 head，必须
+   对新 head 重新运行完整 checker。
+5. 在 PR 描述和 lifecycle `CodeReviewRequest` 中记录第 7 节
+   `VerificationEnvelope`，并让 request 的 head SHA 等于 `CheckedCommit`。
 
 门禁：
 
 - 所有自动检查通过；
 - 无秘密、临时文件、生成物或无关改动；
 - 项目入口与八份计划位于同一精确 head；
-- required review/check 证据可复核；
+- `VerificationEnvelope.CheckedCommit`、PR head 与 `CodeReviewRequest` head
+  三者相等，证据 digest 可复核；
+- checker 通过后 tracked 文件无变化；任何变化都使旧证据失效并要求重跑；
 - Main 不自批或自合并。
 
 Rollback：
@@ -238,9 +249,12 @@ Rollback：
 9. 验证所有 IP 初始状态为 `Draft`、`ProjectionState=Current`、验收历史为空，
    feature/branch 未分配。
 10. 验证状态转换表包含所有确认转换，`Stale` 没有混入业务 `Status`。
-11. 验证 AcceptanceRecord ID 唯一、只追加、current pointer 与当前版本一致。
+11. 验证 AcceptanceRecord ID 唯一、只追加、current pointer 与当前版本一致；
+    验证四个确认字段及三类 result 的 authority/recorder/空值规则。
 12. 验证 StalenessRecord 的置位/清除字段与两处投影一致。
-13. 搜索可能的秘密赋值、私密 URL、生成物和临时文件。
+13. 验证 Code Review rejection 路径只引用 immutable review result 和
+    `ChangeRecord`，不创建 `Rejected` AcceptanceRecord。
+14. 搜索可能的秘密赋值、私密 URL、生成物和临时文件。
 
 ### Deterministic checker contract
 
@@ -274,11 +288,16 @@ node /private/tmp/validate-v0-1-project-plans.mjs
    只归 management feature；
 5. 统计 AC-001–020 至少一次且每个 IP 至少一个；
 6. 校验状态转换表所需边集合，且 `Stale` 不属于业务状态；
-7. 校验 AcceptanceRecord ID/版本/pointer 规则和 StalenessRecord 成对投影；
-8. 解析相对链接并验证目标存在；
-9. 扫描 `(?i)(password|secret|token|cookie|database_url)\s*[:=]\s*\S+`
+7. 校验 AcceptanceRecord ID/版本/pointer 规则，要求文档 schema 出现
+   `AcceptedBy`、`AcceptedAt`、`AcceptedCommit`、`AcceptanceEvidence`；
+   `Accepted` 的三个 `Accepted*` 字段非空且与 decision/commit 相等，
+   `Rejected`/`Superseded` 的三个字段为 `None`，并校验各自 authority 与
+   recorder；Code Review rejection 路径不得引用 `Rejected` AcceptanceRecord；
+8. 校验 StalenessRecord 成对投影；
+9. 解析相对链接并验证目标存在；
+10. 扫描 `(?i)(password|secret|token|cookie|database_url)\s*[:=]\s*\S+`
    等赋值形态；字段名和安全说明本身不报错；
-10. 按 check ID 排序输出结果，保证同一输入产生相同 JSON。
+11. 按 check ID 排序输出结果，保证同一输入产生相同 JSON。
 
 输出契约：
 
@@ -297,13 +316,14 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 - check ID 固定为：
   `FILES`、`METADATA`、`SECTIONS`、`DEPENDENCIES`、`SUMMARY_PARITY`、
   `PRIMARY_TRACE`、`AC_COVERAGE`、`TRANSITIONS`、`ACCEPTANCE_HISTORY`、
-  `STALENESS`、`LINKS`、`SECRETS`；
+  `REVIEW_AUTHORITY`、`STALENESS`、`LINKS`、`SECRETS`；
 - `checks` 按上述顺序输出，`diagnostics` 按文件路径、行号、消息排序；
 - 全部通过时退出码 `0`；验证失败时退出码 `1`；参数/解析器内部错误时退出码 `2`；
 - 即使失败也写出 JSON，`result` 为 `FAIL` 或 `ERROR`；
 - JSON 不包含时间或绝对路径，因此相同 commit 的证据 digest 可复现。
 
-项目入口的治理证明记录格式固定为：
+最终运行证据不写回仓库，而是以以下 `VerificationEnvelope` 固定格式写入 PR
+描述和 lifecycle `CodeReviewRequest`：
 
 ```text
 - CheckerContract: v0-1-project-plans/1
@@ -315,6 +335,11 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 - DeferredChecks: <list or None>
 ```
 
+`CheckedCommit` 必须等于最终 PR head 和 `CodeReviewRequest` head。checker
+运行后不得修改 tracked 文件；若修改、追加 proof commit 或 PR 修订产生新 head，
+旧 envelope 立即失效，必须对新 head 重新运行并替换外部 envelope。这样 checker
+直接绑定最终 head，不产生“文档包含自身 commit/digest”的循环依赖。
+
 另外精确运行：
 
 ```text
@@ -322,7 +347,7 @@ git diff --check
 git status --short
 ```
 
-任何 checker 非零退出都阻止提交完成证据和进入 Code Review。
+任何 checker 非零退出或 worktree 非 clean 都阻止生成 envelope 和进入 Code Review。
 
 ### Manual review
 
@@ -383,9 +408,9 @@ git status --short
 
 实现阶段：
 
-- F4 文档实现与入口变更为一个 scoped commit；
-- F5 验证证据为一个 scoped commit（仅在确有文档变化时）；
-- F6 Changelog/PR 修订只在需要时提交；
+- F4 文档实现、入口与 Changelog 变更为最终 scoped content commit；
+- F5 不创建 tracked proof commit；checker 绑定 F4，证据外置到 PR 与 lifecycle；
+- F6 如需文档或 PR-head 修订则创建新 scoped commit，并对新 head 重跑 checker；
 - 每个完成阶段均推送，不 amend 已获 authority 的 snapshot。
 
 ## 11. Risks
