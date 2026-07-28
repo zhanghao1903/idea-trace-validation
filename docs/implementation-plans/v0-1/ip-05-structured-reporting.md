@@ -155,3 +155,5 @@ IP-07 才满足其报告依赖。
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
 验收只针对本 PlanId 与精确 commit；`Accepted` 的四个确认字段缺一不可。
+Code Review 退回只引用 immutable Review result 并追加 ChangeRecord，不创建
+`Rejected` AcceptanceRecord。

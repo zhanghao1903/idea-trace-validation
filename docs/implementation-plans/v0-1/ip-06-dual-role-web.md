@@ -159,3 +159,5 @@ Sources: [confirmed requirements](../../feature/v0-1-project-plan/requirements.m
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
 只有指定 AcceptanceOwner 可作出验收决定，Main 只记录 exact authority 和证据。
+Code Review 退回只引用 immutable Review result 并追加 ChangeRecord，不创建
+`Rejected` AcceptanceRecord。

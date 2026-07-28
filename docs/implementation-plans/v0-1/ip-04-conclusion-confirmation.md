@@ -151,4 +151,5 @@ IP-03 Accepted 后创建 IP-04 独立需求。IP-04 Accepted 是 IP-06 和 IP-07
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
 `AcceptedBy`、`AcceptedAt`、`AcceptedCommit`、`AcceptanceEvidence` 仅在真实
-`Accepted` 记录中完整；旧记录永不覆盖。
+`Accepted` 记录中完整；旧记录永不覆盖。Code Review 退回只引用 immutable
+Review result 并追加 ChangeRecord，不创建 `Rejected` AcceptanceRecord。
