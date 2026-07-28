@@ -1,5 +1,11 @@
 # v0.1 实施计划
 
+> **历史技术来源 / 非状态台账。** 本文件保留 Slice 0–9 的原始技术细节与日期，
+> 不再维护当前项目状态。请从 [v0.1 项目管理](../../project-management.md)
+> 查看组合状态、依赖、阻塞和发布就绪度，并进入
+> [IP-01–IP-08 独立实施计划](../../implementation-plans/v0-1/)查看各自唯一的
+> 执行与验收正文。
+
 - Status: Completed F3 Plan
 - Feature: `v0-1-project-plan`
 - Target demo date: 2026-08-06
