@@ -160,4 +160,5 @@ IP-01 与 IP-07 Accepted 后创建 IP-08 独立需求；先完成本地部署/�
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
 IP-08 的 `Accepted` 需要仓库内和外部部署证据；合并、本地 compose 或目标日期均不能
-单独产生验收或发布结论。
+单独产生验收或发布结论。Code Review 退回只引用 immutable Review result 并追加
+ChangeRecord，不创建 `Rejected` AcceptanceRecord。

@@ -160,5 +160,5 @@ Sources: [domain model](../../feature/v0-1-project-plan/domain-model.md),
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
 `Accepted` 时四个确认字段必须完整；真实验收拒绝追加 `Rejected` 并记录失败项和
-恢复动作；Code Review 退回只引用 Review result/ChangeRecord；升版只追加
-`Superseded`，不覆盖旧记录。
+恢复动作。Code Review 退回只引用 immutable Review result 并追加 ChangeRecord，
+不创建 `Rejected` AcceptanceRecord；升版只追加 `Superseded`，不覆盖旧记录。

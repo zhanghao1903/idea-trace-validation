@@ -166,6 +166,7 @@ ChangeRecord 只追加；错误用补偿记录纠正。
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
-`Accepted` 时四个确认字段必须完整；`Rejected` 只能来自 AcceptanceOwner；
-Code Review 退回不创建验收记录；`Superseded` 需要用户/Requirements authority，
+`Accepted` 时四个确认字段必须完整；`Rejected` 只能来自 AcceptanceOwner。
+Code Review 退回只引用 immutable Review result 并追加 ChangeRecord，不创建
+`Rejected` AcceptanceRecord；`Superseded` 需要用户/Requirements authority，
 且不得覆盖旧 `AcceptedCommit` 或证据。

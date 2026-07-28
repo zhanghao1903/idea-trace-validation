@@ -158,5 +158,6 @@ IP-04 与 IP-05 可并行进入各自需求/计划阶段。
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
-验收记录只追加。Code Review 退回只记 Review result/ChangeRecord；真实验收拒绝才
-产生 `Rejected`；升版追加 `Superseded` 且保留原 `AcceptedCommit`。
+验收记录只追加。Code Review 退回只引用 immutable Review result 并追加
+ChangeRecord，不创建 `Rejected` AcceptanceRecord；真实验收拒绝才产生
+`Rejected`；升版追加 `Superseded` 且保留原 `AcceptedCommit`。
