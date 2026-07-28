@@ -1,0 +1,341 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 1,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/1",
+    "title": "docs: split v0.1 into independently managed plans",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+    "head_ref": "codex/v0-1-project-management",
+    "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+    "reviewed_at": "2026-07-28T14:44:04Z",
+    "reviewer": "Codex Engineering Review / PR Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete 9259d884459dd36bde6c089c3a15b368c985b617..53c2a4ff6786d708b808fcd13d2dafd3ed083349 diff",
+      "approved requirements/design/implementation-plan contract",
+      "project-management entry and all eight independent implementation plans",
+      "PR VerificationEnvelope, external checker source/output, exact-head binding and SHA-256 reproduction"
+    ],
+    "excluded_scope": [
+      "future IP-01 through IP-08 runtime implementations",
+      "production deployment, DNS, HTTPS, backup and restore systems"
+    ]
+  },
+  "review_context": {
+    "kind": "INITIAL",
+    "forward_risk_review": [
+      {
+        "surface": "Plan lifecycle, dependency, acceptance and staleness governance",
+        "risk_triggers": [
+          "public-contract",
+          "state-transition",
+          "data-integrity"
+        ],
+        "reason": "The Markdown documents become the authoritative plan-management contract for eight later lifecycles.",
+        "affected_paths": [
+          "docs/project-management.md",
+          "docs/implementation-plans/v0-1/ip-01-foundation-contracts.md",
+          "docs/implementation-plans/v0-1/ip-02-idea-intake.md",
+          "docs/implementation-plans/v0-1/ip-03-execution-facts.md",
+          "docs/implementation-plans/v0-1/ip-04-conclusion-confirmation.md",
+          "docs/implementation-plans/v0-1/ip-05-structured-reporting.md",
+          "docs/implementation-plans/v0-1/ip-06-dual-role-web.md",
+          "docs/implementation-plans/v0-1/ip-07-ai-skill-demo.md",
+          "docs/implementation-plans/v0-1/ip-08-deployment-release.md"
+        ],
+        "checks": [
+          "Review every metadata, dependency, authority, acceptance, staleness, recovery and traceability section",
+          "Compare the project summary and dependency graph with each independent plan and the confirmed source requirements"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      },
+      {
+        "surface": "Exact-head verification envelope and deterministic checker gate",
+        "risk_triggers": [
+          "trust-boundary",
+          "test-adequacy"
+        ],
+        "reason": "The PASS envelope is intended to authorize review and later merge decisions for the exact head.",
+        "affected_paths": [
+          "docs/feature/v0-1-project-management/implementation-plan.md"
+        ],
+        "checks": [
+          "Reproduce the checker output and evidence digest at the exact head",
+          "Inject invalid acceptance authority and a second state ledger in an isolated fixture",
+          "Exercise the required error-output contract"
+        ],
+        "finding_ids": [
+          "PRR-001"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Documentation-only scope and secret boundary",
+        "risk_triggers": [
+          "security-privacy",
+          "deployment-compatibility"
+        ],
+        "reason": "The PR documents future credentials and deployment inputs but must not include them or modify runtime behavior.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "docs/feature/v0-1-project-plan/implementation-plan.md",
+          "docs/project-management.md",
+          "docs/implementation-plans/v0-1/ip-08-deployment-release.md"
+        ],
+        "checks": [
+          "Review the complete diff for non-documentation files and unrelated changes",
+          "Scan tracked additions for secret assignments, private paths and credential-bearing URLs"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ]
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "The current documents are internally consistent, but the checker behind the advertised 13/13 PASS accepts invalid acceptance state and an additional project ledger, so the required verification contract is not satisfied.",
+    "blocking_finding_ids": [
+      "PRR-001"
+    ]
+  },
+  "summary": "PR #1 correctly adds the single v0.1 management entry and eight Draft independent plans at the requested head. Exact-head and digest evidence reproduce, but the required checker uses token-presence checks and passes adversarial governance violations. Approval is withheld until PRR-001 is fixed, the negative cases fail, and the envelope is regenerated.",
+  "change_map": [
+    {
+      "area": "Project governance",
+      "change": "Adds the only v0.1 portfolio entry, lifecycle, dependency graph, synchronization rules, acceptance summary and release readiness.",
+      "external_behavior": "Future implementation work is gated and summarized per independent PlanId.",
+      "risk": "Medium",
+      "validation": "Full document review and independent mapping/link checks passed for the current snapshot."
+    },
+    {
+      "area": "Independent plans",
+      "change": "Adds IP-01 through IP-08 with fixed metadata, fourteen sections, Must criteria, authority and append-only histories.",
+      "external_behavior": "Each plan can enter its own lifecycle without authorizing sibling plans.",
+      "risk": "Medium",
+      "validation": "All eight plans and their source REQ/AC/Slice mappings were reviewed."
+    },
+    {
+      "area": "Verification evidence",
+      "change": "Uses an external exact-head checker and PR-description VerificationEnvelope.",
+      "external_behavior": "A PASS envelope is intended to authorize Code Review for this snapshot.",
+      "risk": "High",
+      "validation": "Digest reproduction passed, but adversarial checker validation failed under PRR-001."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Checker accepts governance violations while reporting all required checks as PASS",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 245,
+        "line_end": 330,
+        "symbol": "Deterministic checker contract",
+        "side": "RIGHT",
+        "commit_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349"
+      },
+      "observation": "The supplied checker validates several mandatory gates with path or keyword presence only and exits before writing the required ERROR JSON for parameter/head errors.",
+      "trigger": "A plan retains expected field names and comments while containing an invalid acceptance row or contradictory authority, or another project-level state ledger is added outside the eight-plan directory.",
+      "impact": "The checker emits PASS and a valid-looking digest for content that violates the governance contract, allowing false verification evidence to authorize later review, merge or plan-state decisions.",
+      "evidence": [
+        {
+          "kind": "spec",
+          "description": "Implementation-plan lines 247-264 and 289-330 require semantic acceptance/staleness/authority checks, alternate-ledger and private-artifact detection, and FAIL/ERROR JSON output.",
+          "reference": "docs/feature/v0-1-project-management/implementation-plan.md"
+        },
+        {
+          "kind": "analysis",
+          "description": "The task-evidence checker limits FILES, ACCEPTANCE_HISTORY, REVIEW_AUTHORITY and STALENESS to file/token presence and writes JSON only after early error exits.",
+          "reference": "VerificationEnvelope checker source"
+        },
+        {
+          "kind": "reproduction",
+          "description": "An isolated fixture with an invalid Review-authored Rejected acceptance row and a second project-status ledger still returned exit 0, overall PASS and 13/13 PASS.",
+          "reference": "adversarial checker fixture"
+        },
+        {
+          "kind": "reproduction",
+          "description": "A head-mismatch invocation returned exit 2 without writing the required ERROR JSON.",
+          "reference": "checker error-output fixture"
+        }
+      ],
+      "remediation": "Implement structured checks for additional ledgers, acceptance IDs/versions/pointers/result authority/value rules, paired staleness state, Review-rejection separation, declared secret/private/generated-file boundaries and contract-shaped failure/error output.",
+      "verification": "The exact head remains byte-stable PASS, while negative fixtures for invalid acceptance results, duplicate IDs, pointer/version mismatch, authority contradictions, staleness mismatch, alternate ledger, secret/private artifacts and parser/argument errors fail deterministically; then update the PR envelope and request re-review.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "testing:v0-1-project-plans-checker:false-positive-governance-gates"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Correct the external checker, prove the negative fixtures fail, rerun at the exact live head, update the VerificationEnvelope and request lifecycle re-review.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "Changed tracked documents contain security terminology but no discovered secret assignment, credential-bearing URL or personal repository path.",
+      "mitigation": "Preserve the no-secret boundary in checker remediation and future plans.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "data-integrity",
+      "level": "Medium",
+      "description": "A false-positive verification gate can authorize contradictory plan, acceptance or projection state.",
+      "mitigation": "Resolve PRR-001 before merge and preserve append-only exact-authority validation.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Low",
+      "description": "No runtime concurrency changed; retry and recovery contracts are documentation only.",
+      "mitigation": "Validate runtime behavior within each later independent IP lifecycle.",
+      "owner": "future IP owners"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "None",
+      "description": "The change is documentation only.",
+      "mitigation": "No action required.",
+      "owner": null
+    },
+    {
+      "category": "api-compatibility",
+      "level": "None",
+      "description": "No runtime API, database schema or Skill protocol changed.",
+      "mitigation": "No action required.",
+      "owner": null
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "No deployment occurred; the documentation changes are recoverable through normal Git history.",
+      "mitigation": "Use the documented pre-merge rollback or post-merge compensating change and preserve immutable records.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "git diff --check 9259d884459dd36bde6c089c3a15b368c985b617..53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "environment": "Git on macOS; isolated review worktree",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node validate-v0-1-project-plans.mjs --repo <isolated-review-root> --checked-commit 53c2a4ff6786d708b808fcd13d2dafd3ed083349 --output <review-output>",
+        "environment": "Node.js on macOS; clean isolated review worktree",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Reproduced 13/13 PASS; output was byte-identical and SHA-256 matched the live envelope.",
+        "required_for_approval": true,
+        "evidence_ref": "354d3ece602de345fd391d16f54c0295387ba37d54d01d7d2824208536b4b501"
+      },
+      {
+        "command": "run checker against invalid acceptance-row plus alternate-ledger fixture",
+        "environment": "Node.js on macOS; isolated disposable clone",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "Expected rejection, but checker returned overall PASS and all 13 checks PASS.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "run checker with a mismatched checked commit and a fresh output path",
+        "environment": "Node.js on macOS; clean isolated review worktree",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "FAIL",
+        "exit_code": 2,
+        "summary": "The checker emitted stderr but did not write the contract-required ERROR JSON.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "manual full-diff and behavior-path review",
+        "environment": "Read-only exact-head review",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 14 changed files and 11 implementation-scope files were classified; current document content is internally consistent.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "GitHub status checks",
+        "observed_at": "2026-07-28T14:44:04Z",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "UNKNOWN",
+        "summary": "GitHub returned no status checks for the reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/1"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Runtime unit, integration, browser and deployment tests",
+        "reason": "No runtime code changed; the approved plan assigns these checks to the later independent IP lifecycles."
+      },
+      {
+        "check": "Production server, DNS, HTTPS, backup and restore validation",
+        "reason": "These require later IP-08 scope and separate external authorization."
+      }
+    ]
+  },
+  "limitations": [
+    "GitHub reported no status checks or check logs for the reviewed head.",
+    "The checker source and raw output are external task evidence rather than commit-bound tracked artifacts; they were inspected and reproduced during this review.",
+    "Future IP runtime behavior and deployment systems are outside this documentation-only PR."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "The live PR VerificationEnvelope and supplied external checker/output are Engineering Main's intended F5 evidence.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read the live PR body, compare exact head fields, rerun the checker and recompute its output digest.",
+      "evidence": "CheckedCommit equals request and live head; reproduced output is byte-identical with SHA-256 354d3ece602de345fd391d16f54c0295387ba37d54d01d7d2824208536b4b501.",
+      "impact_if_false": "The review would be evaluating evidence that Main did not intend to authorize."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "This feature changes documentation governance only.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect the complete base-to-head changed-file list and diff.",
+      "evidence": "All 14 changed files are Markdown documents; no runtime, configuration, schema or dependency file changed.",
+      "impact_if_false": "Runtime verification and a broader security/compatibility review would be required."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "Direct manual review of the current documents can compensate for an incomplete required deterministic checker.",
+      "decision_critical": true,
+      "status": "FALSIFIED",
+      "method": "Compare the approved implementation-plan gate with the checker and run adversarial negative fixtures.",
+      "evidence": "The plan requires this checker as delivery evidence, and it returned PASS for governance violations.",
+      "impact_if_false": "If manual review were sufficient under the approved contract, PRR-001 would not block approval."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
