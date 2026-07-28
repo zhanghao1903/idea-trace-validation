@@ -10,6 +10,7 @@
 - LifecycleFeatureId: `Unassigned`
 - FeatureBranch: `Unassigned`
 - AcceptanceOwner: `Pending assignment`
+- ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
 - LatestAcceptanceRecordId: `None`
 - CurrentAcceptedRecordId: `None`
 - ActiveStalenessRecordId: `None`
@@ -143,6 +144,8 @@ Sources: [domain model](../../feature/v0-1-project-plan/domain-model.md),
 只使用演示数据和测试凭据；不需要真实生产 token。
 
 ## 12. Next step
+
+Summary: 等待 IP-01 Accepted 后创建独立需求
 
 先完成 IP-01 的验收；随后 Requirements 为 IP-02 创建独立确认快照。IP-02 被
 `Accepted` 后，IP-03、IP-06、IP-07 才可能满足部分依赖。

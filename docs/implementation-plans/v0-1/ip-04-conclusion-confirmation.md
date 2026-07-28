@@ -10,6 +10,7 @@
 - LifecycleFeatureId: `Unassigned`
 - FeatureBranch: `Unassigned`
 - AcceptanceOwner: `Pending assignment`
+- ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
 - LatestAcceptanceRecordId: `None`
 - CurrentAcceptedRecordId: `None`
 - ActiveStalenessRecordId: `None`
@@ -135,6 +136,8 @@ Sources: [domain model](../../feature/v0-1-project-plan/domain-model.md),
 独立需求必须明确 AcceptanceOwner；否则保持 Draft。
 
 ## 12. Next step
+
+Summary: 等待 IP-03 Accepted 后创建独立需求
 
 IP-03 Accepted 后创建 IP-04 独立需求。IP-04 Accepted 是 IP-06 和 IP-07 的硬依赖。
 

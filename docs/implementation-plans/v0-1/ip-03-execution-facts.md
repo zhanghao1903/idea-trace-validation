@@ -10,6 +10,7 @@
 - LifecycleFeatureId: `Unassigned`
 - FeatureBranch: `Unassigned`
 - AcceptanceOwner: `Pending assignment`
+- ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
 - LatestAcceptanceRecordId: `None`
 - CurrentAcceptedRecordId: `None`
 - ActiveStalenessRecordId: `None`
@@ -142,6 +143,8 @@ Sources: [domain model](../../feature/v0-1-project-plan/domain-model.md),
 不需要生产凭据或真实业务数据。
 
 ## 12. Next step
+
+Summary: 等待 IP-02 Accepted 后创建独立需求
 
 IP-02 Accepted 后由 Requirements 创建 IP-03 独立需求。IP-03 Accepted 后，
 IP-04 与 IP-05 可并行进入各自需求/计划阶段。

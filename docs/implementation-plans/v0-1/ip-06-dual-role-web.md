@@ -10,6 +10,7 @@
 - LifecycleFeatureId: `Unassigned`
 - FeatureBranch: `Unassigned`
 - AcceptanceOwner: `Pending assignment`
+- ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
 - LatestAcceptanceRecordId: `None`
 - CurrentAcceptedRecordId: `None`
 - ActiveStalenessRecordId: `None`
@@ -141,6 +142,8 @@ Sources: [confirmed requirements](../../feature/v0-1-project-plan/requirements.m
 不需要真实用户身份；测试只使用演示 actor/context。
 
 ## 12. Next step
+
+Summary: 等待四个依赖 Accepted 后创建独立需求
 
 四个硬依赖全部 Accepted 后创建 IP-06 独立需求。IP-06 Accepted 是 IP-07 的
 硬依赖。

@@ -5,6 +5,7 @@
 - TargetDemoDate: `2026-08-06`
 - ManagementFeatureId: `v0-1-project-management-6f4b1a2d9c07`
 - ManagementBranch: `codex/v0-1-project-management`
+- ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
 - RequirementsAuthority: [confirmed project-management requirements](./feature/v0-1-project-management/requirements.md)
 - ApprovedDesign: [technical design](./feature/v0-1-project-management/design.md)
 - ApprovedImplementationPlan: [implementation plan](./feature/v0-1-project-management/implementation-plan.md)

@@ -10,6 +10,7 @@
 - LifecycleFeatureId: `Unassigned`
 - FeatureBranch: `Unassigned`
 - AcceptanceOwner: `Pending assignment`
+- ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
 - LatestAcceptanceRecordId: `None`
 - CurrentAcceptedRecordId: `None`
 - ActiveStalenessRecordId: `None`
@@ -135,6 +136,8 @@ Sources: [confirmed requirements](../../feature/v0-1-project-plan/requirements.m
 需要用户确认哪些合成演示数据可公开；不需要生产服务器权限。
 
 ## 12. Next step
+
+Summary: 等待五个依赖 Accepted 后创建独立需求
 
 IP-02–IP-06 全部 Accepted 后创建 IP-07 独立需求。IP-07 Accepted 是 IP-08 的
 硬依赖。

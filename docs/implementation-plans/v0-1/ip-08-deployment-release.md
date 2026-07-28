@@ -10,6 +10,7 @@
 - LifecycleFeatureId: `Unassigned`
 - FeatureBranch: `Unassigned`
 - AcceptanceOwner: `Pending assignment`
+- ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
 - LatestAcceptanceRecordId: `None`
 - CurrentAcceptedRecordId: `None`
 - ActiveStalenessRecordId: `None`
@@ -143,6 +144,8 @@ Sources: [confirmed requirements](../../feature/v0-1-project-plan/requirements.m
 但阻塞本计划外部验收与 v0.1 发布就绪。
 
 ## 12. Next step
+
+Summary: 等待 IP-01 与 IP-07 Accepted，并取得外部部署输入
 
 IP-01 与 IP-07 Accepted 后创建 IP-08 独立需求；先完成本地部署/恢复门禁，再向
 用户申请精确候选的外部部署授权。

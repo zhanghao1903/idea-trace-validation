@@ -10,6 +10,7 @@
 - LifecycleFeatureId: `Unassigned`
 - FeatureBranch: `Unassigned`
 - AcceptanceOwner: `Pending assignment`
+- ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
 - LatestAcceptanceRecordId: `None`
 - CurrentAcceptedRecordId: `None`
 - ActiveStalenessRecordId: `None`
@@ -138,6 +139,8 @@ Sources: [report protocol](../../feature/v0-1-project-plan/structured-report-pro
 不需要生产数据或凭据；测试只使用合成报告。
 
 ## 12. Next step
+
+Summary: 等待 IP-01 与 IP-03 Accepted 后创建独立需求
 
 IP-01 与 IP-03 均 Accepted 后创建独立需求。IP-05 Accepted 后，IP-06 与
 IP-07 才满足其报告依赖。

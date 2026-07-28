@@ -10,6 +10,7 @@
 - LifecycleFeatureId: `Unassigned`
 - FeatureBranch: `Unassigned`
 - AcceptanceOwner: `Pending assignment`
+- ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
 - LatestAcceptanceRecordId: `None`
 - CurrentAcceptedRecordId: `None`
 - ActiveStalenessRecordId: `None`
@@ -145,6 +146,8 @@ Sources: [domain model](../../feature/v0-1-project-plan/domain-model.md),
 复核点，不伪造检查结果。
 
 ## 12. Next step
+
+Summary: Requirements 为 IP-01 形成独立确认快照与 handoff
 
 Requirements 为 `IP-01` 创建独立确认快照并指定 AcceptanceOwner；之后 Main 才能
 创建独立 feature branch 和技术计划。IP-01 被 `Accepted` 前，IP-02、IP-05、
