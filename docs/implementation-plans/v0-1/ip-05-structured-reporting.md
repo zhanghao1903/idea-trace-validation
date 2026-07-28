@@ -151,7 +151,7 @@ IP-07 才满足其报告依赖。
 ## 14. Acceptance history
 
 | RecordId | PlanId | PlanVersion | SubmittedCommit | Result | AcceptanceOwner | DecisionActor | DecisionAt | RecordedBy | RecordedAt | AcceptedBy | AcceptedAt | AcceptedCommit | AcceptanceEvidence | FailedItems | RecoveryAction | RelatedRecordId | Reason |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
 验收只针对本 PlanId 与精确 commit；`Accepted` 的四个确认字段缺一不可。

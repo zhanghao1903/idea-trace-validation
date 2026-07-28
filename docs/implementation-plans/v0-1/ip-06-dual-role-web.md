@@ -121,7 +121,6 @@
 | AC-008 | 待确认问题跨视图一致 |
 | AC-009 | 支持请求跨视图一致 |
 | AC-013 | 无需登录切换同一 authority 的角色呈现 |
-| AC-014 | API 失败可安全解释 |
 | AC-016–018 | 动态报告、回退与权威隔离 |
 | AC-020 | 遵循经审阅基线 |
 
@@ -155,7 +154,7 @@ Sources: [confirmed requirements](../../feature/v0-1-project-plan/requirements.m
 ## 14. Acceptance history
 
 | RecordId | PlanId | PlanVersion | SubmittedCommit | Result | AcceptanceOwner | DecisionActor | DecisionAt | RecordedBy | RecordedAt | AcceptedBy | AcceptedAt | AcceptedCommit | AcceptanceEvidence | FailedItems | RecoveryAction | RelatedRecordId | Reason |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
 只有指定 AcceptanceOwner 可作出验收决定，Main 只记录 exact authority 和证据。

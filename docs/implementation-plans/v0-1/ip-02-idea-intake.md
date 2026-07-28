@@ -156,7 +156,7 @@ Sources: [domain model](../../feature/v0-1-project-plan/domain-model.md),
 ## 14. Acceptance history
 
 | RecordId | PlanId | PlanVersion | SubmittedCommit | Result | AcceptanceOwner | DecisionActor | DecisionAt | RecordedBy | RecordedAt | AcceptedBy | AcceptedAt | AcceptedCommit | AcceptanceEvidence | FailedItems | RecoveryAction | RelatedRecordId | Reason |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
 `Accepted` 时四个确认字段必须完整；真实验收拒绝追加 `Rejected` 并记录失败项和

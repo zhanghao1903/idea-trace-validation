@@ -86,7 +86,7 @@
 ### Staleness history
 
 | RecordId | DetectedAt | DetectedBy | Reason | ConflictingAuthority | AffectedFields | RecoveryAction | ClearedAt | ClearedBy | ClearEvidence |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 <!-- Empty until an authority/projection mismatch is detected. -->
 
 ## 8. Verification matrix
@@ -156,7 +156,7 @@ IP-01 与 IP-07 Accepted 后创建 IP-08 独立需求；先完成本地部署/�
 ## 14. Acceptance history
 
 | RecordId | PlanId | PlanVersion | SubmittedCommit | Result | AcceptanceOwner | DecisionActor | DecisionAt | RecordedBy | RecordedAt | AcceptedBy | AcceptedAt | AcceptedCommit | AcceptanceEvidence | FailedItems | RecoveryAction | RelatedRecordId | Reason |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
 IP-08 的 `Accepted` 需要仓库内和外部部署证据；合并、本地 compose 或目标日期均不能

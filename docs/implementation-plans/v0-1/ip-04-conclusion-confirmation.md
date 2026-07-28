@@ -147,7 +147,7 @@ IP-03 Accepted 后创建 IP-04 独立需求。IP-04 Accepted 是 IP-06 和 IP-07
 ## 14. Acceptance history
 
 | RecordId | PlanId | PlanVersion | SubmittedCommit | Result | AcceptanceOwner | DecisionActor | DecisionAt | RecordedBy | RecordedAt | AcceptedBy | AcceptedAt | AcceptedCommit | AcceptanceEvidence | FailedItems | RecoveryAction | RelatedRecordId | Reason |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 <!-- No acceptance records. Main may append only from exact authorized results. -->
 
 `AcceptedBy`、`AcceptedAt`、`AcceptedCommit`、`AcceptanceEvidence` 仅在真实
