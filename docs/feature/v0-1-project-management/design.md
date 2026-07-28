@@ -7,6 +7,7 @@
 - Requirements commit: `b4f9a802744431c5ef424787b363c08a24d64d5b`
 - Requirements SHA-256: `9ca2a55d914d614c9c3d85772a041cbffdd2318407c99db38b6214ff14e51bdc`
 - Current lifecycle stage: `PLAN_DRAFTING`
+- Prior review: cycle 1 `FAIL`, message `e9c7509f71bffd28bc0206b18ef503ee860eb9aea1ab1ac8d780076c9c721605`
 - Updated: 2026-07-28
 
 ## 1. Background
@@ -51,7 +52,8 @@ RequirementsHandoff 解释为 IP-01–IP-08 的批量实现授权。
 3. 对应 IP 独立计划中的范围、门禁、证据和验收记录；
 4. `docs/project-management.md` 中的组合摘要。
 
-若低层记录与高层事实冲突，低层记录必须标记为 stale，受影响状态不得晋级。
+若低层记录与高层事实冲突，低层记录必须设置 `ProjectionState=Stale`，受影响状态
+不得晋级。
 
 | Artifact | Owner | Responsibility | Must not do |
 | --- | --- | --- | --- |
@@ -136,38 +138,42 @@ IP-01 -> IP-02 -> IP-03 -> IP-04/IP-05 -> IP-06 -> IP-07 -> IP-08
 
 位于 `docs/project-management.md`，每个 IP 一行。
 
-| Field | Type | Required | Owner | Validation |
-| --- | --- | --- | --- | --- |
-| `PlanId` | `IP-01`–`IP-08` | yes | Main | 唯一且稳定 |
-| `Title` | text | yes | Main | 与独立计划标题一致 |
-| `Version` | positive integer | yes | Main | 与独立计划一致 |
-| `Status` | controlled enum | yes | Main | 与独立计划一致 |
-| `Dependencies` | Plan ID list | yes | Main | 仅已知 ID、无环 |
-| `TargetDate` | ISO date/range | yes | Main | 来自确认总计划 |
-| `LifecycleFeatureId` | text or `Unassigned` | yes | Requirements/Main | 不得推断 |
-| `Evidence` | links or `None` | yes | Main | 可复核且无秘密 |
-| `Blocker` | short text or `None` | yes | Main | `Blocked` 时必填 |
-| `NextStep` | short text | yes | Main | 指向有权限的下一动作 |
+| Field | Type | Required | Default | Owner | Validation |
+| --- | --- | --- | --- | --- | --- |
+| `PlanId` | `IP-01`–`IP-08` | yes | none | Main | 唯一且稳定 |
+| `Title` | text | yes | none | Main | 与独立计划标题一致 |
+| `Version` | positive integer | yes | `1` | Main | 与独立计划一致 |
+| `Status` | controlled enum | yes | `Draft` | Main | 与独立计划一致 |
+| `ProjectionState` | `Current` or `Stale` | yes | `Current` | Main | 与独立计划一致；不属于业务状态 |
+| `Dependencies` | Plan ID list | yes | per graph | Main | 仅已知 ID、无环 |
+| `TargetDate` | ISO date/range | yes | source plan | Main | 来自确认总计划 |
+| `LifecycleFeatureId` | text or `Unassigned` | yes | `Unassigned` | Requirements/Main | 不得推断 |
+| `Evidence` | links or `None` | yes | `None` | Main | 可复核且无秘密 |
+| `Blocker` | record link or `None` | yes | `None` | Main | `Blocked` 时必填 |
+| `LatestAcceptanceRecordId` | record ID or `None` | yes | `None` | Main | 与独立计划一致 |
+| `CurrentAcceptedRecordId` | record ID or `None` | yes | `None` | Main | `Accepted` 时必须指向当前版本记录 |
+| `ActiveStalenessRecordId` | record ID or `None` | yes | `None` | Main | `Stale` 时必须指向活动记录 |
+| `NextStep` | short text | yes | per plan | Main | 指向有权限的下一动作 |
 
 ### 7.2 `ImplementationPlan`
 
 每个 IP 文件包含固定元数据和章节。
 
-| Field | Type | Required | Default | Validation |
-| --- | --- | --- | --- | --- |
-| `PlanId` | stable ID | yes | none | 与文件名和索引一致 |
-| `Version` | integer | yes | `1` | 实质变化递增 |
-| `Status` | controlled enum | yes | `Draft` | 必须有状态证据 |
-| `TargetDate` | date/range | yes | source plan | 不表示完成状态 |
-| `Dependencies` | Plan ID list | yes | per graph | 全部接受前不得 Ready |
-| `RequirementsBaseline` | path + commit | yes | confirmed v0.1 | 可定位 |
-| `LifecycleFeatureId` | text | yes | `Unassigned` | 独立 handoff 后填写 |
-| `FeatureBranch` | text | yes | `Unassigned` | 独立 feature 分支 |
-| `AcceptanceOwner` | text | yes | `Pending assignment` | 由独立需求确认 |
-| `AcceptedBy` | text | yes | blank | 仅验收后填写 |
-| `AcceptedAt` | strict UTC | yes | blank | 仅验收后填写 |
-| `AcceptedCommit` | 40-char SHA | yes | blank | 仅验收后填写 |
-| `AcceptanceEvidence` | link list | yes | blank | 仅验收后填写 |
+| Field | Type | Required | Default | Owner | Validation |
+| --- | --- | --- | --- | --- | --- |
+| `PlanId` | stable ID | yes | none | Main | 与文件名和索引一致 |
+| `Version` | integer | yes | `1` | Main | 实质变化递增 |
+| `Status` | controlled enum | yes | `Draft` | Main | 必须有 lifecycle/验收证据 |
+| `ProjectionState` | `Current` or `Stale` | yes | `Current` | Main | 与项目入口一致 |
+| `TargetDate` | date/range | yes | source plan | Main | 不表示完成状态 |
+| `Dependencies` | Plan ID list | yes | per graph | Main | 全部接受前不得 Ready |
+| `RequirementsBaseline` | path + commit | yes | confirmed v0.1 | Requirements/Main | 可定位 |
+| `LifecycleFeatureId` | text | yes | `Unassigned` | Requirements/Main | 独立 handoff 后填写 |
+| `FeatureBranch` | text | yes | `Unassigned` | Main | 独立 feature 分支 |
+| `AcceptanceOwner` | text | yes | `Pending assignment` | Requirements | 由独立需求确认 |
+| `LatestAcceptanceRecordId` | record ID or `None` | yes | `None` | Main | 指向最后一次验收尝试 |
+| `CurrentAcceptedRecordId` | record ID or `None` | yes | `None` | Main | 仅指向当前版本有效的 `Accepted` 记录 |
+| `ActiveStalenessRecordId` | record ID or `None` | yes | `None` | Main | `Stale` 时必须指向活动记录 |
 
 固定章节为：
 
@@ -184,26 +190,94 @@ IP-01 -> IP-02 -> IP-03 -> IP-04/IP-05 -> IP-06 -> IP-07 -> IP-08
 11. Risks, external inputs and blockers
 12. Next step
 13. Change history
-14. Acceptance record
+14. Acceptance history
 
-### 7.3 `BlockerRecord`
+### 7.3 `AcceptanceRecord`
 
-| Field | Required | Rule |
-| --- | --- | --- |
-| `Reason` | yes | 具体、可验证 |
-| `Impact` | yes | 指明受影响计划和门禁 |
-| `ExitCondition` | yes | 可观察 |
-| `CurrentAction` | yes | 有 owner |
-| `ReviewAt` | yes | 严格 UTC 或明确外部事件 |
+每次验收尝试或对旧验收的补偿声明追加一行，禁止修改、删除或复用 `RecordId`。
 
-### 7.4 `ChangeRecord`
+| Field | Type | Required | Owner | Validation |
+| --- | --- | --- | --- | --- |
+| `RecordId` | `AR-<PlanId>-v<Version>-<sequence>` | yes | Main | 全局唯一、只追加 |
+| `PlanId` | stable Plan ID | yes | Main | 与文件一致 |
+| `PlanVersion` | positive integer | yes | Main | 决定时的精确版本 |
+| `SubmittedCommit` | 40-char lowercase SHA | yes | Main | 本次验收对象 |
+| `Result` | `Accepted`, `Rejected`, `Superseded` | yes | 指定验收方/Main | 受下述 guard 限制 |
+| `AcceptanceOwner` | text | yes | Requirements | 与独立需求确认一致 |
+| `Actor` | text | yes | 指定验收方 | Main 不得冒充验收方 |
+| `DecidedAt` | strict UTC timestamp | yes | 指定验收方 | 不晚于记录提交时间 |
+| `Evidence` | link list | yes | Main | 指向 Review、checks、merge/验收证明 |
+| `FailedItems` | ID list or `None` | yes | 指定验收方/Main | `Rejected` 时非空 |
+| `RecoveryAction` | text or `None` | yes | Main | `Rejected` 时非空 |
+| `RelatedRecordId` | record ID or `None` | yes | Main | `Superseded` 时指向旧 `Accepted` |
+| `Reason` | text | yes | Main/验收方 | 不得只写“更新” |
 
-| Field | Required | Rule |
-| --- | --- | --- |
-| `ChangedAt` | yes | 严格 UTC |
-| `Change` | yes | 描述状态/范围/依赖/证据变化 |
-| `Reason` | yes | 不得只写“更新” |
-| `Evidence` | yes | commit、Review、check 或 handoff |
+规则：
+
+- `Accepted` 只能在当前 `PlanVersion`、精确 commit、依赖、Must、Review、merge 和验收
+  证据完整时追加；随后 `LatestAcceptanceRecordId` 与
+  `CurrentAcceptedRecordId` 都指向该记录。
+- `Rejected` 记录提交的精确 commit、失败项和恢复动作；只更新
+  `LatestAcceptanceRecordId`，`CurrentAcceptedRecordId` 保持 `None`。
+- 已接受版本发生实质变化时，先递增 `Version` 或明确重开，再追加
+  `Superseded` 记录引用旧 `Accepted`；`CurrentAcceptedRecordId` 置 `None`，
+  旧行保持原样。
+- `Superseded` 的 `PlanVersion` 与 `SubmittedCommit` 复制被替代的原
+  `Accepted` 记录；触发重开的新 commit 只写入 `Evidence`，避免把新实现误写成
+  已验收对象。
+- 补偿修订只能追加新行；任何历史行的 actor、时间、commit、结果和证据都不可覆盖。
+- 项目入口只保存两个 record pointer 和验收摘要，完整历史只在对应 IP 计划。
+
+### 7.4 `BlockerRecord`
+
+| Field | Type | Required | Default | Owner | Validation |
+| --- | --- | --- | --- | --- | --- |
+| `Reason` | text | yes | none | Main | 具体、可验证 |
+| `Impact` | Plan ID/门禁列表 | yes | none | Main | 指明受影响计划和门禁 |
+| `ExitCondition` | text | yes | none | Main | 可观察 |
+| `CurrentAction` | text | yes | none | Main | 必须有 `ActionOwner` |
+| `ActionOwner` | text | yes | none | Main | 有权限执行恢复动作 |
+| `ReviewAt` | UTC/event | yes | none | Main | 严格 UTC 或明确外部事件 |
+
+无活动阻塞时不保留空 record，项目入口使用 `None`。历史阻塞通过追加式
+`ChangeRecord` 保留。
+
+### 7.5 `ChangeRecord`
+
+| Field | Type | Required | Default | Owner | Validation |
+| --- | --- | --- | --- | --- | --- |
+| `ChangedAt` | strict UTC | yes | none | Main | 时间合法 |
+| `Actor` | text | yes | none | Main | 记录 authority 来源 |
+| `Change` | text | yes | none | Main | 描述状态/范围/依赖/证据变化 |
+| `Reason` | text | yes | none | Main | 不得只写“更新” |
+| `Evidence` | link list | yes | none | Main | commit、Review、check 或 handoff |
+
+`ChangeRecord` 只追加；错误通过新补偿记录纠正，不修改旧行。
+
+### 7.6 `StalenessRecord`
+
+`ProjectionState` 与业务 `Status` 分离。`Stale` 表示 Markdown 投影不可作为状态
+晋级依据，但保留最后可知的业务状态。
+
+| Field | Type | Required | Default | Owner | Validation |
+| --- | --- | --- | --- | --- | --- |
+| `RecordId` | stable ID | yes | none | Main | 唯一、只追加 |
+| `DetectedAt` | strict UTC | yes | none | Main | 时间合法 |
+| `DetectedBy` | actor/check | yes | none | Main/Review/checker | 可追踪 |
+| `Reason` | text | yes | none | Main | 描述冲突 |
+| `ConflictingAuthority` | link/message/commit | yes | none | Main | 指向更高权威事实 |
+| `AffectedFields` | field list | yes | none | Main | 非空 |
+| `RecoveryAction` | text | yes | none | Main | 可执行 |
+| `ClearedAt` | strict UTC or `None` | yes | `None` | Main | 清除后填写 |
+| `ClearedBy` | actor or `None` | yes | `None` | Main | 清除后填写 |
+| `ClearEvidence` | links or `None` | yes | `None` | Main | 清除时必须非空 |
+
+发现入口、独立计划或上游 authority 不一致时，Main（或 checker 触发 Main）必须在
+独立计划和项目入口将 `ProjectionState` 置为 `Stale`，追加同一 `RecordId` 的
+staleness 记录，将两处 `ActiveStalenessRecordId` 指向它，并停止业务状态晋级。
+只有 Main 重新读取更高权威、用补偿提交同步两处投影且 checker 通过后，才能把
+`ProjectionState` 恢复为 `Current`、两处 active pointer 置 `None` 并填写清除字段；
+历史记录不得删除。
 
 ## 8. Status lifecycle
 
@@ -211,15 +285,20 @@ IP-01 -> IP-02 -> IP-03 -> IP-04/IP-05 -> IP-06 -> IP-07 -> IP-08
 stateDiagram-v2
     [*] --> Draft
     Draft --> Ready: 独立需求与计划获批\n硬依赖 Accepted
+    Draft --> Deferred: 明确延期决定
     Ready --> InProgress: GoalRun 激活
+    Ready --> Deferred: 明确延期决定
     InProgress --> Blocked: 满足 blocked 规则
+    InProgress --> Deferred: 明确延期决定
     Blocked --> InProgress: 解除条件满足并恢复
+    Blocked --> Deferred: 明确延期决定
     InProgress --> InReview: 精确 head、检查与 PR 就绪
     InReview --> InProgress: Review 要求修改
+    InReview --> Blocked: 验收失败且存在真实阻塞
+    InReview --> Deferred: 明确延期决定
     InReview --> Accepted: 合并与指定验收证据完整
-    Draft --> Deferred: 明确延期决定
-    Ready --> Deferred: 明确延期决定
-    Blocked --> Deferred: 明确延期决定
+    Deferred --> Draft: 需要重做需求或计划
+    Deferred --> Ready: 原 authority 仍有效\n依赖满足并明确恢复
     Accepted --> Draft: 实质变化需重开或新版本
 ```
 
@@ -237,20 +316,71 @@ stateDiagram-v2
 
 `APPROVE`、代码提交存在或目标日期到达，均不能单独产生 `Accepted`。
 
+穷举转换契约：
+
+| Source | Target | Guard | Authority | Required evidence | Failure fallback |
+| --- | --- | --- | --- | --- | --- |
+| `Draft` | `Ready` | 独立需求确认、PASS plan review、全部依赖 `Accepted`、投影 `Current` | Requirements + Review + Main | handoff、plan result、依赖验收记录 | 保持 `Draft` |
+| `Draft` | `Deferred` | 明确延期决定 | 用户/Requirements | 决定、原因、影响、恢复条件 | 保持 `Draft` |
+| `Ready` | `In Progress` | 唯一 GoalRun 激活 | Main + platform | GoalRun ID、objective、thread ID | 保持 `Ready` |
+| `Ready` | `Deferred` | 明确延期决定 | 用户/Requirements | 同上 | 保持 `Ready` |
+| `In Progress` | `Blocked` | 满足 platform blocked 规则或真实外部 impasse | Main/platform | BlockerRecord、Goal 状态 | 保持 `In Progress` |
+| `In Progress` | `In Review` | 精确 head、计划内检查和 PR snapshot 完整 | Main | commit、checks、PR URL/head | 保持 `In Progress` |
+| `In Progress` | `Deferred` | 明确延期决定并安全停止当前工作 | 用户 + Main | 决定、Goal 收尾/阻塞证据 | `Blocked` 或保持 `In Progress` |
+| `Blocked` | `In Progress` | 原 GoalRun 被授权恢复且解除条件满足 | Main/platform | resume 记录、解除证据 | 保持 `Blocked` |
+| `Blocked` | `Deferred` | 明确延期决定 | 用户/Requirements | 决定和 BlockerRecord | 保持 `Blocked` |
+| `In Review` | `In Progress` | Review/验收拒绝且可立即修复 | Review/验收方 + Main | finding、`Rejected` record、恢复动作 | 保持 `In Review` |
+| `In Review` | `Blocked` | Review/验收拒绝且修复受真实 impasse 阻塞 | Review/验收方 + Main/platform | finding、`Rejected` record、BlockerRecord | `In Progress` |
+| `In Review` | `Deferred` | 明确延期决定 | 用户/Requirements | 决定、PR/Review 当前状态 | 保持 `In Review` |
+| `In Review` | `Accepted` | 精确实现已合并，Must、依赖、Review 和指定验收全部通过 | 外部 merge owner + 验收方 + Main 记录 | merge proof、`Accepted` record、checks | `In Progress` 或 `Blocked` |
+| `Deferred` | `Draft` | 需求/计划/authority 需要重做 | Requirements + Main | 恢复决定、版本/范围原因 | 保持 `Deferred` |
+| `Deferred` | `Ready` | 同一版本 authority 仍有效，依赖已接受，明确恢复 | 用户/Requirements + Main | 恢复决定、重新验证的 plan/依赖证据 | `Draft` |
+| `Accepted` | `Draft` | 实质范围/实现变化；递增版本或明确重开 | Requirements + Main | 新需求/变化证据、`Superseded` record | 保持 `Accepted`，不修改历史 |
+
+任一转换在 `ProjectionState=Stale` 时禁止执行，唯一允许动作是补偿同步并恢复
+`ProjectionState=Current`。
+
+投影同步流程：
+
+```mermaid
+sequenceDiagram
+    participant A as Durable authority
+    participant M as Main
+    participant P as Independent IP plan
+    participant S as Project summary
+    participant C as Deterministic checker
+
+    M->>A: Read exact lifecycle/review/Git evidence
+    A-->>M: Authoritative snapshot
+    M->>P: Update status, records, evidence
+    M->>S: Update matching summary in same change
+    M->>C: Validate both projections
+    alt consistent
+        C-->>M: PASS
+        M->>P: Keep ProjectionState=Current
+        M->>S: Keep ProjectionState=Current
+    else mismatch
+        C-->>M: FAIL with field diagnostics
+        M->>P: Set Stale + append record
+        M->>S: Set Stale + reference same record
+    end
+```
+
 ## 9. Update transaction
 
 一次状态更新必须在同一个 Git 变更集中完成：
 
 1. 重新读取 durable lifecycle 和独立计划；
 2. 验证请求者对目标状态有权限；
-3. 更新独立 IP 计划中的状态、证据、阻塞、下一步或验收记录；
+3. 更新独立 IP 计划中的状态、freshness、证据、阻塞、下一步或追加式验收记录；
 4. 更新 `docs/project-management.md` 对应摘要；
 5. 追加两处需要的变更记录；
 6. 运行一致性检查；
 7. 提交并推送同一 commit。
 
-如果第 3–6 步任一失败，不提交部分更新。若发现已提交的不一致，项目入口标记
-`stale`，受影响计划停止晋级，随后用补偿提交纠正并保留原因。
+如果第 3–6 步任一失败，不提交部分更新。若发现已提交的不一致，两处投影都按
+7.6 节标记 `Stale`，受影响计划停止晋级，随后用补偿提交纠正、验证并清除 stale；
+业务 `Status` 本身不改名为 `stale`。
 
 ## 10. Traceability contract
 
@@ -272,12 +402,13 @@ stateDiagram-v2
 - 文件集与稳定路径存在；
 - 八个 `PlanId`、文件名和索引一一对应；
 - 所有必需元数据和章节存在；
-- 状态只使用受控枚举；
+- 状态与 `ProjectionState` 分别只使用各自受控枚举；
 - 依赖 ID 有效且图无环；
 - 项目入口与独立计划的版本、状态、依赖一致；
 - REQ、AC、Slice 追踪满足覆盖与唯一性；
 - 相对 Markdown 链接解析到仓库内文件；
-- `Accepted` 记录完整；非 `Accepted` 计划不伪造验收字段；
+- `Accepted` 必须指向当前版本的追加式 `AcceptanceRecord`，历史记录只追加；
+- staleness 置位、清除和历史记录满足 7.6 节；
 - 文档不包含密钥值、个人配置或真实私密数据；
 - `git diff --check` 通过。
 
@@ -289,10 +420,11 @@ stateDiagram-v2
 | --- | --- |
 | 缺少文件/章节/映射 | 保持 `Draft`，补齐后重新审查 |
 | 依赖环或未知 ID | 阻止受影响计划开始，修订依赖 |
-| 入口与计划状态不同 | 标记 stale，停止晋级，同提交纠正 |
+| 入口与计划状态/freshness 不同 | 两处标记 `Stale`，停止晋级，同提交纠正并留存清除证据 |
 | 证据缺失或 head 不匹配 | 拒绝 `In Review`/`Accepted` |
-| Review 要求修改 | 回到 `In Progress`，保留 finding 与恢复动作 |
-| 验收后实质变化 | 递增版本或重开，保留原验收记录 |
+| Review/验收要求修改 | 追加 `Rejected` record；可修复则回 `In Progress`，真实 impasse 则进入 `Blocked` |
+| 验收后实质变化 | 递增版本或重开，追加 `Superseded` record，旧 `Accepted` 行保持不变 |
+| 延期后恢复 | authority 需重做则回 `Draft`；仍有效且依赖满足才可回 `Ready` |
 | 外部部署条件缺失 | IP-08 保持 `Blocked`/`Draft`，不影响无依赖本地工作 |
 
 ## 13. Safety, privacy, and authorization

@@ -6,6 +6,7 @@
 - Requirements: [requirements.md](./requirements.md)
 - Design: [design.md](./design.md)
 - Current phase: F3 / `PLAN_DRAFTING`
+- Prior review: cycle 1 `FAIL`, message `e9c7509f71bffd28bc0206b18ef503ee860eb9aea1ab1ac8d780076c9c721605`
 - Target outcome: 一份项目管理入口和八份独立实施计划
 - Updated: 2026-07-28
 
@@ -74,8 +75,13 @@ docs/implementation-plans/v0-1/*.md
 2. 从确认需求与总计划提取每份计划的业务结果、范围、非范围、依赖和目标日期。
 3. 写入具体交付物、执行步骤、失败恢复、验证矩阵和独立验收清单。
 4. 写入 REQ、AC、Slice 和设计资料映射。
-5. 将 `Status` 设为 `Draft`，将 lifecycle、分支和验收字段设为明确的未分配/空值。
-6. 说明每份计划需要独立 RequirementsHandoff 和完整 lifecycle。
+5. 将 `Status` 设为 `Draft`、`ProjectionState` 设为 `Current`，将 lifecycle 与
+   分支设为 `Unassigned`。
+6. 初始化 `LatestAcceptanceRecordId`、`CurrentAcceptedRecordId`、
+   `ActiveStalenessRecordId` 为 `None`，`AcceptanceHistory` 与
+   `StalenessHistory` 为空表；不创建虚假记录。
+7. 写入完整状态转换表、staleness 规则、追加式验收记录和恢复规则。
+8. 说明每份计划需要独立 RequirementsHandoff 和完整 lifecycle。
 
 门禁：
 
@@ -84,6 +90,7 @@ docs/implementation-plans/v0-1/*.md
 - 不复制上游完整正文；
 - 不声称任何运行时实现已经完成；
 - 不把当前 management handoff 写成 IP authority。
+- 验收历史只追加，当前验收指针与 plan version 一致。
 
 Rollback：
 
@@ -100,18 +107,20 @@ docs/project-management.md
 工作：
 
 1. 写入 v0.1 范围基线、目标日期和权威来源。
-2. 汇总八份计划的 ID、版本、状态、依赖、目标日期、证据、阻塞和下一步。
+2. 汇总八份计划的 ID、版本、状态、freshness、依赖、目标日期、验收 record
+   pointer、证据、阻塞和下一步。
 3. 写入 Mermaid 依赖图和关键路径。
 4. 写入受控状态定义、状态晋级规则和 authority 映射。
 5. 写入完整 REQ/AC/Slice 追踪矩阵。
 6. 写入发布就绪摘要，分离仓库内门禁与外部部署条件。
-7. 写入同步更新、stale、纠偏和变更历史规则。
+7. 写入同步更新、独立 `ProjectionState`、staleness 历史、纠偏和变更规则。
 
 门禁：
 
 - 入口只汇总，不复制八份计划的详细步骤；
 - 所有摘要字段与独立计划一致；
 - IP-01–IP-08 初始均为 `Draft`；
+- IP-01–IP-08 初始 `ProjectionState` 均为 `Current`，验收历史为空；
 - 发布就绪度明确为未就绪；
 - 入口不授予任何实现或发布权限。
 
@@ -155,8 +164,10 @@ docs/project-management.md
 
 工作：
 
-1. 运行第 7 节的全部自动检查。
-2. 把验证命令、结果、精确 commit 和未运行项记录到项目管理入口的治理证明区。
+1. 按第 7 节 checker contract 生成 `/private/tmp/validate-v0-1-project-plans.mjs`
+   并运行全部自动检查。
+2. 把 checker contract version、命令、结果、精确 commit、UTC、证据 digest
+   和未运行项记录到项目管理入口的治理证明区。
 3. 检查 Git diff 只包含批准范围。
 4. 提交并推送 feature branch，准备独立 PR。
 5. 通过 lifecycle 生成精确 head 的 CodeReviewRequest。
@@ -224,10 +235,94 @@ Rollback：
    `REQ-028` 归当前 management feature。
 7. 验证 AC-001–AC-020 至少出现一次，且每个 IP 至少关联一个 AC。
 8. 验证所有相对 Markdown 链接解析到仓库文件。
-9. 验证所有 IP 初始状态为 `Draft`，验收字段为空，feature/branch 未分配。
-10. 搜索可能的秘密赋值、私密 URL、生成物和临时文件。
+9. 验证所有 IP 初始状态为 `Draft`、`ProjectionState=Current`、验收历史为空，
+   feature/branch 未分配。
+10. 验证状态转换表包含所有确认转换，`Stale` 没有混入业务 `Status`。
+11. 验证 AcceptanceRecord ID 唯一、只追加、current pointer 与当前版本一致。
+12. 验证 StalenessRecord 的置位/清除字段与两处投影一致。
+13. 搜索可能的秘密赋值、私密 URL、生成物和临时文件。
 
-允许在 `/private/tmp` 使用一次性验证脚本，但不提交脚本或输出。
+### Deterministic checker contract
+
+实现者在 `/private/tmp/validate-v0-1-project-plans.mjs` 创建一次性 checker；脚本和
+原始输出不提交。命令固定为：
+
+```text
+node /private/tmp/validate-v0-1-project-plans.mjs
+  --repo <absolute-repository-root>
+  --checked-commit <40-char-lowercase-sha>
+  --output /private/tmp/v0-1-project-plan-check.json
+```
+
+输入契约：
+
+- `--repo` 必须是当前 Git 根目录；
+- `--checked-commit` 必须等于 `git rev-parse HEAD`；
+- checker 只读取第 3 节列出的目标文档、确认需求和五份上游来源；
+- 元数据从文档开头 `- Key: Value` 读取；
+- 追踪数据从带有
+  `<!-- PRIMARY-TRACE-START -->` / `<!-- PRIMARY-TRACE-END -->` 标记的表读取；
+- 依赖来自 `Dependencies` 元数据，`None` 表示空集；
+- Markdown 链接只验证相对仓库路径，不请求网络。
+
+确定性算法：
+
+1. 校验精确目标文件集和八个 PlanId/文件名映射；
+2. 校验固定元数据、十四个章节、受控 `Status` 和 `ProjectionState`；
+3. 用 Kahn 算法验证依赖 ID 与 DAG，并与项目入口逐字段比较；
+4. 从 primary trace 表统计 REQ-001–027、Slice 0–9 各恰好一次，REQ-028
+   只归 management feature；
+5. 统计 AC-001–020 至少一次且每个 IP 至少一个；
+6. 校验状态转换表所需边集合，且 `Stale` 不属于业务状态；
+7. 校验 AcceptanceRecord ID/版本/pointer 规则和 StalenessRecord 成对投影；
+8. 解析相对链接并验证目标存在；
+9. 扫描 `(?i)(password|secret|token|cookie|database_url)\s*[:=]\s*\S+`
+   等赋值形态；字段名和安全说明本身不报错；
+10. 按 check ID 排序输出结果，保证同一输入产生相同 JSON。
+
+输出契约：
+
+```json
+{
+  "schemaVersion": 1,
+  "contractVersion": "v0-1-project-plans/1",
+  "checkedCommit": "<sha>",
+  "result": "PASS",
+  "checks": [
+    {"id": "FILES", "result": "PASS", "diagnostics": []}
+  ]
+}
+```
+
+- check ID 固定为：
+  `FILES`、`METADATA`、`SECTIONS`、`DEPENDENCIES`、`SUMMARY_PARITY`、
+  `PRIMARY_TRACE`、`AC_COVERAGE`、`TRANSITIONS`、`ACCEPTANCE_HISTORY`、
+  `STALENESS`、`LINKS`、`SECRETS`；
+- `checks` 按上述顺序输出，`diagnostics` 按文件路径、行号、消息排序；
+- 全部通过时退出码 `0`；验证失败时退出码 `1`；参数/解析器内部错误时退出码 `2`；
+- 即使失败也写出 JSON，`result` 为 `FAIL` 或 `ERROR`；
+- JSON 不包含时间或绝对路径，因此相同 commit 的证据 digest 可复现。
+
+项目入口的治理证明记录格式固定为：
+
+```text
+- CheckerContract: v0-1-project-plans/1
+- CheckedCommit: <sha>
+- Command: node /private/tmp/validate-v0-1-project-plans.mjs ...
+- Result: PASS
+- EvidenceSha256: <sha256 of canonical JSON output>
+- ExecutedAt: <strict UTC; not part of checker JSON>
+- DeferredChecks: <list or None>
+```
+
+另外精确运行：
+
+```text
+git diff --check
+git status --short
+```
+
+任何 checker 非零退出都阻止提交完成证据和进入 Code Review。
 
 ### Manual review
 
@@ -299,7 +394,8 @@ Rollback：
 | --- | --- | --- |
 | 八份计划只是复制总计划 | 大段重复文件/测试清单 | 保留链接，只写独立范围和特有门禁 |
 | `Draft` 被误读为已授权 | 缺少 lifecycle 字段 | 明确 `Unassigned` 与独立 handoff 规则 |
-| 状态入口漂移 | 入口与计划不一致 | 同提交更新、校验、标记 stale |
+| 状态入口漂移 | 入口与计划不一致 | 两处 `ProjectionState=Stale`、追加记录、同提交纠正并验证清除 |
+| 验收历史被覆盖 | 升版时修改旧记录 | 只追加 AcceptanceRecord，以 current pointer 表示当前有效记录 |
 | 依赖过度串行 | 不必要硬依赖 | 只保留确认图；IP-04/IP-05 可并行 |
 | AC/REQ 映射遗漏 | 覆盖检查失败 | 保持 Draft，修正后再审查 |
 | 外部部署被提前标记完成 | IP-08 无外部证据 | 分离仓库和外部门禁 |
