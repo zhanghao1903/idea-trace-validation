@@ -1,0 +1,410 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 1,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/1",
+    "title": "docs: split v0.1 into independently managed plans",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+    "head_ref": "codex/v0-1-project-management",
+    "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+    "reviewed_at": "2026-07-28T15:24:36Z",
+    "reviewer": "Codex Engineering Review / PR Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete unchanged 9259d884459dd36bde6c089c3a15b368c985b617..53c2a4ff6786d708b808fcd13d2dafd3ed083349 diff",
+      "cycle-one finding closure at the exact current head",
+      "approved requirements, design and implementation-plan deterministic-checker contract",
+      "updated PR VerificationEnvelope, strengthened checker and harness, positive output and negative-suite summary",
+      "primary and independent fresh-context adversarial fixtures"
+    ],
+    "excluded_scope": [
+      "future IP-01 through IP-08 runtime implementations",
+      "production deployment, DNS, HTTPS, backup and restore systems"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "cycle 1 report @ b9e6d24c50ba483e6853de03612f09094f21e840",
+      "result_path": "docs/feature/v0-1-project-management/pr-review-idea-trace-validation-1-53c2a4ff6786.json",
+      "result_sha256": "6f98ee27a8873bb5b88d9a2b0ddd87f65490e103e30e8bd72056a5bd3eefee51",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 1,
+      "reviewed_at": "2026-07-28T14:44:04Z",
+      "base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": [
+        "PRR-001"
+      ],
+      "blocking_finding_ids": [
+        "PRR-001"
+      ]
+    },
+    "delta_review": {
+      "previous_base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "previous_head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+      "current_base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "current_head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+      "triggers": [
+        "EVIDENCE_CHANGED"
+      ],
+      "commit_range": "53c2a4ff6786d708b808fcd13d2dafd3ed083349..53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+      "commits_reviewed": [],
+      "changed_files": [],
+      "reviewed_files": [],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "The tracked PR snapshot is unchanged. External evidence changed through the strengthened checker, expanded negative suite and refreshed PR envelope.",
+      "evidence": "Previous/current base and head SHAs are identical; the updated checker, harness, positive result, negative summary and live PR body were fully reviewed and the complete base-to-head diff was reconciled."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "The exact-head positive result remains byte-identical, all eleven specified invalid governance fixtures now fail, and both invocation/parser fixtures emit deterministic contract-shaped ERROR JSON.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Remaining deterministic-checker contract and exact-head verification envelope",
+        "risk_triggers": [
+          "trust-boundary",
+          "state-transition",
+          "data-integrity",
+          "test-adequacy"
+        ],
+        "reason": "The external PASS envelope is a required authorization gate, so every approved semantic check must discriminate invalid plan content.",
+        "affected_paths": [
+          "docs/feature/v0-1-project-management/design.md",
+          "docs/feature/v0-1-project-management/implementation-plan.md"
+        ],
+        "checks": [
+          "Compare the complete strengthened checker and harness with every automated and deterministic check in the approved plan",
+          "Remove required TargetDate and RequirementsBaseline metadata in a committed disposable fixture",
+          "Independently inject exact-file-set, parser-shadowing, trace, transition, link, duplicate-summary, Review-authority and staleness violations"
+        ],
+        "finding_ids": [
+          "PRR-002"
+        ],
+        "result": "FAIL"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "PASS",
+        "reviewer": "fresh-context checker auditor",
+        "summary": "The independent pass reproduced the positive and supplied negative artifacts and then confirmed PRR-002 with nine separately committed invalid fixtures that all returned 13/13 PASS."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "PRR-001 is resolved, but the strengthened checker still accepts multiple mandatory deterministic-contract violations while emitting a valid-looking 13/13 PASS envelope.",
+    "blocking_finding_ids": [
+      "PRR-002"
+    ]
+  },
+  "summary": "Cycle two closes PRR-001 with byte-stable positive and negative evidence. Forward-risk and independent adversarial passes found that the checker still accepts nine classes of mandatory contract violations. Approval renewal is withheld until PRR-002 is fixed, covered by the harness and reproduced at the exact live head.",
+  "change_map": [
+    {
+      "area": "Tracked PR snapshot",
+      "change": "No tracked commit or file changed since cycle one.",
+      "external_behavior": "The authoritative project entry and eight Draft independent plans remain unchanged.",
+      "risk": "Low",
+      "validation": "Full base-to-head reconciliation and git diff --check passed."
+    },
+    {
+      "area": "Cycle-one remediation evidence",
+      "change": "The external checker now rejects the specified acceptance, authority, staleness, ledger, secret/private/generated and invocation/parser fixtures.",
+      "external_behavior": "The exact PRR-001 false-positive and missing-ERROR paths no longer pass.",
+      "risk": "Medium",
+      "validation": "Positive output and supplied negative summary reproduced byte-identically."
+    },
+    {
+      "area": "Remaining checker contract",
+      "change": "Mandatory metadata, file-set, trace, transition, link, summary, Review-authority and staleness gates remain incomplete.",
+      "external_behavior": "Invalid plan content can still receive a 13/13 PASS envelope.",
+      "risk": "High",
+      "validation": "Primary and independent adversarial fixtures failed the expected-rejection condition under PRR-002."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Strengthened checker still accepts mandatory contract violations as PASS",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 247,
+        "line_end": 330,
+        "symbol": "Automated checks and deterministic checker contract",
+        "side": "RIGHT",
+        "commit_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349"
+      },
+      "observation": "The checker omits or under-parses required exact-file-set, header metadata, exclusive REQ-028 ownership, Stale exclusion, reference-style link, unique portfolio-row, immutable Review-result/ChangeRecord and cleared-staleness validations.",
+      "trigger": "A plan or project entry contains one of those invalid states while retaining the tokens and rows recognized by the current checker.",
+      "impact": "The checker returns exit 0, overall PASS and all 13 checks PASS for content that violates the approved governance contract, allowing a valid-looking digest and envelope to falsely authorize invalid plan state.",
+      "evidence": [
+        {
+          "kind": "spec",
+          "description": "Implementation-plan lines 247-264 and 289-307 require these semantic gates; design lines 162-176 require TargetDate and RequirementsBaseline metadata.",
+          "reference": "docs/feature/v0-1-project-management/implementation-plan.md"
+        },
+        {
+          "kind": "reproduction",
+          "description": "A committed fixture removing TargetDate and RequirementsBaseline from IP-04 still returned exit 0, overall PASS and 13/13 PASS.",
+          "reference": "/private/tmp/v0-1-project-plan-cycle2-missing-metadata.json"
+        },
+        {
+          "kind": "reproduction",
+          "description": "An independent pass committed nine separate contract-invalid fixtures; every fixture returned exit 0 and all checks PASS.",
+          "reference": "/private/tmp/fresh-checker-adversarial-summary.json"
+        },
+        {
+          "kind": "analysis",
+          "description": "The supplied negative harness covers the cycle-one cases but does not exercise any of the remaining mandatory paths.",
+          "reference": "/private/tmp/test-validate-v0-1-project-plans.mjs"
+        }
+      ],
+      "remediation": "Validate only unique document-header metadata including TargetDate and RequirementsBaseline, exact all-entry plan-directory contents, exclusive management ownership of REQ-028, exact transitions with Stale excluded, all relative Markdown link forms, unique portfolio PlanIds, immutable Review-result plus ChangeRecord rejection routing, and non-empty valid staleness-clearing fields; add all nine fixtures to the negative harness.",
+      "verification": "The exact live head retains byte-stable 13/13 PASS output; every enumerated fixture returns FAIL under the intended check; the expanded summary and updated checker/output digests reproduce; the PR envelope is refreshed before lifecycle re-review.",
+      "status": "open",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "testing:v0-1-project-plans-checker:remaining-contract-false-positives"
+    },
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Checker accepted governance violations while reporting all required checks as PASS",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 245,
+        "line_end": 330,
+        "symbol": "Deterministic checker contract",
+        "side": "RIGHT",
+        "commit_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349"
+      },
+      "observation": "The strengthened checker now rejects the exact invalid acceptance-result, duplicate-ID, pointer/version, Review-authority, paired-staleness, alternate-ledger, secret/private/generated-artifact and error-output cases specified in cycle one.",
+      "trigger": "The prior invalid governance fixtures or invocation/parser errors are supplied to the remediated checker.",
+      "impact": "The prior false-positive and missing-error-output paths no longer authorize invalid evidence.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The current-head positive output is byte-identical with SHA-256 354d3ece602de345fd391d16f54c0295387ba37d54d01d7d2824208536b4b501.",
+          "reference": "/private/tmp/v0-1-project-plan-check-cycle2-review.json"
+        },
+        {
+          "kind": "test",
+          "description": "Eleven invalid governance fixtures fail and two invocation/parser fixtures emit ERROR JSON; the summary is byte-identical with SHA-256 1421b57b488daa4929aeeb2bf99eb076e7313cbd8466a314b9adc950e836cddf.",
+          "reference": "/private/tmp/v0-1-project-plan-negative-review-cycle2.json"
+        }
+      ],
+      "remediation": "Completed for the exact cycle-one finding.",
+      "verification": "Preserve the thirteen supplied negative/error regressions while resolving PRR-002.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "testing:v0-1-project-plans-checker:false-positive-governance-gates"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-002",
+      "action": "Implement every remaining mandatory checker gate, add the nine discriminating fixtures, reproduce exact-head positive/negative evidence, refresh the PR envelope and request lifecycle re-review.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-001",
+      "action": "Correct the original governance and error-output cases and prove the specified negative fixtures.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "Current tracked documents contain no discovered secret assignment or personal repository path, and the prior security fixtures now fail.",
+      "mitigation": "Preserve the existing secret, private-path and generated-artifact regressions.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "data-integrity",
+      "level": "High",
+      "description": "A false-positive evidence gate can authorize missing baselines, wrong trace ownership, invalid state or incomplete authority records.",
+      "mitigation": "Resolve PRR-002 with complete structured validation and deterministic negative coverage.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Low",
+      "description": "No runtime concurrency changed; governance recovery rules remain documentation-only.",
+      "mitigation": "Validate runtime behavior within each later independent IP lifecycle.",
+      "owner": "future IP owners"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "None",
+      "description": "The change is documentation only.",
+      "mitigation": "No action required.",
+      "owner": null
+    },
+    {
+      "category": "api-compatibility",
+      "level": "None",
+      "description": "No runtime API, database schema or Skill protocol changed.",
+      "mitigation": "No action required.",
+      "owner": null
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "No deployment occurred; documentation remains recoverable through normal Git history.",
+      "mitigation": "Preserve immutable review records and documented rollback boundaries.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "verify cycle-one report and JSON bytes at b9e6d24c50ba483e6853de03612f09094f21e840",
+        "environment": "Git and SHA-256 on macOS",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Both prior artifacts match their recorded digests; prior JSON SHA-256 is 6f98ee27a8873bb5b88d9a2b0ddd87f65490e103e30e8bd72056a5bd3eefee51.",
+        "required_for_approval": true,
+        "evidence_ref": "b9e6d24c50ba483e6853de03612f09094f21e840"
+      },
+      {
+        "command": "git diff --check 9259d884459dd36bde6c089c3a15b368c985b617..53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "environment": "Git on macOS; isolated review worktree",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors; all 14 tracked files were reconciled with no delta since cycle one.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node validate-v0-1-project-plans.mjs --repo <isolated-review-root> --checked-commit 53c2a4ff6786d708b808fcd13d2dafd3ed083349 --output <review-output>",
+        "environment": "Node.js on macOS; clean isolated review worktree",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Reproduced 13/13 PASS; output was byte-identical with SHA-256 354d3ece602de345fd391d16f54c0295387ba37d54d01d7d2824208536b4b501.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/v0-1-project-plan-check-cycle2-review.json"
+      },
+      {
+        "command": "node test-validate-v0-1-project-plans.mjs --repo <isolated-review-root> --checker <checker> --checked-commit 53c2a4ff6786d708b808fcd13d2dafd3ed083349 --output <review-output>",
+        "environment": "Node.js on macOS; disposable committed fixtures",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All eleven invalid governance fixtures failed and both invocation/parser fixtures emitted ERROR; summary was byte-identical with SHA-256 1421b57b488daa4929aeeb2bf99eb076e7313cbd8466a314b9adc950e836cddf.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/v0-1-project-plan-negative-review-cycle2.json"
+      },
+      {
+        "command": "remove TargetDate and RequirementsBaseline from IP-04 and run the strengthened checker",
+        "environment": "Node.js on macOS; disposable committed clone",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "Expected METADATA rejection; checker incorrectly returned overall PASS and all 13 checks PASS.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/v0-1-project-plan-cycle2-missing-metadata.json"
+      },
+      {
+        "command": "independent fresh-context nine-fixture deterministic-contract audit",
+        "environment": "Node.js on macOS; separate disposable committed clones",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "Every invalid fixture incorrectly returned exit 0, overall PASS and all 13 checks PASS.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/fresh-checker-adversarial-summary.json"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "GitHub status checks",
+        "observed_at": "2026-07-28T15:24:36Z",
+        "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+        "status": "UNKNOWN",
+        "summary": "GitHub returned an empty status list.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/1"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Runtime unit, integration, browser and deployment tests",
+        "reason": "No runtime code changed; the approved plan assigns these checks to later independent IP lifecycles."
+      },
+      {
+        "check": "Production server, DNS, HTTPS, backup and restore validation",
+        "reason": "These require later IP-08 scope and separate external authorization."
+      }
+    ]
+  },
+  "limitations": [
+    "GitHub reported no status checks or check logs for the reviewed head.",
+    "The checker, harness and raw outputs are external task evidence rather than commit-bound tracked artifacts; they were inspected and reproduced during this review.",
+    "Future IP runtime behavior and deployment systems remain outside this documentation-only PR."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "The live PR VerificationEnvelope and supplied external checker, harness and outputs are Engineering Main's intended cycle-two evidence.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read the live PR body, compare exact-head fields, rerun the checker and harness and recompute their artifact digests.",
+      "evidence": "CheckedCommit equals the request and live head; reproduced positive and negative outputs are byte-identical with the recorded digests.",
+      "impact_if_false": "The review would be evaluating evidence that Main did not intend to authorize."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The tracked PR snapshot is unchanged from cycle one.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Compare prior/current request endpoints, live PR refs and Git object identities.",
+      "evidence": "Previous and current base/head SHAs are identical and the live PR matches them.",
+      "impact_if_false": "A non-empty remediation commit/file delta would require separate classification and review."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "Passing only the cycle-one enumerated negative cases is sufficient to satisfy the full deterministic checker contract.",
+      "decision_critical": true,
+      "status": "FALSIFIED",
+      "method": "Compare every approved checker gate with the implementation and run primary plus independent adversarial fixtures.",
+      "evidence": "Nine additional mandatory-contract violations still return 13/13 PASS.",
+      "impact_if_false": "The advertised evidence cannot authorize merge until the uncovered paths are implemented and tested."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
