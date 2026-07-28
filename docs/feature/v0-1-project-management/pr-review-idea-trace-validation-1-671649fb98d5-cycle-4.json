@@ -1,0 +1,525 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 1,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/1",
+    "title": "docs: split v0.1 into independently managed plans",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+    "head_ref": "codex/v0-1-project-management",
+    "head_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+    "reviewed_at": "2026-07-28T17:01:20Z",
+    "reviewer": "Codex Engineering Review / PR Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete 9259d884459dd36bde6c089c3a15b368c985b617..671649fb98d56cc11486e7329a4ecf19e3ec56e6 documentation diff",
+      "cycle-three finding closure across the two-commit eight-file tracked remediation delta",
+      "cycle-four PR VerificationEnvelope, checker, 35-case harness and exact-head outputs",
+      "primary and independent fresh-context semantic, authority, parser, security and forward-state adversarial validation"
+    ],
+    "excluded_scope": [
+      "future IP-01 through IP-08 runtime implementations",
+      "production deployment, DNS, HTTPS, backup and restore systems"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "cycle 3 report @ e2381bca4336cabc32eed0eb10c39c983edd7b8c",
+      "result_path": "docs/feature/v0-1-project-management/pr-review-idea-trace-validation-1-53c2a4ff6786-cycle-3.json",
+      "result_sha256": "5a65f79bb1d32b360e043f143d5667361605c51df931cfe96ae1a9cd35055dde",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 1,
+      "reviewed_at": "2026-07-28T16:08:09Z",
+      "base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": [
+        "PRR-003",
+        "PRR-002",
+        "PRR-001"
+      ],
+      "blocking_finding_ids": [
+        "PRR-003"
+      ]
+    },
+    "delta_review": {
+      "previous_base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "previous_head_sha": "53c2a4ff6786d708b808fcd13d2dafd3ed083349",
+      "current_base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "current_head_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+      "triggers": [
+        "HEAD_CHANGED",
+        "EVIDENCE_CHANGED"
+      ],
+      "commit_range": "53c2a4ff6786d708b808fcd13d2dafd3ed083349..671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+      "commits_reviewed": [
+        "ffba01db31064a50d358a32a06788131c4fd1ca8",
+        "671649fb98d56cc11486e7329a4ecf19e3ec56e6"
+      ],
+      "changed_files": [
+        "docs/implementation-plans/v0-1/ip-01-foundation-contracts.md",
+        "docs/implementation-plans/v0-1/ip-02-idea-intake.md",
+        "docs/implementation-plans/v0-1/ip-03-execution-facts.md",
+        "docs/implementation-plans/v0-1/ip-04-conclusion-confirmation.md",
+        "docs/implementation-plans/v0-1/ip-05-structured-reporting.md",
+        "docs/implementation-plans/v0-1/ip-06-dual-role-web.md",
+        "docs/implementation-plans/v0-1/ip-07-ai-skill-demo.md",
+        "docs/implementation-plans/v0-1/ip-08-deployment-release.md"
+      ],
+      "reviewed_files": [
+        "docs/implementation-plans/v0-1/ip-01-foundation-contracts.md",
+        "docs/implementation-plans/v0-1/ip-02-idea-intake.md",
+        "docs/implementation-plans/v0-1/ip-03-execution-facts.md",
+        "docs/implementation-plans/v0-1/ip-04-conclusion-confirmation.md",
+        "docs/implementation-plans/v0-1/ip-05-structured-reporting.md",
+        "docs/implementation-plans/v0-1/ip-06-dual-role-web.md",
+        "docs/implementation-plans/v0-1/ip-07-ai-skill-demo.md",
+        "docs/implementation-plans/v0-1/ip-08-deployment-release.md"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "Two documentation commits normalize every acceptance/staleness divider and complete the immutable Review-result/ChangeRecord authority boundary across all eight plans.",
+      "evidence": "The exact previous-to-current delta, all eight current files, the complete 14-file base-to-head diff, remote refs and live PR endpoints were reconciled."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-003",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "All thirteen cycle-three semantic fixtures are now rejected, but primary and independent fresh-context passes found additional instances of the same fail-open fingerprint: hidden canonical structures, explicit Review-authority contradiction, forged acceptance summaries, placeholder Must gates, unsynchronized NextStep, embedded ledgers, common credential-key variants, unsafe output paths and link-target spoofing still receive PASS.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "The cycle-four 35-invalid plus two-error harness retains and passes every cycle-two regression at the exact current head.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "The cycle-four harness retains and passes every original governance and error-output regression at the exact current head.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Tracked eight-plan remediation delta",
+        "risk_triggers": [
+          "state-transition",
+          "data-integrity",
+          "public-contract"
+        ],
+        "reason": "The divider and Review-authority edits affect the canonical governance records in every independent plan.",
+        "affected_paths": [
+          "docs/implementation-plans/v0-1/ip-01-foundation-contracts.md",
+          "docs/implementation-plans/v0-1/ip-02-idea-intake.md",
+          "docs/implementation-plans/v0-1/ip-03-execution-facts.md",
+          "docs/implementation-plans/v0-1/ip-04-conclusion-confirmation.md",
+          "docs/implementation-plans/v0-1/ip-05-structured-reporting.md",
+          "docs/implementation-plans/v0-1/ip-06-dual-role-web.md",
+          "docs/implementation-plans/v0-1/ip-07-ai-skill-demo.md",
+          "docs/implementation-plans/v0-1/ip-08-deployment-release.md"
+        ],
+        "checks": [
+          "Inspect every changed row/schema and Review/AcceptanceOwner clause",
+          "Reconcile the complete base-to-head plan set and exact ownership maps",
+          "Run the current positive checker and all supplied negative regressions"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      },
+      {
+        "surface": "Semantic checker authorization boundary",
+        "risk_triggers": [
+          "trust-boundary",
+          "security-privacy",
+          "data-integrity",
+          "mutation-recovery",
+          "test-adequacy"
+        ],
+        "reason": "The external PASS envelope is the documented authorization gate and must reject semantically invalid or unsafe governance documents, not only the supplied mutations.",
+        "affected_paths": [
+          "docs/project-management.md",
+          "CHANGELOG.md",
+          "docs/feature/v0-1-project-management/implementation-plan.md",
+          "docs/implementation-plans/v0-1/ip-01-foundation-contracts.md",
+          "docs/implementation-plans/v0-1/ip-02-idea-intake.md",
+          "docs/implementation-plans/v0-1/ip-04-conclusion-confirmation.md",
+          "docs/feature/v0-1-project-plan/schemas/structured-report.v1.schema.json"
+        ],
+        "checks": [
+          "Hide canonical tables, trace blocks, transitions and Review boundaries in comments or code fences",
+          "Forge or duplicate acceptance summaries, replace a Must checklist with TBD and contradict a summary NextStep",
+          "Embed another ledger, spoof a portfolio target and assign credentials through common prefixed key names",
+          "Point output at a tracked input and mutation-test the supplied harness"
+        ],
+        "finding_ids": [
+          "PRR-003"
+        ],
+        "result": "FAIL"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "PASS",
+        "reviewer": "fresh-context exact-head governance and checker auditor",
+        "summary": "The independent pass reproduced byte-stable positive and 35-case stock evidence, kept the frozen head clean, and independently demonstrated eight invalid PASS bypasses, one unsafe output-path PASS and a harness mutation survivor."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "The tracked remediation is correct and every previously enumerated semantic fixture is closed, but PRR-003 remains open because the required checker still emits an authorization-grade 13/13 PASS for additional semantic governance, authority, parser, link, output-path and credential violations.",
+    "blocking_finding_ids": [
+      "PRR-003"
+    ]
+  },
+  "summary": "Cycle four validates the two-commit eight-plan remediation and reproduces the advertised positive result plus 35 invalid and two error regressions byte-for-byte. Complete primary and independent forward-risk passes nevertheless demonstrate additional instances of PRR-003's semantic fail-open fingerprint, so approval renewal remains withheld.",
+  "change_map": [
+    {
+      "area": "Tracked plan records",
+      "change": "All eight plans receive corrected acceptance/staleness dividers or complete immutable Review-result/ChangeRecord rejection language.",
+      "external_behavior": "The current documents now satisfy the exact cycle-three structural and authority cases.",
+      "risk": "Medium",
+      "validation": "Delta inspection, complete PR reconciliation, positive checker and supplied 35-case harness pass."
+    },
+    {
+      "area": "Checker and harness remediation",
+      "change": "The external checker now parses canonical ownership maps, sections, records, links and quoted assignments; the harness expands from 22 to 37 total cases.",
+      "external_behavior": "Every exact cycle-three fixture is rejected under its intended check.",
+      "risk": "High",
+      "validation": "Artifacts reproduce byte-identically at the exact routed head."
+    },
+    {
+      "area": "Remaining semantic authorization boundary",
+      "change": "Visibility, acceptance-summary/Must semantics, synchronized NextStep, embedded-ledger, credential-key, output-path and exact-link-target cases remain outside the effective model.",
+      "external_behavior": "Semantically invalid or unsafe content can still receive 13/13 PASS and a merge-authorizing digest.",
+      "risk": "High",
+      "validation": "Primary and independent adversarial fixtures fail the expected-rejection condition under PRR-003."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-003",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Checker still authorizes semantic governance and security violations",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 245,
+        "line_end": 310,
+        "symbol": "Automated checks and deterministic checker contract",
+        "side": "RIGHT",
+        "commit_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6"
+      },
+      "observation": "The checker closes every previously enumerated instance, but it still parses several mandatory surfaces from raw Markdown substrings or omits them entirely. Hidden canonical tables/transitions/authority text, forged acceptance summaries, placeholder Must gates, contradictory NextStep, embedded ledgers, common credential-key variants, output paths inside the repository and spoofed link targets can all evade the intended check.",
+      "trigger": "An invalid package preserves recognized raw tokens or the first canonical structure, places the authority structure in non-rendered Markdown, mutates an unparsed governance table/field, uses a common prefixed credential key, or points checker output at a tracked input.",
+      "impact": "The required checker returns exit 0, overall PASS, all 13 checks PASS and a reproducible digest for content that violates single-authority, acceptance, traceability, visibility and security contracts; a mis-invocation can also overwrite a tracked input after the clean check. The envelope therefore cannot authorize merge.",
+      "evidence": [
+        {
+          "kind": "spec",
+          "description": "PM-REQ-005 through PM-REQ-017, PM-AC-001 and PM-AC-006 through PM-AC-011, design sections 7 and 11, and implementation-plan lines 245-310 define the affected authority, parity, structure, link and secret gates.",
+          "reference": "docs/feature/v0-1-project-management/implementation-plan.md"
+        },
+        {
+          "kind": "test",
+          "description": "The exact-head positive result and supplied 35-invalid plus two-error summary reproduce byte-identically with SHA-256 a0dacaa60b48479aca0ce3d1a72d41c65e621a632e8429bd2360712e31758fae and 424e355dee72f0004fef61fcbca08b30169e3a282953e25feb3167f49bb281b7.",
+          "reference": "/private/tmp/v0-1-project-plan-negative-review-cycle4.json"
+        },
+        {
+          "kind": "reproduction",
+          "description": "The primary eight-fixture suite shows code-fence/comment-only canonical structures, summary NextStep contradiction, an embedded parallel ledger and a prefixed token assignment all receiving 13/13 PASS.",
+          "reference": "/private/tmp/cycle4-forward-risk-summary.json"
+        },
+        {
+          "kind": "reproduction",
+          "description": "The independent fresh-context audit demonstrates explicit Review-authority contradiction, forged/duplicate acceptance summaries, a TBD Must checklist, link and credential bypasses, unsafe output overwrite and a harness mutation survivor.",
+          "reference": "/private/tmp/cycle4-independent-audit.json"
+        }
+      ],
+      "remediation": "Build one visibility-aware, cardinality-aware parsed document model and validate canonical structures only from rendered content. Parse the acceptance summary and PlanId-bound Must checklist; compare summary NextStep with each plan; reject embedded secondary ledgers; canonicalize exact portfolio link targets; recognize common credential-key variants across all tracked text formats with redacted diagnostics; reject output paths inside the repository and recheck cleanliness after writing. Strengthen the harness with precise mutation-specific diagnostics and every reproduced case.",
+      "verification": "At a new exact live head, valid content must retain byte-stable 13/13 PASS. Every primary and independent invalid fixture must exit 1 with overall FAIL and the intended mutation-specific diagnostic without disclosing credential values; output-path misuse must emit ERROR without changing tracked files; deleting each detailed validator must make the harness fail; refreshed PR digests must bind the new artifacts before re-review.",
+      "status": "open",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "testing:v0-1-project-plans-checker:semantic-governance-security-fail-open"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Strengthened checker accepted mandatory contract violations as PASS",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 247,
+        "line_end": 330,
+        "symbol": "Automated checks and deterministic checker contract",
+        "side": "RIGHT",
+        "commit_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6"
+      },
+      "observation": "The checker continues to reject the exact file-directory, metadata, header-shadowing, REQ-028, Stale, reference-link, duplicate-summary, Review-authority and cleared-staleness cases specified in cycle two.",
+      "trigger": "Any cycle-two invalid fixture is supplied to the current checker.",
+      "impact": "The cycle-two false-positive classes remain closed.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The current 35-invalid plus two-error harness passes at the exact current head.",
+          "reference": "/private/tmp/v0-1-project-plan-negative-review-cycle4.json"
+        }
+      ],
+      "remediation": "Completed for the exact cycle-two finding.",
+      "verification": "Preserve these regressions while resolving PRR-003.",
+      "status": "resolved",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "testing:v0-1-project-plans-checker:remaining-contract-false-positives"
+    },
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Checker accepted governance violations while reporting all required checks as PASS",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 245,
+        "line_end": 330,
+        "symbol": "Deterministic checker contract",
+        "side": "RIGHT",
+        "commit_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6"
+      },
+      "observation": "The original acceptance-result, duplicate-ID, pointer/version, Review-authority, paired-staleness, alternate-ledger, secret/private/generated-artifact and error-output cases remain correctly rejected.",
+      "trigger": "Any original cycle-one invalid governance fixture or invocation/parser error is supplied.",
+      "impact": "The original false-positive and missing-error-output paths remain closed.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The cycle-four harness retains and passes every original fixture class.",
+          "reference": "/private/tmp/v0-1-project-plan-negative-review-cycle4.json"
+        }
+      ],
+      "remediation": "Completed for the exact cycle-one finding.",
+      "verification": "Preserve the original regressions while resolving PRR-003.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "testing:v0-1-project-plans-checker:false-positive-governance-gates"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-003",
+      "action": "Complete the semantic checker model and precise harness for every primary and independent case, regenerate exact-head evidence, refresh the PR envelope and request lifecycle re-review.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Preserve all cycle-two regression cases.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-001",
+      "action": "Preserve all original governance and error-output regression cases.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "High",
+      "description": "Common credential-key variants and non-Markdown source values can receive PASS, and an unsafe output path can overwrite a tracked input.",
+      "mitigation": "Resolve PRR-003 with repository-wide redacted scanning and output-path confinement.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "data-integrity",
+      "level": "High",
+      "description": "Hidden authority structures, forged acceptance summaries, placeholder Must gates and unsynchronized next steps can receive merge-authorizing evidence.",
+      "mitigation": "Use one visible parsed model with exact table, field and cross-document parity validation.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Low",
+      "description": "No runtime concurrency changed; governance recovery behavior remains documentation-only.",
+      "mitigation": "Validate runtime behavior within each later independent IP lifecycle.",
+      "owner": "future IP owners"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "None",
+      "description": "The change is documentation only.",
+      "mitigation": "No action required.",
+      "owner": null
+    },
+    {
+      "category": "api-compatibility",
+      "level": "None",
+      "description": "No runtime API, database schema or Skill protocol changed.",
+      "mitigation": "No action required.",
+      "owner": null
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "No deployment occurred; documentation and immutable review records are recoverable through Git history.",
+      "mitigation": "Use compensating commits and preserve review evidence.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "verify cycle-three report and JSON bytes at e2381bca4336cabc32eed0eb10c39c983edd7b8c",
+        "environment": "Git and SHA-256 on macOS",
+        "head_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Both prior artifacts match their recorded digests; prior JSON SHA-256 is 5a65f79bb1d32b360e043f143d5667361605c51df931cfe96ae1a9cd35055dde.",
+        "required_for_approval": true,
+        "evidence_ref": "e2381bca4336cabc32eed0eb10c39c983edd7b8c"
+      },
+      {
+        "command": "git diff --check 9259d884459dd36bde6c089c3a15b368c985b617..671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+        "environment": "Git on macOS; isolated exact-head review snapshot",
+        "head_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors; the two-commit eight-file delta and complete 14-file PR diff were reconciled with no unclassified change.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node validate-v0-1-project-plans.mjs --repo <isolated-review-root> --checked-commit 671649fb98d56cc11486e7329a4ecf19e3ec56e6 --output <review-output>",
+        "environment": "Node.js on macOS; clean exact-head isolated review snapshot",
+        "head_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Reproduced 13/13 PASS; output is byte-identical with SHA-256 a0dacaa60b48479aca0ce3d1a72d41c65e621a632e8429bd2360712e31758fae.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/v0-1-project-plan-check-cycle4-review.json"
+      },
+      {
+        "command": "node test-validate-v0-1-project-plans.mjs <isolated-review-root> <checker> <review-output>",
+        "environment": "Node.js on macOS; disposable committed fixtures",
+        "head_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 35 supplied invalid fixtures fail and both invocation/parser fixtures emit ERROR; summary is byte-identical with SHA-256 424e355dee72f0004fef61fcbca08b30169e3a282953e25feb3167f49bb281b7.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/v0-1-project-plan-negative-review-cycle4.json"
+      },
+      {
+        "command": "node /private/tmp/cycle4-forward-risk.mjs",
+        "environment": "Node.js on macOS; separate disposable committed clones",
+        "head_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "All eight primary invalid semantic fixtures incorrectly return exit 0, overall PASS and all 13 checks PASS.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/cycle4-forward-risk-summary.json"
+      },
+      {
+        "command": "independent fresh-context exact-head governance and checker audit",
+        "environment": "Node.js and Git on macOS; separate disposable committed clones",
+        "head_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "Independent audit reproduces stock evidence, then demonstrates eight invalid PASS bypasses, one unsafe output-path PASS and a mutation survivor; evidence SHA-256 fb1b339750593014016622734cc0a8c93bfac1d4ac762f2e0b973b08fae5e6cf.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/cycle4-independent-audit.json"
+      },
+      {
+        "command": "verify immutable cycle-four technical-plan approval at b4ef46c616cb7ddb559d560d5e75686dfcca9d80",
+        "environment": "Git and immutable review-record branch",
+        "head_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The exact 70db0b5341186fa6bafe14a16ce1f69b707d916c plan snapshot was approved before implementation; pre-review header text is snapshot context, not evidence of unauthorized implementation.",
+        "required_for_approval": true,
+        "evidence_ref": "b4ef46c616cb7ddb559d560d5e75686dfcca9d80"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "GitHub status checks",
+        "observed_at": "2026-07-28T17:01:20Z",
+        "head_sha": "671649fb98d56cc11486e7329a4ecf19e3ec56e6",
+        "status": "UNKNOWN",
+        "summary": "GitHub returned an empty status list.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/1"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Runtime unit, integration, browser and deployment tests",
+        "reason": "No runtime code changed; the approved plan assigns these checks to later independent IP lifecycles."
+      },
+      {
+        "check": "Production server, DNS, HTTPS, backup and restore validation",
+        "reason": "These require later IP-08 scope and separate external authorization."
+      }
+    ]
+  },
+  "limitations": [
+    "GitHub reported no status checks or check logs for the reviewed head.",
+    "The checker, harness and raw outputs are external task evidence rather than commit-bound tracked artifacts; they were inspected and reproduced during this review.",
+    "Future IP runtime behavior and deployment systems remain outside this documentation-only PR."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "The live PR VerificationEnvelope and supplied external checker, harness and outputs are Engineering Main's intended cycle-four evidence.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read the live PR body, compare exact-head fields, rerun the checker and harness and recompute artifact digests.",
+      "evidence": "CheckedCommit equals the request and live head; checker, harness, positive and negative-summary digests match the PR and reproduce byte-identically.",
+      "impact_if_false": "The review would be evaluating evidence that Main did not intend to authorize."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The exact plan snapshot used for implementation was approved despite retaining pre-review snapshot headers.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect the immutable cycle-four technical-plan review branch and exact approved commit/digest.",
+      "evidence": "Review commit b4ef46c616cb7ddb559d560d5e75686dfcca9d80 records PASS for plan commit 70db0b5341186fa6bafe14a16ce1f69b707d916c before feature implementation.",
+      "impact_if_false": "The implementation would have an independent plan-authorization defect in addition to the checker finding."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "Passing the supplied 35 invalid and two error cases is sufficient to establish the full semantic deterministic contract.",
+      "decision_critical": true,
+      "status": "FALSIFIED",
+      "method": "Compare all approved contract surfaces with the checker and run primary plus independent fresh-context adversarial and mutation fixtures.",
+      "evidence": "Additional invalid semantic and unsafe invocation fixtures still return PASS, and the stock harness survives removal of detailed acceptance-record validation.",
+      "impact_if_false": "The advertised evidence cannot authorize merge until the uncovered paths are implemented and tested."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
