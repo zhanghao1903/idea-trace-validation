@@ -10,6 +10,7 @@
 - LifecycleFeatureId: `Unassigned`
 - FeatureBranch: `Unassigned`
 - AcceptanceOwner: `Pending assignment`
+- LifecycleEvidence: `None`
 - ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
 - LatestAcceptanceRecordId: `None`
 - CurrentAcceptedRecordId: `None`

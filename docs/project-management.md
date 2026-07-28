@@ -115,6 +115,31 @@ Code Review 的 `REQUEST_CHANGES` 只引用 immutable Review result 并追加
 ChangeRecord，不创建验收 `Rejected` 记录。只有 `AcceptanceOwner` 的明确决定
 才能产生 `Accepted` 或 `Rejected` AcceptanceRecord。
 
+### Lifecycle authority evidence
+
+计划处于非 `Draft` 状态时，项目入口 `Evidence` 与独立计划
+`LifecycleEvidence` 必须指向同一个、由 40 字符 commit 固定的结构化 authority
+bundle：
+
+```text
+[authority bundle](https://github.com/zhanghao1903/idea-trace-validation/blob/<commit>/<path>.json)
+```
+
+bundle 必须把 PlanId/version、独立 lifecycle feature/branch 和
+AcceptanceOwner 绑定到精确 RequirementsHandoff、PASS 技术计划 Review，以及该
+状态转换的 source roles。进入 `In Progress` 后还必须绑定 GoalRun 和真实实现
+head；进入 `In Review` 后必须绑定独立 PR/head 与 required checks；进入
+`Accepted` 后还必须绑定精确 Code Review、外部 merge proof 和
+AcceptanceOwner 决定。所有引用 commit 必须在当前 Git 历史中可达，bundle 中的
+实现路径必须等于该实现 commit 的真实 diff；任意 actor/feature/branch 文本、
+通用 URL 或仅有 40 字符外观但不可达的 SHA 均不构成 authority。
+
+Main 必须比较 parent/head 状态。任何业务状态变化都只能使用上表允许的边，并由
+bundle 中精确 `from`/`to`、message ID、source roles、时间和原因授权。旧或新任一
+投影为 `Stale` 时业务状态必须保持不变；只允许同步/清除 staleness 的补偿动作。
+最新验收结果为 `Rejected` 时，状态只能恢复为 `In Progress` 或 `Blocked`，并
+绑定同一拒绝决定、失败 Must、恢复动作及需要的 BlockerRecord。
+
 ## 4. Synchronization and staleness
 
 范围、依赖、状态、门禁、证据、阻塞或下一步变化时，Main 必须在同一 Git 变更中：
