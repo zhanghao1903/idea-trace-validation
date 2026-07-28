@@ -6,7 +6,7 @@
 - Requirements: [requirements.md](./requirements.md)
 - Design: [design.md](./design.md)
 - Current phase: F3 / `PLAN_CHANGES_REQUESTED`
-- Prior review: cycle 2 `FAIL`, message `b0efdf9bb7fa2a94e12c104196f93c099e9eef9dcc10e7aee88e695fa3b183e0`
+- Prior review: cycle 3 `FAIL`, message `9a7ad93b44ac5c1d9009ddbe4e3b2578ca84520a7bf1d5928cf66d2d5476ca99`
 - Target outcome: 一份项目管理入口和八份独立实施计划
 - Updated: 2026-07-28
 
@@ -164,7 +164,7 @@ Rollback：
 文件：
 
 ```text
-None（验证只读取最终提交；运行证据保存在 lifecycle/PR，不回写被验证文档）
+None（验证只读取最终提交；运行证据保存在 PR 描述/任务证据，不回写被验证文档）
 ```
 
 工作：
@@ -178,16 +178,23 @@ None（验证只读取最终提交；运行证据保存在 lifecycle/PR，不回
    run-specific `CheckedCommit` 或 digest 回写到被检查的 tracked 文档。
 4. 推送精确 content commit，创建独立 PR；若 PR 创建或任何修订改变 head，必须
    对新 head 重新运行完整 checker。
-5. 在 PR 描述和 lifecycle `CodeReviewRequest` 中记录第 7 节
-   `VerificationEnvelope`，并让 request 的 head SHA 等于 `CheckedCommit`。
+5. 在 PR 描述的固定 `VerificationEnvelope` 区和当前任务证据中记录第 7 节
+   envelope；调用 lifecycle 时只使用受支持的 `CodeReviewRequest` 字段：
+   `pullRequest`、`reviewRecordBranch`、`mergePolicy` 和可选
+   `previousResultMessageId`，不得添加自定义 envelope 字段。
+6. 让 `CodeReviewRequest.pullRequest.headSha` 等于 `CheckedCommit`；要求 Review
+   从 PR 描述读取 envelope，核对 live PR head、request head、checked commit
+   与 digest，并把核验结果写入 immutable code-review report/result。
 
 门禁：
 
 - 所有自动检查通过；
 - 无秘密、临时文件、生成物或无关改动；
 - 项目入口与八份计划位于同一精确 head；
-- `VerificationEnvelope.CheckedCommit`、PR head 与 `CodeReviewRequest` head
-  三者相等，证据 digest 可复核；
+- `VerificationEnvelope.CheckedCommit`、live PR head 与
+  `CodeReviewRequest.pullRequest.headSha` 三者相等，证据 digest 可复核；
+- `CodeReviewRequest` 通过当前 exact-key schema 校验且不含自定义字段；
+- Review 的 immutable report 必须记录 envelope/head/digest 核验结论；
 - checker 通过后 tracked 文件无变化；任何变化都使旧证据失效并要求重跑；
 - Main 不自批或自合并。
 
@@ -323,7 +330,7 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 - JSON 不包含时间或绝对路径，因此相同 commit 的证据 digest 可复现。
 
 最终运行证据不写回仓库，而是以以下 `VerificationEnvelope` 固定格式写入 PR
-描述和 lifecycle `CodeReviewRequest`：
+描述的 `## VerificationEnvelope` 区和当前任务证据：
 
 ```text
 - CheckerContract: v0-1-project-plans/1
@@ -335,10 +342,15 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 - DeferredChecks: <list or None>
 ```
 
-`CheckedCommit` 必须等于最终 PR head 和 `CodeReviewRequest` head。checker
-运行后不得修改 tracked 文件；若修改、追加 proof commit 或 PR 修订产生新 head，
-旧 envelope 立即失效，必须对新 head 重新运行并替换外部 envelope。这样 checker
-直接绑定最终 head，不产生“文档包含自身 commit/digest”的循环依赖。
+`CodeReviewRequest` 不复制 envelope，只通过现有
+`pullRequest.headSha` 字段绑定同一精确提交。Review 必须从 PR 描述读取 envelope，
+验证 `CheckedCommit` 等于 request head 与 live PR head、重新计算或核对
+`EvidenceSha256`，并把结果写入 immutable code-review report/result。
+
+checker 运行后不得修改 tracked 文件；若修改、追加 proof commit 或 PR 修订产生
+新 head，旧 envelope 立即失效，必须对新 head 重新运行、替换 PR 描述中的 envelope，
+再生成或更新 lifecycle request。这样 checker 直接绑定最终 head，不产生“文档包含
+自身 commit/digest”的循环依赖，也不扩展 lifecycle schema。
 
 另外精确运行：
 
@@ -409,7 +421,8 @@ git status --short
 实现阶段：
 
 - F4 文档实现、入口与 Changelog 变更为最终 scoped content commit；
-- F5 不创建 tracked proof commit；checker 绑定 F4，证据外置到 PR 与 lifecycle；
+- F5 不创建 tracked proof commit；checker 绑定 F4，envelope 外置到 PR 描述和任务
+  证据，lifecycle request 只绑定同一 head；
 - F6 如需文档或 PR-head 修订则创建新 scoped commit，并对新 head 重跑 checker；
 - 每个完成阶段均推送，不 amend 已获 authority 的 snapshot。
 
