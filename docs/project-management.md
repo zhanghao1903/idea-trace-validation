@@ -141,9 +141,11 @@ AcceptanceOwner 绑定到精确 RequirementsHandoff、PASS 技术计划 Review�
 必须先取得 durable `APPROVE`/`READY` CodeReviewResult，再取得同一 request/head
 的 durable `APPROVE`/`MERGED` observation，并与 GitHub merge event、配置的 merge
 method、merge commit 文件以及 `AcceptanceOwner` 本人的 `APPROVED` GitHub PR
-review 完全一致。`READY`/`MERGED` 是 merge 状态，不是 CodeReview decision。
+review 完全一致；因此分配 `AcceptanceOwner` 时必须填写可由 GitHub API 精确解析的
+login。`READY`/`MERGED` 是 merge 状态，不是 CodeReview decision。
 所有引用 commit 必须在当前 Git 历史中可达，bundle 中的实现路径必须等于该实现
-commit 与 live PR 的真实 diff；任意 actor/feature/branch 文本、通用 URL、
+head 相对 PASS plan commit 的完整 Git diff，并等于 live PR 文件集；任意
+actor/feature/branch 文本、通用 URL、
 自造 64 字符 message ID、仅有 SHA 外观的 commit 或 repository-authored JSON
 均不构成 authority。
 

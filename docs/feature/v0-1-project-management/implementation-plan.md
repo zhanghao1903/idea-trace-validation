@@ -313,7 +313,8 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 9. 对 In Review/Accepted 解析 live PR/base/head/files、branch protection 的完整
    required-check 集合及对应 check/status result；Accepted 只接受 durable
    `APPROVE`/`READY` 加独立 `APPROVE`/`MERGED`，再核对 live merge commit/method
-   与 AcceptanceOwner 的 `APPROVED` GitHub review；
+   与 AcceptanceOwner 的 `APPROVED` GitHub review；实现文件集取 PASS plan
+   commit 到实现 head 的完整 Git range diff，并与 live PR files 完全相等；
 10. 校验 StalenessRecord 成对投影；
 11. 解析相对链接并验证目标存在；
 12. 按 CommonMark fence marker 与 opening delimiter length 解析 rendered
