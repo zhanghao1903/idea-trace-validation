@@ -1,14 +1,17 @@
 # Technical Design: v0.1 可独立验收实施计划拆分与管理
 
-- Status: Proposed F2 Design
+- Status: `Approved F2 Design`
 - FeatureId: `v0-1-project-management-6f4b1a2d9c07`
 - Branch: `codex/v0-1-project-management`
 - Requirements: [requirements.md](./requirements.md)
-- Requirements commit: `b4f9a802744431c5ef424787b363c08a24d64d5b`
-- Requirements SHA-256: `9ca2a55d914d614c9c3d85772a041cbffdd2318407c99db38b6214ff14e51bdc`
-- Current lifecycle stage: `PLAN_CHANGES_REQUESTED`
-- Prior review: cycle 3 `FAIL`, message `9a7ad93b44ac5c1d9009ddbe4e3b2578ca84520a7bf1d5928cf66d2d5476ca99`
-- Updated: 2026-07-28
+- RequirementsCommit: `b4f9a802744431c5ef424787b363c08a24d64d5b`
+- RequirementsSha256: `9ca2a55d914d614c9c3d85772a041cbffdd2318407c99db38b6214ff14e51bdc`
+- PlanApprovalCycle: `4`
+- PlanApprovalDecision: `PASS`
+- ApprovedPlanCommit: `70db0b5341186fa6bafe14a16ce1f69b707d916c`
+- ApprovedCompositeSha256: `5bc63c9c6c0265c212abf1784258b8adb00761ab212b028952ccdd5392a75a10`
+- PlanApprovalMessageId: `fcb9ab574f4244ab266df7d928215a4b62b84c3e584a19144e58d6a9b90bef1d`
+- UpdatedAt: `2026-07-29T13:27:59Z`
 
 ## 1. Background
 

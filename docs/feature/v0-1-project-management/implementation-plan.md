@@ -1,14 +1,18 @@
 # Implementation Plan: v0.1 可独立验收实施计划拆分与管理
 
-- Feature directory: `docs/feature/v0-1-project-management/`
+- FeatureDirectory: `docs/feature/v0-1-project-management/`
 - FeatureId: `v0-1-project-management-6f4b1a2d9c07`
 - Branch: `codex/v0-1-project-management`
 - Requirements: [requirements.md](./requirements.md)
 - Design: [design.md](./design.md)
-- Current phase: F3 / `PLAN_CHANGES_REQUESTED`
-- Prior review: cycle 3 `FAIL`, message `9a7ad93b44ac5c1d9009ddbe4e3b2578ca84520a7bf1d5928cf66d2d5476ca99`
-- Target outcome: 一份项目管理入口和八份独立实施计划
-- Updated: 2026-07-28
+- Status: `Approved F3 Implementation Plan`
+- PlanApprovalCycle: `4`
+- PlanApprovalDecision: `PASS`
+- ApprovedPlanCommit: `70db0b5341186fa6bafe14a16ce1f69b707d916c`
+- ApprovedCompositeSha256: `5bc63c9c6c0265c212abf1784258b8adb00761ab212b028952ccdd5392a75a10`
+- PlanApprovalMessageId: `fcb9ab574f4244ab266df7d928215a4b62b84c3e584a19144e58d6a9b90bef1d`
+- TargetOutcome: 一份项目管理入口和八份独立实施计划
+- UpdatedAt: `2026-07-29T13:27:59Z`
 
 ## 1. Scope
 
@@ -285,10 +289,16 @@ node /private/tmp/validate-v0-1-project-plans.mjs
   `Draft` 时，checker 还必须自动定位与当前 Git common-dir 和 repository key
   同时匹配的 Codex canonical lifecycle config schema 1 / state schema 2，并通过
   `gh api` 读取该投影引用的 live GitHub authority；读取缺失或冲突即失败；
-- canonical Codex root 必须复用 workflowctl 语义：环境中存在 `CODEX_HOME` 时
+- canonical lifecycle state root 必须复用 workflowctl 语义：环境中存在 `CODEX_HOME` 时
   使用其用户展开（含字面 `~`）、规范化后的目录，否则使用当前用户 home 下的
-  `.codex`。不得固定到开发者 home；默认、隔离、等价绝对路径和 literal-tilde
+  `.codex`。state root 不得固定到开发者 home；默认、隔离、等价绝对路径和 literal-tilde
   root 必须由未修改的生产 checker 得到相同结论与 authority digest；
+- canonical validator 必须来自操作系统账户 home 下启用的
+  `codex-engineering-lifecycle@my-skills` 插件元数据，只接受一个 manifest 名称、
+  目录版本和 manifest version 一致、无 symlink/hardlink 的 `workflowctl.py`；
+  不能从 `CODEX_HOME`、仓库或命令行寻找 validator。零个、多个、manifest 不一致
+  或不受支持的候选均 fail closed；authority observation 必须记录与路径无关的
+  validator version、manifest SHA-256 和 workflowctl SHA-256；
 - 生产命令只接受 `--repo`、`--checked-commit`、`--output`，不得接受 lifecycle
   root/state/config 覆盖；fixture authority 只能由 negative harness 从同一源码生成
   独立 test build，并在构建时固定单一 state 路径，不能由生产 CLI 调用者提供；
@@ -305,7 +315,9 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 
 确定性算法：
 
-1. 校验精确目标文件集和八个 PlanId/文件名映射；
+1. 校验受管 Markdown 清单、项目入口和八个 PlanId/文件名映射；只冻结
+   `CHANGELOG.md` 与 `docs/` 受管文档面，不把普通 `src/`、`tests/` 或其他
+   运行时代码当作意外目标；
 2. 校验固定元数据、十四个章节、受控 `Status` 和 `ProjectionState`；
 3. 用 Kahn 算法验证依赖 ID 与 DAG，并与项目入口逐字段比较；
 4. 从 primary trace 表统计 REQ-001–027、Slice 0–9 各恰好一次，REQ-028
@@ -331,9 +343,10 @@ node /private/tmp/validate-v0-1-project-plans.mjs
    workflowctl state/config 不变量：精确 key 集和 UTC 时间、feature artifact/
    stage 门禁、plan/PR/code-result presence、GoalRun shape/history、唯一
    activeGoal、developmentQueue 与 dispatch status/timestamp/payload ledger。
-   checker 必须只读加载当前安装的 workflowctl module，以仓库身份调用其
+   checker 必须从启用插件元数据只读加载唯一 workflowctl module，以仓库身份调用其
    `validate_config` / `validate_state`；本地 path/inode/消息防御与 canonical
-   validator 同时通过才可接受，validator 缺失或异常一律 fail closed；
+   validator 同时通过才可接受，validator 缺失、歧义或异常一律 fail closed，
+   并把 validator version、manifest digest 与 module digest 纳入 authority digest；
 9. defer/reopen/recovery 统一解析 GitHub OWNER 的未编辑结构化决定，不使用虚构的
    lifecycle message。`authorityRole=requirements` 必须绑定同一 feature 的 durable
    RequirementsHandoff，`authorityRole=user` 不得伪造 requirements message；
@@ -435,7 +448,10 @@ negative harness 必须保留全部既有回归，并额外证明：
   message FAIL；
 - 未修改的生产 checker 在默认 `HOME/.codex`、隔离绝对 `CODEX_HOME` 与
   `CODEX_HOME=~/...` 中都能解析同一 workflowctl-valid Ready fixture，并产生相同
-  authority snapshot；
+  authority snapshot；上述 root 中注入的 validator 不得改变结论；
+- 单候选 test build 必须绑定 validator version/manifest/module digest，等价 state
+  在 validator identity 改变时 authority digest 必须改变；零候选、多候选、
+  manifest/version 不一致均 fail closed；
 - 从 workflowctl-generated state 逐类变异 requirements/plan artifact、
   composite/commit binding、stage gate、GoalRun、activeGoal、developmentQueue、
   dispatch payload/timestamp、config identity/task uniqueness 与 exact keys；
@@ -443,6 +459,9 @@ negative harness 必须保留全部既有回归，并额外证明：
 - 结构化数组、对象、跨行、flow-style object、复数 `apiKeys` container、嵌套
   `api.key` / `database.url`、JSON Unicode escaped key，以及 source-like assignment
   中任意 offset 的 embedded flow plural-container 被拒绝且诊断不包含值；
+  source key 与冒号之间的合法 block comment 只作为 trivia，不能改变敏感键身份；
+- production-shaped non-Draft 正向 fixture 必须保留普通 source/test 文件并 PASS，
+  同时额外受管 Markdown、第二状态台账、生成物和第九份 IP 计划仍 FAIL；
 - 七种状态和十六条边均有端到端 PASS，批准设计中的 user/Requirements route
   都被覆盖；wrong-role、role swap、wrong-edge、wrong source/target stage、
   Stale 与 missing immutable recovery 均有端到端 FAIL；

@@ -6,6 +6,11 @@
 - ManagementFeatureId: `v0-1-project-management-6f4b1a2d9c07`
 - ManagementBranch: `codex/v0-1-project-management`
 - ReviewRejectionRecord: `ImmutableReviewResult+ChangeRecord;NoRejectedAcceptanceRecord`
+- PlanApprovalCycle: `4`
+- PlanApprovalDecision: `PASS`
+- ApprovedPlanCommit: `70db0b5341186fa6bafe14a16ce1f69b707d916c`
+- ApprovedCompositeSha256: `5bc63c9c6c0265c212abf1784258b8adb00761ab212b028952ccdd5392a75a10`
+- PlanApprovalMessageId: `fcb9ab574f4244ab266df7d928215a4b62b84c3e584a19144e58d6a9b90bef1d`
 - RequirementsAuthority: [confirmed project-management requirements](./feature/v0-1-project-management/requirements.md)
 - ApprovedDesign: [technical design](./feature/v0-1-project-management/design.md)
 - ApprovedImplementationPlan: [implementation plan](./feature/v0-1-project-management/implementation-plan.md)
@@ -132,15 +137,18 @@ Git common-dir 对应的 Codex canonical lifecycle `config.json` schema 1 与
 message 只接受 workflowctl 支持的 `RequirementsHandoff`、
 `TechnicalPlanReviewRequest` / `TechnicalPlanReviewResult`、
 `CodeReviewRequest` / `CodeReviewResult`；未知类型一律使 canonical context
-失效。canonical root 必须与 workflowctl 一致：环境中存在 `CODEX_HOME` 时使用其
+失效。canonical state root 必须与 workflowctl 一致：环境中存在 `CODEX_HOME` 时使用其
 用户展开（包括字面 `~`）并规范化后的目录，否则使用当前用户 home 下的 `.codex`；
-不得固定到某个用户 home。config/state 必须满足完整 workflowctl 不变量，包括精确 key 集、严格 UTC
+state root 不得固定到某个用户 home。config/state 必须满足完整 workflowctl 不变量，包括精确 key 集、严格 UTC
 时间、feature/plan/PR 阶段门禁、GoalRun history、唯一 activeGoal、
 developmentQueue 和 dispatch ledger/payload digest；仅有 schemaVersion 与浅层
-feature/stage 不构成 authority。生产 checker 必须只读调用当前安装的 workflowctl
+feature/stage 不构成 authority。生产 checker 必须从操作系统账户 home 中启用的
+`codex-engineering-lifecycle@my-skills` 插件元数据解析唯一 validator，只读调用 workflowctl
 `validate_config` / `validate_state`，并把本地防御校验与 canonical validator
-取交集；validator 不可发现、不可执行或拒绝任一 nested artifact/cross-field
-状态时均 fail closed，不得复制一个更宽松的浅层替代实现。checker 同时从 GitHub API 解析精确
+取交集；validator version、manifest digest 与 module digest 必须进入 authority
+snapshot，`CODEX_HOME`、仓库或 CLI 不能覆盖 validator。validator 缺失、歧义、
+不可执行或拒绝任一 nested artifact/cross-field 状态时均 fail closed，不得复制一个
+更宽松的浅层替代实现。checker 同时从 GitHub API 解析精确
 PR/base/head、PR 文件、仓库 required-check 集合、check result、merge event、
 merge commit 和验收 review；缺少任一外部读取、引用不存在或投影不一致时一律
 fail closed。生产运行不得通过仓库内文件或命令行覆盖 canonical lifecycle root；

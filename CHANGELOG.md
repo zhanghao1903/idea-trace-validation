@@ -23,3 +23,7 @@
 - Scan balanced flow-style containers at any syntactic offset, including source-like assignments that embed plural credential containers.
 - Resolve literal-tilde `CODEX_HOME` exactly like workflowctl and verify equivalent absolute, default, isolated, and tilde roots.
 - Reuse the installed workflowctl config/state validators read-only and require every workflowctl-invalid nested artifact or cross-field differential mutation to fail closed.
+- Bind lifecycle validation to the single enabled Engineering Lifecycle package manifest and workflowctl digest, rejecting ambiguous validators and CODEX_HOME-injected implementations.
+- Keep the managed documentation set and eight plan filenames exact while allowing ordinary source and test files to coexist in the repository.
+- Make the Cycle 4 approved plan commit, composite digest, decision, and message identity executable cross-document metadata shared by design, implementation plan, and project management.
+- Treat source-language comments as trivia while classifying structured credential keys, so commented keys cannot evade value-redacted secret detection.
