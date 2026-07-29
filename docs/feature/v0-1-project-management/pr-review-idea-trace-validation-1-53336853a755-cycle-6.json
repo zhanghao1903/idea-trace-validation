@@ -1,0 +1,549 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 1,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/1",
+    "title": "docs: split v0.1 into independently managed plans",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+    "head_ref": "codex/v0-1-project-management",
+    "head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+    "reviewed_at": "2026-07-29T01:21:16Z",
+    "reviewer": "Codex Engineering Review / PR Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete 9259d884459dd36bde6c089c3a15b368c985b617..53336853a7555e11ab3ac07ff6556091420772bb documentation diff",
+      "cycle-five finding closure across the one-commit ten-file remediation delta",
+      "cycle-six PR VerificationEnvelope, checker, 102-case harness and exact-head outputs",
+      "primary and independent fresh-context authority, security, evidence-integrity and rendered-content validation"
+    ],
+    "excluded_scope": [
+      "future IP-01 through IP-08 runtime implementations",
+      "production deployment, DNS, HTTPS, backup and restore systems"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "cycle 5 report @ 564b9a2fd39002cbe0960b83a72cc7bfe19cb69a",
+      "result_path": "docs/feature/v0-1-project-management/pr-review-idea-trace-validation-1-695a13c3f210-cycle-5.json",
+      "result_sha256": "e0a07266c759f435c5abb875652169cfba38754d8c083727f404d7ecc6d2a092",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 1,
+      "reviewed_at": "2026-07-28T18:15:03Z",
+      "base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "head_sha": "695a13c3f210088accd2d6a9bf835242d95d1546",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": [
+        "PRR-003",
+        "PRR-002",
+        "PRR-001"
+      ],
+      "blocking_finding_ids": [
+        "PRR-003"
+      ]
+    },
+    "delta_review": {
+      "previous_base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "previous_head_sha": "695a13c3f210088accd2d6a9bf835242d95d1546",
+      "current_base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "current_head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+      "triggers": [
+        "HEAD_CHANGED",
+        "EVIDENCE_CHANGED"
+      ],
+      "commit_range": "695a13c3f210088accd2d6a9bf835242d95d1546..53336853a7555e11ab3ac07ff6556091420772bb",
+      "commits_reviewed": [
+        "53336853a7555e11ab3ac07ff6556091420772bb"
+      ],
+      "changed_files": [
+        "CHANGELOG.md",
+        "docs/implementation-plans/v0-1/ip-01-foundation-contracts.md",
+        "docs/implementation-plans/v0-1/ip-02-idea-intake.md",
+        "docs/implementation-plans/v0-1/ip-03-execution-facts.md",
+        "docs/implementation-plans/v0-1/ip-04-conclusion-confirmation.md",
+        "docs/implementation-plans/v0-1/ip-05-structured-reporting.md",
+        "docs/implementation-plans/v0-1/ip-06-dual-role-web.md",
+        "docs/implementation-plans/v0-1/ip-07-ai-skill-demo.md",
+        "docs/implementation-plans/v0-1/ip-08-deployment-release.md",
+        "docs/project-management.md"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "docs/implementation-plans/v0-1/ip-01-foundation-contracts.md",
+        "docs/implementation-plans/v0-1/ip-02-idea-intake.md",
+        "docs/implementation-plans/v0-1/ip-03-execution-facts.md",
+        "docs/implementation-plans/v0-1/ip-04-conclusion-confirmation.md",
+        "docs/implementation-plans/v0-1/ip-05-structured-reporting.md",
+        "docs/implementation-plans/v0-1/ip-06-dual-role-web.md",
+        "docs/implementation-plans/v0-1/ip-07-ai-skill-demo.md",
+        "docs/implementation-plans/v0-1/ip-08-deployment-release.md",
+        "docs/project-management.md"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "One documentation commit adds LifecycleEvidence=None to all eight Draft plans, documents a commit-fixed lifecycle authority-bundle contract in the project ledger and records the remediation in the changelog.",
+      "evidence": "The exact previous-to-current delta is 34 insertions across ten files. Every changed document, the complete 14-file base-to-head diff, remote refs and live PR identity were reconciled; git diff --check passes."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-003",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "The cycle-six harness rejects all previously enumerated cycle-five fixtures, but the same semantic-governance-security fail-open remains. The checker accepts a repository-authored authority bundle containing fabricated lifecycle message IDs, nonexistent PR/check URLs and an ordinary one-parent empty commit as external merge proof; it also accepts a canonical table hidden by a shorter fence inside a longer CommonMark fence and an AWS_ACCESS_KEY_ID assignment.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "The cycle-six 102-case harness retains and passes every cycle-two regression at the exact current head.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "The cycle-six harness retains and passes every original governance and error-output regression at the exact current head.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Tracked lifecycle-authority contract remediation",
+        "risk_triggers": [
+          "public-contract",
+          "state-transition",
+          "data-integrity"
+        ],
+        "reason": "The delta introduces the documented authority contract and its Draft-state projection across the project ledger, all eight plans and the changelog.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "docs/project-management.md",
+          "docs/implementation-plans/v0-1/ip-01-foundation-contracts.md",
+          "docs/implementation-plans/v0-1/ip-02-idea-intake.md",
+          "docs/implementation-plans/v0-1/ip-03-execution-facts.md",
+          "docs/implementation-plans/v0-1/ip-04-conclusion-confirmation.md",
+          "docs/implementation-plans/v0-1/ip-05-structured-reporting.md",
+          "docs/implementation-plans/v0-1/ip-06-dual-role-web.md",
+          "docs/implementation-plans/v0-1/ip-07-ai-skill-demo.md",
+          "docs/implementation-plans/v0-1/ip-08-deployment-release.md"
+        ],
+        "checks": [
+          "Inspect every inserted LifecycleEvidence projection",
+          "Compare the authority contract to the approved requirements, design and implementation plan",
+          "Reconcile the full base-to-head plan set and rerun exact-head evidence"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      },
+      {
+        "surface": "Semantic checker authorization boundary",
+        "risk_triggers": [
+          "trust-boundary",
+          "security-privacy",
+          "data-integrity",
+          "mutation-recovery",
+          "test-adequacy"
+        ],
+        "reason": "The external PASS envelope is the documented authorization gate and must prove that state-changing authority resolves to durable lifecycle and GitHub facts while rejecting non-rendered structures and secrets.",
+        "affected_paths": [
+          "docs/project-management.md",
+          "CHANGELOG.md",
+          "docs/feature/v0-1-project-management/implementation-plan.md",
+          "docs/implementation-plans/v0-1/ip-01-foundation-contracts.md"
+        ],
+        "checks": [
+          "Resolve the harness Accepted fixture's PR and check URLs through GitHub",
+          "Inspect the fixture merge commit topology and changed paths",
+          "Compare every bundle field to the checker's durable authority resolution",
+          "Place a canonical table inside a four-backtick fence containing shorter three-backtick lines",
+          "Assign a production-shaped value through AWS_ACCESS_KEY_ID",
+          "Run a separate fresh-context exact-head authority and security audit"
+        ],
+        "finding_ids": [
+          "PRR-003"
+        ],
+        "result": "FAIL"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "FAIL",
+        "reviewer": "fresh-context exact-head authority and checker auditor",
+        "summary": "The independent pass reproduced the exact stock evidence and confirmed that self-authored bundle fields are not resolved to durable lifecycle or GitHub authority. Its fabricated Accepted fixture used an empty one-parent commit as merge proof and still received PASS. Evidence SHA-256: 91c89b1da1cafc19aaff6bf6d9d2bfabd3af490a77a3eaed83752cb6af4797da."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "The tracked authority-contract remediation is internally consistent and the expanded stock suite closes the previously enumerated cases, but PRR-003 remains open because the checker still emits authorization-grade PASS evidence for forged lifecycle/GitHub authority, a non-merge commit presented as external merge proof, non-rendered canonical content and an exposed AWS access-key assignment.",
+    "blocking_finding_ids": [
+      "PRR-003"
+    ]
+  },
+  "summary": "Cycle six validates the one-commit ten-file remediation and reproduces the advertised positive result plus all 102 harness cases. Primary and independent forward-risk passes retain the same PRR-003 fail-open fingerprint, so approval renewal remains withheld.",
+  "change_map": [
+    {
+      "area": "Tracked lifecycle projections",
+      "change": "Every Draft plan adds LifecycleEvidence=None and the project ledger documents the commit-fixed authority-bundle contract.",
+      "external_behavior": "The documents now specify exact lifecycle, PR, check, Review, merge and acceptance evidence for non-Draft state.",
+      "risk": "Medium",
+      "validation": "One-commit delta inspection, complete PR reconciliation and stock regression suite pass."
+    },
+    {
+      "area": "Checker and harness remediation",
+      "change": "The external checker adds JSON authority-bundle parsing and further rendered-content/secret validation; the harness expands to 102 cases.",
+      "external_behavior": "All previously enumerated cycle-five cases are rejected and eleven mutants are killed.",
+      "risk": "High",
+      "validation": "Artifacts and outputs reproduce at the exact routed head."
+    },
+    {
+      "area": "Remaining authorization boundary",
+      "change": "Authority bundle fields are shape-checked against repository-authored JSON but not resolved against durable lifecycle or GitHub; fence length and AWS access-key detection are also incomplete.",
+      "external_behavior": "A forged Accepted state, non-rendered canonical table and committed access-key assignment can all receive 13/13 PASS.",
+      "risk": "High",
+      "validation": "Three primary invalid committed fixtures return exit 0, overall PASS and no failed checks."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-003",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Checker still authorizes forged lifecycle evidence and unsafe content",
+      "location": {
+        "path": "docs/project-management.md",
+        "line_start": 118,
+        "line_end": 139,
+        "symbol": "Lifecycle authority evidence",
+        "side": "RIGHT",
+        "commit_sha": "53336853a7555e11ab3ac07ff6556091420772bb"
+      },
+      "observation": "The new contract requires exact durable lifecycle, Git/PR/Review, required-check, external-merge and acceptance authority. The checker instead reads repository-authored JSON and validates field shapes, syntax and reachability. It does not resolve 64-hex message IDs against lifecycle state, query the referenced PR/checks, prove an external merge, or authenticate the asserted acceptance actor. Its own valid Accepted harness fixture uses repeated-digit message IDs, nonexistent PR #42 and Actions run 4242, and an ordinary one-parent empty commit authored by the fixture as merge proof; it still returns PASS. Separately, renderedMarkdown closes a four-backtick fence on a shorter three-backtick line because it stores only the marker character, and the secret regex does not recognize AWS_ACCESS_KEY_ID.",
+      "trigger": "A repository contributor commits a syntactically valid authority bundle containing self-asserted lifecycle/GitHub/acceptance facts, hides canonical content behind a longer CommonMark fence containing a shorter fence, or assigns a production-shaped AWS access key.",
+      "impact": "Each invalid committed snapshot returns exit 0, overall PASS and all 13 checks PASS. The advertised evidence can therefore authorize an Accepted plan without any real Requirements, Review, PR, checks, merge or AcceptanceOwner decision, treat non-rendered records as canonical, or permit a committed production credential. Downstream dependency gates may then trust a forged Accepted state.",
+      "evidence": [
+        {
+          "kind": "spec",
+          "description": "The tracked contract states that status changes require exact durable lifecycle, Git/PR/Review and acceptance evidence; arbitrary text, generic URLs and merely well-shaped SHAs are not authority.",
+          "reference": "docs/project-management.md"
+        },
+        {
+          "kind": "code",
+          "description": "validateAuthorityBundle accepts any 64-hex messageId, syntactic PR/check URLs and any reachable commit as merge proof; it never queries durable lifecycle or GitHub and accepts CodeReview decisions APPROVE, READY or MERGED.",
+          "reference": "/private/tmp/validate-v0-1-project-plans.mjs"
+        },
+        {
+          "kind": "test",
+          "description": "The exact-head positive result and supplied 102-case summary reproduce with SHA-256 0c00e95d679538e7aece7080e1cedab2b657eb58144c68a0693f85d0bd167a8c and 6529ddcba2516d3c8e3583491fafb931075cc468c93ab773dc9467869ad53a5b.",
+          "reference": "/private/tmp/cycle6-negative-review.json"
+        },
+        {
+          "kind": "reproduction",
+          "description": "The primary suite shows the self-asserted Accepted authority fixture, shorter-fence closure and AWS_ACCESS_KEY_ID assignment all receiving 13/13 PASS; summary SHA-256 is 9d1963515c704cb8ec23d112d3fdf492b755936de25d8895a7e6aa5614168170.",
+          "reference": "/private/tmp/cycle6-forward-risk-summary.json"
+        },
+        {
+          "kind": "reproduction",
+          "description": "Read-only GitHub API probes return 404 for the supposedly valid fixture PR #42 and Actions run 4242; git inspection proves the supplied merge proof is an ordinary one-parent empty commit.",
+          "reference": "https://github.com/zhanghao1903/idea-trace-validation/pull/42"
+        },
+        {
+          "kind": "reproduction",
+          "description": "A separate fresh-context pass reproduced the authority failure without reading prior findings; evidence SHA-256 is 91c89b1da1cafc19aaff6bf6d9d2bfabd3af490a77a3eaed83752cb6af4797da.",
+          "reference": "/private/tmp/cycle6-independent-audit.json"
+        }
+      ],
+      "remediation": "Resolve every bundle reference against authoritative state rather than trusting repository-authored assertions: load exact durable lifecycle messages and role routing, query the exact PR/head and required checks, require an externally observed merge whose canonical proof contains the reviewed implementation head, and bind the actual AcceptanceOwner decision. Accept only APPROVE as the CodeReviewResult decision before review-only READY/MERGED workflow proof. Implement CommonMark-equivalent fence delimiter handling and detect AWS_ACCESS_KEY_ID plus equivalent terminal credential names with redacted diagnostics. Add each reproduction as an expected failure rather than a valid future state.",
+      "verification": "At a new exact live head, valid Draft content must retain deterministic 13/13 PASS. A valid non-Draft fixture must be built from real durable lifecycle and GitHub evidence. The forged Accepted fixture, nonexistent PR/check references, non-merge commit, shorter-fence case and AWS_ACCESS_KEY_ID assignment must each exit 1 under their intended check without revealing credential values; refreshed PR digests must bind the new artifacts before re-review.",
+      "status": "open",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "testing:v0-1-project-plans-checker:semantic-governance-security-fail-open"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Strengthened checker accepted mandatory contract violations as PASS",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 247,
+        "line_end": 330,
+        "symbol": "Automated checks and deterministic checker contract",
+        "side": "RIGHT",
+        "commit_sha": "53336853a7555e11ab3ac07ff6556091420772bb"
+      },
+      "observation": "The checker continues to reject every cycle-two file-directory, metadata, ownership, transition, link, summary, authority and staleness case.",
+      "trigger": "Any cycle-two invalid fixture is supplied to the current checker.",
+      "impact": "The cycle-two false-positive classes remain closed.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The current 102-case harness passes at the exact current head.",
+          "reference": "/private/tmp/cycle6-negative-review.json"
+        }
+      ],
+      "remediation": "Completed for the exact cycle-two finding.",
+      "verification": "Preserve these regressions while resolving PRR-003.",
+      "status": "resolved",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "testing:v0-1-project-plans-checker:remaining-contract-false-positives"
+    },
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Checker accepted governance violations while reporting all required checks as PASS",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 245,
+        "line_end": 330,
+        "symbol": "Deterministic checker contract",
+        "side": "RIGHT",
+        "commit_sha": "53336853a7555e11ab3ac07ff6556091420772bb"
+      },
+      "observation": "The original acceptance-result, duplicate-ID, pointer/version, Review-authority, paired-staleness, alternate-ledger, secret/private/generated-artifact and error-output cases remain correctly rejected.",
+      "trigger": "Any original cycle-one invalid governance fixture or invocation/parser error is supplied.",
+      "impact": "The original false-positive and missing-error-output paths remain closed.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The cycle-six harness retains and passes every original fixture class.",
+          "reference": "/private/tmp/cycle6-negative-review.json"
+        }
+      ],
+      "remediation": "Completed for the exact cycle-one finding.",
+      "verification": "Preserve the original regressions while resolving PRR-003.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "testing:v0-1-project-plans-checker:false-positive-governance-gates"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-003",
+      "action": "Resolve lifecycle/GitHub/merge/acceptance references against exact authoritative state, repair CommonMark fence and credential-key handling, convert every reproduced invalid fixture into an expected failure, regenerate exact-head evidence and request lifecycle re-review.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Preserve all cycle-two regression cases.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-001",
+      "action": "Preserve all original governance and error-output regression cases.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "High",
+      "description": "A production-shaped AWS_ACCESS_KEY_ID assignment can receive PASS.",
+      "mitigation": "Resolve PRR-003 with terminal sensitive-key recognition and redacted diagnostics.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "data-integrity",
+      "level": "High",
+      "description": "Repository-authored assertions can impersonate lifecycle, GitHub, merge and acceptance authority.",
+      "mitigation": "Resolve every authority reference against durable external state and bind exact immutable proof.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Low",
+      "description": "No runtime concurrency changed; governance recovery behavior remains documentation-only.",
+      "mitigation": "Validate runtime behavior within each later independent IP lifecycle.",
+      "owner": "future IP owners"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "None",
+      "description": "The change is documentation only.",
+      "mitigation": "No action required.",
+      "owner": null
+    },
+    {
+      "category": "api-compatibility",
+      "level": "None",
+      "description": "No runtime API, database schema or Skill protocol changed.",
+      "mitigation": "No action required.",
+      "owner": null
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "No deployment occurred; documentation and immutable review records are recoverable through Git history.",
+      "mitigation": "Use compensating commits and preserve review evidence.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "verify cycle-five report and JSON bytes at 564b9a2fd39002cbe0960b83a72cc7bfe19cb69a",
+        "environment": "Git and SHA-256 on macOS",
+        "head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Both prior artifacts match their recorded digests; prior JSON SHA-256 is e0a07266c759f435c5abb875652169cfba38754d8c083727f404d7ecc6d2a092.",
+        "required_for_approval": true,
+        "evidence_ref": "564b9a2fd39002cbe0960b83a72cc7bfe19cb69a"
+      },
+      {
+        "command": "git diff --check 9259d884459dd36bde6c089c3a15b368c985b617..53336853a7555e11ab3ac07ff6556091420772bb",
+        "environment": "Git on macOS; isolated exact-head review snapshot",
+        "head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors; the one-commit ten-file delta and complete 14-file PR diff were reconciled with no unclassified change.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node validate-v0-1-project-plans.mjs --repo <isolated-review-root> --checked-commit 53336853a7555e11ab3ac07ff6556091420772bb --output <review-output>",
+        "environment": "Node.js on macOS; clean exact-head isolated review snapshot",
+        "head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Reproduced 13/13 PASS twice; outputs are byte-identical with SHA-256 0c00e95d679538e7aece7080e1cedab2b657eb58144c68a0693f85d0bd167a8c.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/cycle6-positive-review-a.json"
+      },
+      {
+        "command": "node test-validate-v0-1-project-plans.mjs <isolated-review-root> <checker> <review-output>",
+        "environment": "Node.js on macOS; disposable committed fixtures and mutants",
+        "head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 80 invalid fixtures fail, six designated future states pass, five unsafe/invocation cases emit ERROR and eleven mutants are killed; summary SHA-256 is 6529ddcba2516d3c8e3583491fafb931075cc468c93ab773dc9467869ad53a5b.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/cycle6-negative-review.json"
+      },
+      {
+        "command": "node /private/tmp/cycle6-forward-risk.mjs",
+        "environment": "Node.js on macOS; separate disposable committed clones",
+        "head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "Three primary invalid authority/rendering/security fixtures incorrectly return exit 0, overall PASS and all 13 checks PASS; evidence SHA-256 9d1963515c704cb8ec23d112d3fdf492b755936de25d8895a7e6aa5614168170.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/cycle6-forward-risk-summary.json"
+      },
+      {
+        "command": "independent fresh-context exact-head authority and checker audit",
+        "environment": "Node.js and Git on macOS; separate disposable committed clones",
+        "head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "The independent audit reproduced stock evidence and independently confirmed that self-authored bundle assertions are not resolved to durable lifecycle or GitHub authority; its fabricated Accepted fixture used an empty one-parent merge-proof commit and still passed. Evidence SHA-256 91c89b1da1cafc19aaff6bf6d9d2bfabd3af490a77a3eaed83752cb6af4797da.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/cycle6-independent-audit.json"
+      },
+      {
+        "command": "gh api repos/zhanghao1903/idea-trace-validation/pulls/42 and actions/runs/4242",
+        "environment": "GitHub API read-only queries",
+        "head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "Both references embedded in the harness's designated valid Accepted authority fixture return HTTP 404.",
+        "required_for_approval": true,
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/42"
+      },
+      {
+        "command": "refresh live PR identity, head, mergeability and statusCheckRollup",
+        "environment": "GitHub CLI read-only query",
+        "head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "PR remains open, non-draft and mergeable with the exact routed base/head; GitHub returned an empty status-check rollup.",
+        "required_for_approval": true,
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/1"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "GitHub status checks",
+        "observed_at": "2026-07-29T01:21:16Z",
+        "head_sha": "53336853a7555e11ab3ac07ff6556091420772bb",
+        "status": "UNKNOWN",
+        "summary": "GitHub returned an empty status-check rollup.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/1"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Runtime unit, integration, browser and deployment tests",
+        "reason": "No runtime code changed; the approved plan assigns these checks to later independent IP lifecycles."
+      },
+      {
+        "check": "Production server, DNS, HTTPS, backup and restore validation",
+        "reason": "These require later IP-08 scope and separate external authorization."
+      }
+    ]
+  },
+  "limitations": [
+    "GitHub reported no status checks or check logs for the reviewed head.",
+    "The checker, harness and raw outputs are external task evidence rather than commit-bound tracked artifacts; they were inspected and reproduced during this review.",
+    "Future IP runtime behavior and deployment systems remain outside this documentation-only PR."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "The live PR VerificationEnvelope and supplied external checker, harness and outputs are Engineering Main's intended cycle-six evidence.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read the live PR body, compare exact-head fields, rerun the checker and harness and recompute artifact digests.",
+      "evidence": "CheckedCommit equals the request and live head; checker, harness, positive and summary digests match the PR and reproduce exactly.",
+      "impact_if_false": "The review would be evaluating evidence that Main did not intend to authorize."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "Passing the supplied 80 invalid, six valid, five error and eleven mutation cases is sufficient to establish the full semantic deterministic contract.",
+      "decision_critical": true,
+      "status": "FALSIFIED",
+      "method": "Compare the approved contract with the checker and run primary plus independent fresh-context adversarial fixtures.",
+      "evidence": "Three additional invalid committed snapshots return all-green PASS, while the harness's own designated valid Accepted state contains demonstrably nonexistent GitHub evidence.",
+      "impact_if_false": "The advertised evidence cannot authorize merge until the uncovered authority, rendering and credential paths are implemented and tested."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The exact technical plan snapshot used for implementation was approved before implementation began.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect the immutable technical-plan review branch and exact approved commit/digest.",
+      "evidence": "Review commit b4ef46c616cb7ddb559d560d5e75686dfcca9d80 records PASS for plan commit 70db0b5341186fa6bafe14a16ce1f69b707d916c before feature implementation.",
+      "impact_if_false": "The implementation would have a separate plan-authorization defect."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
