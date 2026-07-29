@@ -279,12 +279,19 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 
 - `--repo` 必须是当前 Git 根目录；
 - `--checked-commit` 必须等于 `git rev-parse HEAD`；
-- checker 只读取第 3 节列出的目标文档、确认需求和五份上游来源；
+- `Draft` 投影只读取第 3 节列出的目标文档、确认需求和五份上游来源；
+- 发现任何非 `Draft` 投影时，checker 还必须自动定位与当前 Git common-dir 和
+  repository key 同时匹配的 Codex canonical lifecycle config/state，并通过
+  `gh api` 读取该投影引用的 live GitHub authority；读取缺失或冲突即失败；
+- 生产命令不得接受 lifecycle root 覆盖；可选 `--lifecycle-state` 仅用于
+  `os.tmpdir()` 下的隔离测试仓库，且 state/config 必须位于仓库外、为非链接普通
+  文件、不得与 tracked input inode 相同，并绑定该 fixture 的 Git common-dir；
 - 元数据从文档开头 `- Key: Value` 读取；
 - 追踪数据从带有
   `<!-- PRIMARY-TRACE-START -->` / `<!-- PRIMARY-TRACE-END -->` 标记的表读取；
 - 依赖来自 `Dependencies` 元数据，`None` 表示空集；
-- Markdown 链接只验证相对仓库路径，不请求网络。
+- 普通 Markdown 链接只验证相对仓库路径；只有非 `Draft` authority resolver
+  请求固定 `zhanghao1903/idea-trace-validation` 的 GitHub API。
 
 确定性算法：
 
@@ -300,11 +307,22 @@ node /private/tmp/validate-v0-1-project-plans.mjs
    `Accepted` 的三个 `Accepted*` 字段非空且与 decision/commit 相等，
    `Rejected`/`Superseded` 的三个字段为 `None`，并校验各自 authority 与
    recorder；Code Review rejection 路径不得引用 `Rejected` AcceptanceRecord；
-8. 校验 StalenessRecord 成对投影；
-9. 解析相对链接并验证目标存在；
-10. 扫描 `(?i)(password|secret|token|cookie|database_url)\s*[:=]\s*\S+`
-   等赋值形态；字段名和安全说明本身不报错；
-11. 按 check ID 排序输出结果，保证同一输入产生相同 JSON。
+8. 对每个非 `Draft` 投影解析 canonical lifecycle message digest、payload
+   digest、role routing、feature stage 与 GoalRun；Ready、In Progress、Blocked、
+   In Review、Accepted 必须与 durable stage 完全对应；
+9. 对 In Review/Accepted 解析 live PR/base/head/files、branch protection 的完整
+   required-check 集合及对应 check/status result；Accepted 只接受 durable
+   `APPROVE`/`READY` 加独立 `APPROVE`/`MERGED`，再核对 live merge commit/method
+   与 AcceptanceOwner 的 `APPROVED` GitHub review；
+10. 校验 StalenessRecord 成对投影；
+11. 解析相对链接并验证目标存在；
+12. 按 CommonMark fence marker 与 opening delimiter length 解析 rendered
+    blocks；较短的 closing fence 不得关闭较长 opening fence；
+13. 扫描任意 public/vendor prefix 深度的 password、secret、token、cookie、
+    database URL、API key、AWS access-key ID/secret-access-key 等赋值；只输出字段
+    名，禁止把值写入 diagnostics；
+14. 按 check ID 排序输出结果。输出同时固定 canonical lifecycle/GitHub response
+    的组合 digest；同一 commit 与同一 authority snapshot 产生相同 JSON。
 
 输出契约：
 
@@ -313,6 +331,7 @@ node /private/tmp/validate-v0-1-project-plans.mjs
   "schemaVersion": 1,
   "contractVersion": "v0-1-project-plans/1",
   "checkedCommit": "<sha>",
+  "authoritySnapshotDigest": "None",
   "result": "PASS",
   "checks": [
     {"id": "FILES", "result": "PASS", "diagnostics": []}
@@ -327,7 +346,12 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 - `checks` 按上述顺序输出，`diagnostics` 按文件路径、行号、消息排序；
 - 全部通过时退出码 `0`；验证失败时退出码 `1`；参数/解析器内部错误时退出码 `2`；
 - 即使失败也写出 JSON，`result` 为 `FAIL` 或 `ERROR`；
-- JSON 不包含时间或绝对路径，因此相同 commit 的证据 digest 可复现。
+- JSON 不包含时间、绝对路径或 authority 原文；`authoritySnapshotDigest` 在
+  `Draft`-only snapshot 为 `None`，否则是 canonical lifecycle/GitHub observations
+  的组合 SHA-256。因此相同 commit 与相同 authority snapshot 的证据可复现；
+- repository-authored bundle 只能作为 projection cache。不存在真实 durable
+  message、live PR/check/merge/review，或 GitHub/canonical state 不可读时，非
+  `Draft` snapshot 不得输出 `PASS`。
 
 最终运行证据不写回仓库，而是以以下 `VerificationEnvelope` 固定格式写入 PR
 描述的 `## VerificationEnvelope` 区和当前任务证据：
@@ -338,6 +362,7 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 - Command: node /private/tmp/validate-v0-1-project-plans.mjs ...
 - Result: PASS
 - EvidenceSha256: <sha256 of canonical JSON output>
+- AuthoritySnapshotDigest: <output authoritySnapshotDigest>
 - ExecutedAt: <strict UTC; not part of checker JSON>
 - DeferredChecks: <list or None>
 ```

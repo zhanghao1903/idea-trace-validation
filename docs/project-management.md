@@ -125,20 +125,35 @@ bundle：
 [authority bundle](https://github.com/zhanghao1903/idea-trace-validation/blob/<commit>/<path>.json)
 ```
 
+bundle 只是可审计的缓存投影，不能自行产生 authority。checker 必须从当前仓库
+Git common-dir 对应的 Codex canonical lifecycle `config.json`/`state.json`
+解析 message、routing、feature stage 与 GoalRun，并从 GitHub API 解析精确
+PR/base/head、PR 文件、仓库 required-check 集合、check result、merge event、
+merge commit 和验收 review；缺少任一外部读取、引用不存在或投影不一致时一律
+fail closed。生产运行不得通过仓库内文件或命令行覆盖 canonical lifecycle root；
+仓库外 state override 只允许隔离临时测试仓库。
+
 bundle 必须把 PlanId/version、独立 lifecycle feature/branch 和
 AcceptanceOwner 绑定到精确 RequirementsHandoff、PASS 技术计划 Review，以及该
-状态转换的 source roles。进入 `In Progress` 后还必须绑定 GoalRun 和真实实现
-head；进入 `In Review` 后必须绑定独立 PR/head 与 required checks；进入
-`Accepted` 后还必须绑定精确 Code Review、外部 merge proof 和
-AcceptanceOwner 决定。所有引用 commit 必须在当前 Git 历史中可达，bundle 中的
-实现路径必须等于该实现 commit 的真实 diff；任意 actor/feature/branch 文本、
-通用 URL 或仅有 40 字符外观但不可达的 SHA 均不构成 authority。
+状态转换的 source roles。进入 `In Progress` 后还必须绑定 canonical GoalRun 和
+真实实现 head；进入 `In Review` 后必须绑定 durable CodeReviewRequest、live
+独立 PR/head、完整 PR 文件与 repository-required checks；进入 `Accepted` 后
+必须先取得 durable `APPROVE`/`READY` CodeReviewResult，再取得同一 request/head
+的 durable `APPROVE`/`MERGED` observation，并与 GitHub merge event、配置的 merge
+method、merge commit 文件以及 `AcceptanceOwner` 本人的 `APPROVED` GitHub PR
+review 完全一致。`READY`/`MERGED` 是 merge 状态，不是 CodeReview decision。
+所有引用 commit 必须在当前 Git 历史中可达，bundle 中的实现路径必须等于该实现
+commit 与 live PR 的真实 diff；任意 actor/feature/branch 文本、通用 URL、
+自造 64 字符 message ID、仅有 SHA 外观的 commit 或 repository-authored JSON
+均不构成 authority。
 
 Main 必须比较 parent/head 状态。任何业务状态变化都只能使用上表允许的边，并由
 bundle 中精确 `from`/`to`、message ID、source roles、时间和原因授权。旧或新任一
 投影为 `Stale` 时业务状态必须保持不变；只允许同步/清除 staleness 的补偿动作。
 最新验收结果为 `Rejected` 时，状态只能恢复为 `In Progress` 或 `Blocked`，并
-绑定同一拒绝决定、失败 Must、恢复动作及需要的 BlockerRecord。
+绑定同一拒绝决定、失败 Must、恢复动作及需要的 BlockerRecord。Review 拒绝必须
+解析为 durable `REQUEST_CHANGES`；验收方拒绝必须解析为该 owner 在精确 head 上
+提交的 `CHANGES_REQUESTED` GitHub review。
 
 ## 4. Synchronization and staleness
 
