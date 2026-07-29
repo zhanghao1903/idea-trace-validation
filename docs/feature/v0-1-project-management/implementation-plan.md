@@ -286,8 +286,9 @@ node /private/tmp/validate-v0-1-project-plans.mjs
   同时匹配的 Codex canonical lifecycle config schema 1 / state schema 2，并通过
   `gh api` 读取该投影引用的 live GitHub authority；读取缺失或冲突即失败；
 - canonical Codex root 必须复用 workflowctl 语义：环境中存在 `CODEX_HOME` 时
-  使用其展开、规范化后的目录，否则使用当前用户 home 下的 `.codex`。不得固定到
-  开发者 home；默认 root 和隔离 root 必须由未修改的生产 checker 得到相同结论；
+  使用其用户展开（含字面 `~`）、规范化后的目录，否则使用当前用户 home 下的
+  `.codex`。不得固定到开发者 home；默认、隔离、等价绝对路径和 literal-tilde
+  root 必须由未修改的生产 checker 得到相同结论与 authority digest；
 - 生产命令只接受 `--repo`、`--checked-commit`、`--output`，不得接受 lifecycle
   root/state/config 覆盖；fixture authority 只能由 negative harness 从同一源码生成
   独立 test build，并在构建时固定单一 state 路径，不能由生产 CLI 调用者提供；
@@ -329,7 +330,10 @@ node /private/tmp/validate-v0-1-project-plans.mjs
    pre-plan `Draft→Deferred` 不伪造 PASS plan。除 schema 外还必须校验完整
    workflowctl state/config 不变量：精确 key 集和 UTC 时间、feature artifact/
    stage 门禁、plan/PR/code-result presence、GoalRun shape/history、唯一
-   activeGoal、developmentQueue 与 dispatch status/timestamp/payload ledger；
+   activeGoal、developmentQueue 与 dispatch status/timestamp/payload ledger。
+   checker 必须只读加载当前安装的 workflowctl module，以仓库身份调用其
+   `validate_config` / `validate_state`；本地 path/inode/消息防御与 canonical
+   validator 同时通过才可接受，validator 缺失或异常一律 fail closed；
 9. defer/reopen/recovery 统一解析 GitHub OWNER 的未编辑结构化决定，不使用虚构的
    lifecycle message。`authorityRole=requirements` 必须绑定同一 feature 的 durable
    RequirementsHandoff，`authorityRole=user` 不得伪造 requirements message；
@@ -359,8 +363,9 @@ node /private/tmp/validate-v0-1-project-plans.mjs
     cookie、database URL、API key、AWS access-key ID/secret-access-key 等赋值。
     同时递归解析 flow-style object/array，并把 `apiKeys`、`tokens`、`secrets`、
     `credentials` 等复数 container 与单数形式统一分类。敏感路径的标量、数组、
-    对象和跨行结构都 fail closed，只输出规范化字段路径，禁止把值写入
-    diagnostics；
+    对象和跨行结构都 fail closed；balanced flow container 必须从 tracked 行的
+    任意 offset 进入解析，包括 source-like assignment 中嵌入的对象。只输出规范化
+    字段路径，禁止把值写入 diagnostics；
 15. 按 check ID 排序输出结果。输出同时固定 canonical lifecycle/GitHub response
     的组合 digest；同一 commit 与同一 authority snapshot 产生相同 JSON。
 
@@ -428,10 +433,16 @@ negative harness 必须保留全部既有回归，并额外证明：
   operation 产生的状态/dispatch/Goal history，并在运行 checker 前再次通过
   workflowctl `status` 完整校验；schema mismatch 与 unsupported dispatch
   message FAIL；
-- 未修改的生产 checker 在默认 `HOME/.codex` 与隔离 `CODEX_HOME` 中都能解析
-  workflowctl-valid Ready fixture，并产生相同 authority snapshot；
+- 未修改的生产 checker 在默认 `HOME/.codex`、隔离绝对 `CODEX_HOME` 与
+  `CODEX_HOME=~/...` 中都能解析同一 workflowctl-valid Ready fixture，并产生相同
+  authority snapshot；
+- 从 workflowctl-generated state 逐类变异 requirements/plan artifact、
+  composite/commit binding、stage gate、GoalRun、activeGoal、developmentQueue、
+  dispatch payload/timestamp、config identity/task uniqueness 与 exact keys；
+  每个经 workflowctl 拒绝的差分状态必须也被未修改生产 checker 拒绝；
 - 结构化数组、对象、跨行、flow-style object、复数 `apiKeys` container、嵌套
-  `api.key` / `database.url` 和 JSON Unicode escaped key 被拒绝且诊断不包含值；
+  `api.key` / `database.url`、JSON Unicode escaped key，以及 source-like assignment
+  中任意 offset 的 embedded flow plural-container 被拒绝且诊断不包含值；
 - 七种状态和十六条边均有端到端 PASS，批准设计中的 user/Requirements route
   都被覆盖；wrong-role、role swap、wrong-edge、wrong source/target stage、
   Stale 与 missing immutable recovery 均有端到端 FAIL；

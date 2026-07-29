@@ -133,11 +133,14 @@ message 只接受 workflowctl 支持的 `RequirementsHandoff`、
 `TechnicalPlanReviewRequest` / `TechnicalPlanReviewResult`、
 `CodeReviewRequest` / `CodeReviewResult`；未知类型一律使 canonical context
 失效。canonical root 必须与 workflowctl 一致：环境中存在 `CODEX_HOME` 时使用其
-展开并规范化后的目录，否则使用当前用户 home 下的 `.codex`；不得固定到某个用户
-home。config/state 必须满足完整 workflowctl 不变量，包括精确 key 集、严格 UTC
+用户展开（包括字面 `~`）并规范化后的目录，否则使用当前用户 home 下的 `.codex`；
+不得固定到某个用户 home。config/state 必须满足完整 workflowctl 不变量，包括精确 key 集、严格 UTC
 时间、feature/plan/PR 阶段门禁、GoalRun history、唯一 activeGoal、
 developmentQueue 和 dispatch ledger/payload digest；仅有 schemaVersion 与浅层
-feature/stage 不构成 authority。checker 同时从 GitHub API 解析精确
+feature/stage 不构成 authority。生产 checker 必须只读调用当前安装的 workflowctl
+`validate_config` / `validate_state`，并把本地防御校验与 canonical validator
+取交集；validator 不可发现、不可执行或拒绝任一 nested artifact/cross-field
+状态时均 fail closed，不得复制一个更宽松的浅层替代实现。checker 同时从 GitHub API 解析精确
 PR/base/head、PR 文件、仓库 required-check 集合、check result、merge event、
 merge commit 和验收 review；缺少任一外部读取、引用不存在或投影不一致时一律
 fail closed。生产运行不得通过仓库内文件或命令行覆盖 canonical lifecycle root；
@@ -194,7 +197,9 @@ statuses、reviews 与 merge-commit files 的每页都进入
 JSON 对象和保守的缩进/点分隔文本解析层级路径；`public.vendor.api.key`、
 `public.vendor.apiKeys`、`database.url`、escaped `api_key` 等敏感路径下的
 标量、数组、对象、flow-style object/array 与跨行结构一律拒绝；敏感分类必须统一
-规范化单数/复数 credential container，diagnostic 只记录规范化字段路径，不记录值。
+规范化单数/复数 credential container。balanced flow-style container 必须在 tracked
+行中的任意语法偏移被解析，包括 `const config = { ...apiKeys... }` 这类 source-like
+assignment；无法安全解析时保守 fail closed。diagnostic 只记录规范化字段路径，不记录值。
 
 Main 必须比较 parent/head 状态。任何业务状态变化都只能使用上表允许的边，并由
 bundle 中精确 `from`/`to`、message ID、source roles、时间和原因授权。旧或新任一

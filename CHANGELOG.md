@@ -20,3 +20,6 @@
 - Generate lifecycle transition evidence through real workflowctl operations, enforce the approved per-edge role routes, and validate every canonical state before checker execution.
 - Make the original Accepted-to-Draft supersession authority immutable across later Draft commits, including actor, time, reason, commit, decision, and message lineage.
 - Recursively reject flow-style structured credentials and plural sensitive containers such as `apiKeys`, while keeping diagnostics value-redacted.
+- Scan balanced flow-style containers at any syntactic offset, including source-like assignments that embed plural credential containers.
+- Resolve literal-tilde `CODEX_HOME` exactly like workflowctl and verify equivalent absolute, default, isolated, and tilde roots.
+- Reuse the installed workflowctl config/state validators read-only and require every workflowctl-invalid nested artifact or cross-field differential mutation to fail closed.
