@@ -117,17 +117,22 @@ ChangeRecord，不创建验收 `Rejected` 记录。只有 `AcceptanceOwner` 的�
 
 ### Lifecycle authority evidence
 
-计划处于非 `Draft` 状态时，项目入口 `Evidence` 与独立计划
-`LifecycleEvidence` 必须指向同一个、由 40 字符 commit 固定的结构化 authority
-bundle：
+计划处于非 `Draft` 状态，或 `Draft` 已携带 `LifecycleFeatureId`、
+`LifecycleEvidence`、AcceptanceRecord / Superseded history 时，项目入口
+`Evidence` 与独立计划 `LifecycleEvidence` 必须持续指向同一个、由 40 字符 commit
+固定的结构化 authority bundle：
 
 ```text
 [authority bundle](https://github.com/zhanghao1903/idea-trace-validation/blob/<commit>/<path>.json)
 ```
 
 bundle 只是可审计的缓存投影，不能自行产生 authority。checker 必须从当前仓库
-Git common-dir 对应的 Codex canonical lifecycle `config.json`/`state.json`
-解析 message、routing、feature stage 与 GoalRun，并从 GitHub API 解析精确
+Git common-dir 对应的 Codex canonical lifecycle `config.json` schema 1 与
+`state.json` schema 2 解析 message、routing、feature stage 与 GoalRun。durable
+message 只接受 workflowctl 支持的 `RequirementsHandoff`、
+`TechnicalPlanReviewRequest` / `TechnicalPlanReviewResult`、
+`CodeReviewRequest` / `CodeReviewResult`；未知类型一律使 canonical context
+失效。checker 同时从 GitHub API 解析精确
 PR/base/head、PR 文件、仓库 required-check 集合、check result、merge event、
 merge commit 和验收 review；缺少任一外部读取、引用不存在或投影不一致时一律
 fail closed。生产运行不得通过仓库内文件或命令行覆盖 canonical lifecycle root；
@@ -135,14 +140,23 @@ fail closed。生产运行不得通过仓库内文件或命令行覆盖 canonica
 生成的独立 test build 在构建时固定；该 build 必须在路径规范化前逐段拒绝
 state/config 的 symlink、hardlink、tracked inode alias 和 common-dir 不一致。
 
-七种状态、十六条边、source roles、authority 类型、prerequisite 与 durable-stage
-映射必须来自同一个可穷举 registry。`Deferred` 保留延期前合法 stage：
-pre-plan `Draft→Deferred` 不要求虚构 RequirementsHandoff 或 PASS plan；有计划、
-Goal 或 PR 的延期只校验该边实际需要的既有 authority。Requirements-led 决定解析
-durable `PlanStatusDecision`，用户 led 决定解析仓库 OWNER 的未编辑 GitHub
-结构化决定；两类决定都必须包含原因和恢复条件。`Accepted→Draft` 必须追加
-Superseded AcceptanceRecord、增加计划版本、建立新的 lifecycle feature，并把
-新 bundle 绑定到旧 feature 与被替代的 Accepted record。
+七种状态、十六条边、source roles、authority 类型、prerequisite 与精确
+source/target durable-stage 集合必须来自同一个可穷举 registry。`Draft` 覆盖真实
+workflowctl 的 `REQUIREMENTS_CONFIRMED`、`PLAN_DRAFTING`、
+`PLAN_REVIEW_PENDING`、`PLAN_CHANGES_REQUESTED`；`Draft→Ready` 必须从
+`PLAN_REVIEW_PENDING` 到 `PLAN_APPROVED` / `DEVELOPMENT_QUEUED`。
+`Deferred` 保留延期前合法 stage：pre-plan `Draft→Deferred` 不要求虚构 PASS
+plan；有计划、Goal 或 PR 的延期只校验该边实际需要的既有 authority。
+
+延期、重开与恢复决定统一解析仓库 OWNER 的未编辑 GitHub 结构化决定，不得发明
+lifecycle message 类型。决定中的 `authorityRole` 只能是 `user` 或
+`requirements`；Requirements authority 必须用 `requirementsMessageId` 绑定同一
+feature 的 durable `RequirementsHandoff`，user authority 必须写 `None`。
+`Deferred→Ready` 还必须通过 `previousDecisionMessageId` 绑定紧邻的 immutable
+延期决定，不能把旧 plan-review PASS 当作恢复决定。所有决定都必须包含原因和恢复
+条件。`Accepted→Draft` 必须追加 Superseded AcceptanceRecord、增加计划版本、
+接受新 feature 的 RequirementsHandoff，并把新 bundle 绑定到旧 feature、最新
+Superseded record 与被替代的 Accepted record。
 
 bundle 必须把 PlanId/version、独立 lifecycle feature/branch 和
 AcceptanceOwner 绑定到精确 RequirementsHandoff、PASS 技术计划 Review，以及该
@@ -163,8 +177,10 @@ actor/feature/branch 文本、通用 URL、
 所有 GitHub collection authority 必须分页到完成。PR files、check runs、combined
 statuses、reviews 与 merge-commit files 的每页都进入
 `authoritySnapshotDigest`；非末页不是 100 项、重复 identity、声明总数与完整结果
-不一致或第二页缺失时一律失败。敏感终端键的标量、数组、对象与跨行结构一律扫描，
-diagnostic 只记录字段名，不记录值。
+不一致或第二页缺失时一律失败。秘密扫描必须先规范化 JSON Unicode 转义，再从
+JSON 对象和保守的缩进/点分隔文本解析层级路径；`public.vendor.api.key`、
+`database.url`、escaped `api_key` 等敏感路径下的标量、数组、对象与跨行结构一律
+拒绝，diagnostic 只记录规范化字段路径，不记录值。
 
 Main 必须比较 parent/head 状态。任何业务状态变化都只能使用上表允许的边，并由
 bundle 中精确 `from`/`to`、message ID、source roles、时间和原因授权。旧或新任一
@@ -173,6 +189,12 @@ bundle 中精确 `from`/`to`、message ID、source roles、时间和原因授权
 绑定同一拒绝决定、失败 Must、恢复动作及需要的 BlockerRecord。Review 拒绝必须
 解析为 durable `REQUEST_CHANGES`；验收方拒绝必须解析为该 owner 在精确 head 上
 提交的 `CHANGES_REQUESTED` GitHub review。
+
+任何带 authority 的 reopened `Draft` 在后续 `Draft→Draft` 提交中仍必须重新解析
+canonical bundle。当前 version/feature/branch/evidence、最新 Superseded record
+及其 related Accepted record 必须连续一致；Evidence 发生变化时，独立计划与
+portfolio 必须在同一提交各追加同步 ChangeRecord。删除、不可达、错绑或只改
+Evidence 而不追加 ChangeRecord 均 fail closed。
 
 ## 4. Synchronization and staleness
 

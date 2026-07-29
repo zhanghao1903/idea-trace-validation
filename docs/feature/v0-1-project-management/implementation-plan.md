@@ -279,9 +279,11 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 
 - `--repo` 必须是当前 Git 根目录；
 - `--checked-commit` 必须等于 `git rev-parse HEAD`；
-- `Draft` 投影只读取第 3 节列出的目标文档、确认需求和五份上游来源；
-- 发现任何非 `Draft` 投影时，checker 还必须自动定位与当前 Git common-dir 和
-  repository key 同时匹配的 Codex canonical lifecycle config/state，并通过
+- 不携带 lifecycle feature/evidence/acceptance/supersession history 的初始
+  `Draft` 投影只读取第 3 节列出的目标文档、确认需求和五份上游来源；
+- 发现任何非 `Draft` 投影，或任何已携带上述 authority/history 的 reopened
+  `Draft` 时，checker 还必须自动定位与当前 Git common-dir 和 repository key
+  同时匹配的 Codex canonical lifecycle config schema 1 / state schema 2，并通过
   `gh api` 读取该投影引用的 live GitHub authority；读取缺失或冲突即失败；
 - 生产命令只接受 `--repo`、`--checked-commit`、`--output`，不得接受 lifecycle
   root/state/config 覆盖；fixture authority 只能由 negative harness 从同一源码生成
@@ -293,8 +295,9 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 - 追踪数据从带有
   `<!-- PRIMARY-TRACE-START -->` / `<!-- PRIMARY-TRACE-END -->` 标记的表读取；
 - 依赖来自 `Dependencies` 元数据，`None` 表示空集；
-- 普通 Markdown 链接只验证相对仓库路径；只有非 `Draft` authority resolver
-  请求固定 `zhanghao1903/idea-trace-validation` 的 GitHub API。
+- 普通 Markdown 链接只验证相对仓库路径；只有受 authority 驱动的 non-Draft /
+  reopened Draft resolver 请求固定 `zhanghao1903/idea-trace-validation` 的
+  GitHub API。
 
 确定性算法：
 
@@ -305,21 +308,27 @@ node /private/tmp/validate-v0-1-project-plans.mjs
    只归 management feature；
 5. 统计 AC-001–020 至少一次且每个 IP 至少一个；
 6. 从一个可穷举 registry 同时派生七种状态、十六条转换、source-role 组合、
-   authority 类型、prerequisite 和 durable-stage 映射；校验状态转换表所需边
-   集合，且 `Stale` 不属于业务状态；
+   authority 类型、prerequisite 和每条边精确 source/target durable-stage 集合；
+   `Draft` 覆盖真实 workflowctl pre-plan stages，`Draft→Ready` 从
+   `PLAN_REVIEW_PENDING` 进入 approved/queued stage；校验状态转换表所需边集合，
+   且 `Stale` 不属于业务状态；
 7. 校验 AcceptanceRecord ID/版本/pointer 规则，要求文档 schema 出现
    `AcceptedBy`、`AcceptedAt`、`AcceptedCommit`、`AcceptanceEvidence`；
    `Accepted` 的三个 `Accepted*` 字段非空且与 decision/commit 相等，
    `Rejected`/`Superseded` 的三个字段为 `None`，并校验各自 authority 与
    recorder；Code Review rejection 路径不得引用 `Rejected` AcceptanceRecord；
-8. 对每个受 authority 驱动的投影解析 canonical lifecycle message digest、
-   payload digest、role routing、feature stage 与 GoalRun；`Deferred` 保留延期
-   前的合法 durable stage，pre-plan `Draft→Deferred` 不伪造 handoff/plan；
-   Requirements-led defer/reopen 使用 durable `PlanStatusDecision`，用户 led
-   defer 使用 GitHub OWNER 的未编辑结构化决定；`Accepted→Draft` 必须升高计划
-   版本、建立新的 lifecycle feature，并绑定旧 feature 和被 Superseded 的
-   AcceptanceRecord；
-9. 对 In Review/Accepted 解析 live PR/base/head/files、branch protection 的完整
+8. 对每个受 authority 驱动的 non-Draft 或 reopened Draft 投影解析 canonical
+   lifecycle config schema 1 / state schema 2、message/payload digest、role
+   routing、feature stage 与 GoalRun；只接受 workflowctl 支持的五类 routed
+   message，未知类型 fail closed；`Deferred` 保留延期前的合法 durable stage，
+   pre-plan `Draft→Deferred` 不伪造 PASS plan；
+9. defer/reopen/recovery 统一解析 GitHub OWNER 的未编辑结构化决定，不使用虚构的
+   lifecycle message。`authorityRole=requirements` 必须绑定同一 feature 的 durable
+   RequirementsHandoff，`authorityRole=user` 不得伪造 requirements message；
+   `Deferred→Ready` 必须引用紧邻的 immutable defer decision。`Accepted→Draft`
+   必须升高计划版本、接受新 feature 的 RequirementsHandoff，并把当前 bundle、
+   最新 Superseded record、旧 feature 和 related Accepted record 连续绑定；
+10. 对 In Review/Accepted 解析 live PR/base/head/files、branch protection 的完整
    required-check 集合及对应 check/status result；PR files、check runs、combined
    statuses、reviews 和 merge-commit files 必须确定性分页至完成，非末页必须恰好
    100 项，拒绝重复 identity、不一致 total/count 和不可能的页边界，并把每页
@@ -327,15 +336,17 @@ node /private/tmp/validate-v0-1-project-plans.mjs
    `APPROVE`/`READY` 加独立 `APPROVE`/`MERGED`，再核对 live merge commit/method
    与 AcceptanceOwner 的 `APPROVED` GitHub review；实现文件集取 PASS plan
    commit 到实现 head 的完整 Git range diff，并与全部 live PR files 完全相等；
-10. 校验 StalenessRecord 成对投影；
-11. 解析相对链接并验证目标存在；
-12. 按 CommonMark fence marker 与 opening delimiter length 解析 rendered
+11. 校验 StalenessRecord 成对投影；Evidence 变化时要求 plan/portfolio 同步追加
+    ChangeRecord，不能覆盖历史或只改两个 metadata 单元格；
+12. 解析相对链接并验证目标存在；
+13. 按 CommonMark fence marker 与 opening delimiter length 解析 rendered
     blocks；较短的 closing fence 不得关闭较长 opening fence；
-13. 扫描任意 public/vendor prefix 深度的 password、secret、token、cookie、
-    database URL、API key、AWS access-key ID/secret-access-key 等赋值；敏感终端
-    键的标量、数组、对象和跨行结构都 fail closed，只输出字段名，禁止把值写入
-    diagnostics；
-14. 按 check ID 排序输出结果。输出同时固定 canonical lifecycle/GitHub response
+14. 在分类前规范化 JSON Unicode 转义，并从 JSON 对象及保守缩进/点分隔文本解析
+    层级路径；扫描任意 public/vendor prefix 深度的 password、secret、token、
+    cookie、database URL、API key、AWS access-key ID/secret-access-key 等赋值。
+    敏感路径的标量、数组、对象和跨行结构都 fail closed，只输出规范化字段路径，
+    禁止把值写入 diagnostics；
+15. 按 check ID 排序输出结果。输出同时固定 canonical lifecycle/GitHub response
     的组合 digest；同一 commit 与同一 authority snapshot 产生相同 JSON。
 
 输出契约：
@@ -361,11 +372,12 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 - 全部通过时退出码 `0`；验证失败时退出码 `1`；参数/解析器内部错误时退出码 `2`；
 - 即使失败也写出 JSON，`result` 为 `FAIL` 或 `ERROR`；
 - JSON 不包含时间、绝对路径或 authority 原文；`authoritySnapshotDigest` 在
-  `Draft`-only snapshot 为 `None`，否则是 canonical lifecycle/GitHub observations
-  的组合 SHA-256。因此相同 commit 与相同 authority snapshot 的证据可复现；
+  初始且无 authority/history 的 `Draft`-only snapshot 为 `None`，否则是
+  canonical lifecycle/GitHub observations 的组合 SHA-256。因此相同 commit 与
+  相同 authority snapshot 的证据可复现；
 - repository-authored bundle 只能作为 projection cache。不存在真实 durable
   message、live PR/check/merge/review，或 GitHub/canonical state 不可读时，非
-  `Draft` snapshot 不得输出 `PASS`。
+  non-Draft 或带 authority/history 的 reopened Draft snapshot 不得输出 `PASS`。
 
 最终运行证据不写回仓库，而是以以下 `VerificationEnvelope` 固定格式写入 PR
 描述的 `## VerificationEnvelope` 区和当前任务证据：
@@ -395,9 +407,16 @@ negative harness 必须保留全部既有回归，并额外证明：
 
 - production-shaped 临时 checkout 不能注入 lifecycle state，state/config 的
   direct、symlink、hardlink 和 tracked-inode alias 路径均按预期 fail closed；
-- 结构化数组、对象和跨行敏感值被拒绝且诊断不包含值；
-- 七种状态和十六条边均有端到端 PASS；wrong-role、wrong-edge、Stale 和
-  missing-recovery 均有端到端 FAIL；
+- 隔离 `CODEX_HOME` 调用安装中的真实 `workflowctl.py` 完成 Init、三角色
+  bootstrap、RequirementsHandoff prepare/accept，并以其 config v1 / state v2
+  运行正向 fixture；schema mismatch 与 unsupported dispatch message FAIL；
+- 结构化数组、对象、跨行、嵌套 `api.key` / `database.url` 和 JSON Unicode
+  escaped key 被拒绝且诊断不包含值；
+- 七种状态和十六条边均有端到端 PASS，user/Requirements authority alternatives
+  都被覆盖；wrong-role、wrong-edge、wrong source/target stage、Stale 与
+  missing immutable recovery 均有端到端 FAIL；
+- reopened Draft unchanged authority PASS；删除、不可达、错绑 Evidence 以及
+  Evidence 变化却缺少同步 ChangeRecord 均 FAIL；
 - 100 项 required checks、101 项 PR/merge files、101 条 reviews（指定验收证据
   位于第二页）均 PASS；不一致总数 FAIL；完整多页 authority digest 双跑
   byte-stable。
