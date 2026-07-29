@@ -1,0 +1,859 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 1,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/1",
+    "title": "docs: split v0.1 into independently managed plans",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+    "head_ref": "codex/v0-1-project-management",
+    "head_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90",
+    "reviewed_at": "2026-07-29T13:14:12Z",
+    "reviewer": "Codex Engineering Review / PR Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete 9259d884459dd36bde6c089c3a15b368c985b617..59cb2947802402a30bd307b2d51b31fb8335eb90 documentation diff",
+      "cycle-ten finding closure across the one-commit three-file remediation delta",
+      "cycle-eleven VerificationEnvelope, checker, 182-case harness and exact-head outputs",
+      "primary and independent lifecycle, authority, validation-provenance, security and future-implementation contract review"
+    ],
+    "excluded_scope": [
+      "future IP-01 through IP-08 runtime implementations themselves",
+      "production deployment, DNS, HTTPS, backup and restore systems"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "cycle 10 report @ 2c2d0772af15ba9a2a37b2111d34c9c48cb66823",
+      "result_path": "docs/feature/v0-1-project-management/pr-review-idea-trace-validation-1-d1516fe2c4ef-cycle-10.json",
+      "result_sha256": "df36e03fa51dd38ee0140f01883268ab4f8f6d31cc61eff717c680854b149da6",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 1,
+      "reviewed_at": "2026-07-29T12:20:41Z",
+      "base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "head_sha": "d1516fe2c4efcab955136fbfecae6e89d7969ed5",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": [
+        "PRR-003",
+        "PRR-004",
+        "PRR-006",
+        "PRR-007",
+        "PRR-005",
+        "PRR-002",
+        "PRR-001"
+      ],
+      "blocking_finding_ids": [
+        "PRR-003",
+        "PRR-004",
+        "PRR-007"
+      ]
+    },
+    "delta_review": {
+      "previous_base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "previous_head_sha": "d1516fe2c4efcab955136fbfecae6e89d7969ed5",
+      "current_base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+      "current_head_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90",
+      "triggers": [
+        "HEAD_CHANGED",
+        "EVIDENCE_CHANGED"
+      ],
+      "commit_range": "d1516fe2c4efcab955136fbfecae6e89d7969ed5..59cb2947802402a30bd307b2d51b31fb8335eb90",
+      "commits_reviewed": [
+        "59cb2947802402a30bd307b2d51b31fb8335eb90"
+      ],
+      "changed_files": [
+        "CHANGELOG.md",
+        "docs/feature/v0-1-project-management/implementation-plan.md",
+        "docs/project-management.md"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "docs/feature/v0-1-project-management/implementation-plan.md",
+        "docs/project-management.md"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "One documentation commit claims closure of the three cycle-ten blockers by scanning embedded flow syntax, importing workflowctl validation and expanding literal-tilde CODEX_HOME.",
+      "evidence": "The exact previous-to-current delta is 31 insertions and 12 deletions across three files. Every changed document and the complete 14-file base-to-head diff were reconciled; git diff --check passes."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-003",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "The stock embedded-flow fixture now fails, but a valid source comment between the plural sensitive key and colon changes the parser path and still produces SECRETS PASS and aggregate PASS."
+      },
+      {
+        "finding_id": "PRR-004",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "Stock workflowctl differential mutations now fail, but production discovery includes CODEX_HOME plugin-cache candidates and chooses the lexically last full path. A CODEX_HOME-local permissive candidate makes the checker accept state that the installed workflowctl rejects."
+      },
+      {
+        "finding_id": "PRR-006",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "The synchronized reopened-Draft replacement fixture remains rejected in the exact-head harness."
+      },
+      {
+        "finding_id": "PRR-007",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "The production checker now expands literal-tilde CODEX_HOME and the stock default, absolute isolated and literal-tilde roots all resolve the same workflowctl-valid Ready state and authority digest."
+      },
+      {
+        "finding_id": "PRR-005",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "Complete pagination, boundary, duplicate, count and authority-digest regressions remain green in the refreshed 182-case harness."
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "The refreshed harness retains and passes every cycle-two authority, mutation and contract regression."
+      },
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "The refreshed harness retains and passes every original governance and error-output regression."
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Tracked remediation and retained regression suite",
+        "risk_triggers": [
+          "public-contract",
+          "state-transition",
+          "test-adequacy"
+        ],
+        "reason": "The delta claims closure of three blockers and materially revises the executable checker contract.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "docs/feature/v0-1-project-management/implementation-plan.md",
+          "docs/project-management.md"
+        ],
+        "checks": [
+          "Reconcile the complete delta and base-to-head diff",
+          "Reproduce exact positive output and all 182 harness outcomes",
+          "Replay prior attacks and inspect new parser and validator-selection branches"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      },
+      {
+        "surface": "Structured credential trust boundary",
+        "risk_triggers": [
+          "trust-boundary",
+          "security-privacy",
+          "data-integrity",
+          "test-adequacy"
+        ],
+        "reason": "Authorization-grade PASS must remain impossible across ordinary source syntax accepted by the documented flow scanner.",
+        "affected_paths": [
+          "docs/feature/v0-1-project-management/implementation-plan.md",
+          "docs/project-management.md"
+        ],
+        "checks": [
+          "Inspect scalar and embedded-flow parser interactions",
+          "Run a source-like flow object with a commented plural credential key"
+        ],
+        "finding_ids": [
+          "PRR-003"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Canonical lifecycle validator provenance",
+        "risk_triggers": [
+          "public-contract",
+          "trust-boundary",
+          "state-transition",
+          "data-integrity"
+        ],
+        "reason": "The imported canonical validator must be the trusted current installation and produce deterministic, provenance-bound authority.",
+        "affected_paths": [
+          "docs/feature/v0-1-project-management/implementation-plan.md",
+          "docs/project-management.md"
+        ],
+        "checks": [
+          "Inspect all production validator candidate roots and selection order",
+          "Compare installed workflowctl rejection with checker behavior when CODEX_HOME contains another candidate",
+          "Inspect authority digest inputs for validator provenance"
+        ],
+        "finding_ids": [
+          "PRR-004"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Future implementation-file compatibility",
+        "risk_triggers": [
+          "public-contract",
+          "deployment-compatibility",
+          "state-transition",
+          "test-adequacy"
+        ],
+        "reason": "The same management contract advertises In Progress through Accepted validation after independent IP implementations add normal repository files.",
+        "affected_paths": [
+          "docs/feature/v0-1-project-management/implementation-plan.md",
+          "docs/project-management.md"
+        ],
+        "checks": [
+          "Trace the repository-wide FILES allowlist",
+          "Retain an ordinary future implementation artifact and run the production checker",
+          "Inspect lifecycle harness implementation-head construction"
+        ],
+        "finding_ids": [
+          "PRR-008"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Public management authority projection",
+        "risk_triggers": [
+          "public-contract",
+          "data-integrity",
+          "other"
+        ],
+        "reason": "A Current portfolio must not relabel linked source authority contrary to the source metadata.",
+        "affected_paths": [
+          "docs/project-management.md",
+          "docs/feature/v0-1-project-management/implementation-plan.md"
+        ],
+        "checks": [
+          "Compare portfolio approval labels with linked design and implementation-plan headers",
+          "Compare both with the exact approved plan-review lineage"
+        ],
+        "finding_ids": [
+          "PRR-009"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Literal-tilde CODEX_HOME equivalence",
+        "risk_triggers": [
+          "public-contract",
+          "deployment-compatibility",
+          "data-integrity"
+        ],
+        "reason": "The prior supported-root mismatch must be revalidated at the current head.",
+        "affected_paths": [
+          "docs/feature/v0-1-project-management/implementation-plan.md",
+          "docs/project-management.md"
+        ],
+        "checks": [
+          "Run default, isolated absolute and literal-tilde roots",
+          "Require identical non-None authority digests"
+        ],
+        "finding_ids": [
+          "PRR-007"
+        ],
+        "result": "PASS"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "FAIL",
+        "reviewer": "fresh-context exact-head documentation and validation-contract auditor",
+        "summary": "The independent pass reproduced stock evidence byte-for-byte and identified validator-provenance, future tracked-file compatibility and public authority-projection defects. Evidence SHA-256: 9e74f0b593c8b294433d036aacc9efae503f4cb9057223dc6ff250eb18db3fb5."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "Cycle eleven resolves literal-tilde root handling and retains prior regressions, but approval remains unsafe: ordinary source comments bypass credential scanning, canonical validation can be replaced by an untrusted lexically selected candidate, valid future implementation files are rejected, and the Current portfolio contradicts linked plan authority metadata.",
+    "blocking_finding_ids": [
+      "PRR-003",
+      "PRR-004",
+      "PRR-008",
+      "PRR-009"
+    ]
+  },
+  "summary": "Cycle eleven validates the one-commit three-file remediation and reproduces deterministic 13/13 positive evidence plus all 182 harness outcomes. PRR-007 is resolved; two prior S1 blockers remain open and forward-risk review adds one S1 and one S2 blocker, so approval renewal is withheld.",
+  "change_map": [
+    {
+      "area": "Structured secret scanning",
+      "change": "The contract adds balanced flow scanning at arbitrary tracked-line offsets.",
+      "external_behavior": "The exact prior embedded-flow fixture now fails, but valid commented key syntax bypasses classification.",
+      "risk": "High",
+      "validation": "Exact-head parser inspection and commented-key flow reproduction."
+    },
+    {
+      "area": "Canonical lifecycle validation",
+      "change": "The checker imports discovered workflowctl validators and intersects them with local validation.",
+      "external_behavior": "Stock differential mutations fail, but candidate selection is root- and lexical-order-dependent.",
+      "risk": "High",
+      "validation": "Trusted-versus-CODEX_HOME candidate comparison and authority-digest inspection."
+    },
+    {
+      "area": "Canonical state root",
+      "change": "The checker expands literal-tilde CODEX_HOME before resolution.",
+      "external_behavior": "Default, absolute isolated and literal-tilde roots now agree.",
+      "risk": "Medium",
+      "validation": "Stock production Ready root-equivalence matrix."
+    },
+    {
+      "area": "Lifecycle checker longevity",
+      "change": "No delta change narrows the repository-wide fixed tracked-file allowlist.",
+      "external_behavior": "Any future source, test, workflow, migration or deployment file fails FILES.",
+      "risk": "High",
+      "validation": "Static FILES-path inspection and retained future implementation artifact."
+    },
+    {
+      "area": "Portfolio authority metadata",
+      "change": "The Current project entry continues to label current source documents approved.",
+      "external_behavior": "The linked design and implementation plan still declare PLAN_CHANGES_REQUESTED and prior cycle-three FAIL.",
+      "risk": "Medium",
+      "validation": "Direct source-header and portfolio-label comparison."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-003",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Valid commented flow keys still bypass credential scanning",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 361,
+        "line_end": 368,
+        "symbol": "Secret scanning contract",
+        "side": "RIGHT",
+        "commit_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90"
+      },
+      "observation": "The parser treats a source comment between apiKeys and the colon as part of the key, so normalization appends comment words and loses the sensitive suffix. The scalar assignment regex also requires whitespace directly before the colon. A one-line source-like object with this valid syntax therefore receives exit 0, SECRETS PASS and aggregate PASS.",
+      "trigger": "A tracked JavaScript or TypeScript object uses a comment between a plural sensitive property name and its colon.",
+      "impact": "A real credential can be committed while the mandatory authorization-grade checker reports PASS.",
+      "evidence": [
+        {
+          "kind": "spec",
+          "description": "The tracked contract requires balanced source-like flow containers at arbitrary offsets to fail closed.",
+          "reference": "docs/feature/v0-1-project-management/implementation-plan.md"
+        },
+        {
+          "kind": "reproduction",
+          "description": "The exact-head commented-key fixture exits 0 with SECRETS PASS and no diagnostic; redacted output SHA-256 is 52ce784071c4e1cc6aef2e7766112094d337f27cd640184fafb5b0f2c609e290.",
+          "reference": "/private/tmp/cycle11-secret-comment-bypass-result.json"
+        }
+      ],
+      "remediation": "Tokenize or conservatively reject supported source syntax without allowing comments or equivalent trivia to alter sensitive-key identity; add the exact commented-key composition with value-redacted diagnostics to the stock harness.",
+      "verification": "At a new exact head, retain deterministic positives while this exact composition and all prior structured-secret fixtures fail without emitting credential values.",
+      "status": "open",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "testing:v0-1-project-plans-checker:semantic-governance-security-fail-open"
+    },
+    {
+      "id": "PRR-004",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "correctness",
+      "title": "Canonical validation remains replaceable and provenance-free",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 326,
+        "line_end": 336,
+        "symbol": "Canonical lifecycle validator",
+        "side": "RIGHT",
+        "commit_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90"
+      },
+      "observation": "Production discovery searches HOME, account home and CODEX_HOME plugin caches, then selects the lexically last full path without proving current package identity. The selected module is executed and its version or digest is absent from authority observations. A permissive CODEX_HOME-local candidate makes an empty-plan state rejected by the installed workflowctl receive 13/13 PASS.",
+      "trigger": "Multiple validator candidates exist across supported roots, or CODEX_HOME contains another lifecycle package cache.",
+      "impact": "Workflowctl-invalid durable state can still authorize PASS, validator choice varies by filesystem layout, and two different validators can produce the same authority digest.",
+      "evidence": [
+        {
+          "kind": "spec",
+          "description": "The tracked contract requires the current installed workflowctl validator and deterministic canonical authority.",
+          "reference": "docs/feature/v0-1-project-management/implementation-plan.md"
+        },
+        {
+          "kind": "reproduction",
+          "description": "Installed workflowctl rejects the empty plan while the unmodified checker selects the CODEX_HOME candidate and returns 13/13 PASS; output SHA-256 is 987890c9306a1f6f65a9d6146ae7de0af94a7b99e1898e19323906f9628df76a.",
+          "reference": "/private/tmp/cycle11-untrusted-validator-bypass-result.json"
+        },
+        {
+          "kind": "analysis",
+          "description": "Independent source inspection confirms lexical full-path selection and missing validator provenance in authority observations.",
+          "reference": "/private/tmp/cycle11-independent-audit.json"
+        }
+      ],
+      "remediation": "Resolve exactly one validator from trusted active lifecycle-package metadata, reject ambiguous or unsupported candidates, and bind a path-independent validator version plus content digest into authority observations and deterministic output.",
+      "verification": "At a new exact head, the production resolver must reject extra-root and multi-version ambiguity, installed workflowctl rejection must always imply checker rejection, and changing validator identity must change or invalidate authority evidence.",
+      "status": "open",
+      "origin": "DELTA_EXPOSED",
+      "fingerprint": "correctness:v0-1-project-plans-checker:documented-lifecycle-transitions-unrepresentable"
+    },
+    {
+      "id": "PRR-008",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "correctness",
+      "title": "Repository-wide allowlist rejects future implementation heads",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 308,
+        "line_end": 310,
+        "symbol": "Exact target-file validation",
+        "side": "RIGHT",
+        "commit_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90"
+      },
+      "observation": "The production checker compares every git-tracked path with a fixed list of the current management documents and sources. The lifecycle harness deletes its temporary implementation files before committing the advertised implementation head. Retaining one ordinary source artifact makes FILES fail even though the public contract requires later IP implementation, review, merge and synchronized management updates.",
+      "trigger": "Any independent IP adds a normal tracked source, test, migration, workflow or deployment file before the management projection is validated.",
+      "impact": "The checker can validate only the documentation snapshot and cannot validate the future In Progress, In Review, Accepted or reopened states it claims to support.",
+      "evidence": [
+        {
+          "kind": "spec",
+          "description": "Requirements require each IP to implement, verify, prepare an independent PR and synchronize management state.",
+          "reference": "docs/feature/v0-1-project-management/requirements.md"
+        },
+        {
+          "kind": "reproduction",
+          "description": "Adding one ordinary future source artifact makes only FILES fail as unexpected; output SHA-256 is bbf1ce9fc4d886cf356f20af1598868d12bc4b9a904fdd7ebfcdcacf5be49504.",
+          "reference": "/private/tmp/cycle11-future-implementation-file-result.json"
+        },
+        {
+          "kind": "analysis",
+          "description": "Independent inspection confirms fixed repository-wide equality and that the stock lifecycle matrix removes temporary implementation files before its implementation head.",
+          "reference": "/private/tmp/cycle11-independent-audit.json"
+        }
+      ],
+      "remediation": "Require the managed documents and exact eight-file plan-directory set without equating the entire repository tracked-file set to the current snapshot; preserve parallel-ledger and generated-artifact defenses and add a positive lifecycle case retaining normal implementation and test files.",
+      "verification": "At a new exact head, a workflowctl-generated non-Draft lifecycle fixture with retained source/test files must pass while extra plan files, alternate ledgers and generated artifacts still fail.",
+      "status": "open",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "correctness:v0-1-project-plans-checker:repository-wide-tracked-file-allowlist-blocks-implementation"
+    },
+    {
+      "id": "PRR-009",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "correctness",
+      "title": "Current portfolio approval labels contradict linked plan metadata",
+      "location": {
+        "path": "docs/project-management.md",
+        "line_start": 4,
+        "line_end": 14,
+        "symbol": "Management authority metadata",
+        "side": "RIGHT",
+        "commit_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90"
+      },
+      "observation": "The Current portfolio labels its links ApprovedDesign and ApprovedImplementationPlan, but the linked design still says Proposed F2, PLAN_CHANGES_REQUESTED and prior cycle-three FAIL, while the implementation plan says F3 PLAN_CHANGES_REQUESTED and the same FAIL. Neither source names the later cycle-four PASS snapshot.",
+      "trigger": "A reader or automation follows the Current portfolio's approval labels to determine plan authority.",
+      "impact": "The public project entry rewrites rather than faithfully projects upstream authority, making the current approval state internally contradictory and unauditable from the linked documents.",
+      "evidence": [
+        {
+          "kind": "spec",
+          "description": "PM-REQ-015 requires authoritative source links without rewriting upstream authority facts.",
+          "reference": "docs/feature/v0-1-project-management/requirements.md"
+        },
+        {
+          "kind": "code",
+          "description": "Portfolio, design and implementation-plan headers directly contradict one another at the exact reviewed head.",
+          "reference": "docs/project-management.md; docs/feature/v0-1-project-management/design.md; docs/feature/v0-1-project-management/implementation-plan.md"
+        }
+      ],
+      "remediation": "Make the source metadata and portfolio projection identify the exact approved cycle-four plan snapshot and current lifecycle phase, or rename fields so they do not claim approval; add executable cross-document authority-parity validation.",
+      "verification": "At a new exact head, the Current portfolio, linked source headers and immutable cycle-four PASS proof must agree on phase, decision, commit and authority.",
+      "status": "open",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "correctness:project-management:approved-authority-labels-contradict-source-metadata"
+    },
+    {
+      "id": "PRR-006",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "correctness",
+      "title": "Reopened Draft authority replacement remains rejected",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 337,
+        "line_end": 347,
+        "symbol": "Accepted-to-Draft immutable lineage",
+        "side": "RIGHT",
+        "commit_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90"
+      },
+      "observation": "The exact prior synchronized replacement attack remains rejected in the refreshed harness.",
+      "trigger": "A later Draft commit appends a second synchronized Superseded record, authority bundle and ChangeRecords.",
+      "impact": "The prior authority-replacement path remains closed.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The retained synchronized replacement fixture fails in the byte-identical cycle-eleven harness output.",
+          "reference": "/private/tmp/cycle11-review-harness.json"
+        }
+      ],
+      "remediation": "Completed for the exact prior finding.",
+      "verification": "Preserve the immutable first-reopen lineage and synchronized replacement regression.",
+      "status": "resolved",
+      "origin": "DELTA_EXPOSED",
+      "fingerprint": "correctness:v0-1-project-plans-checker:reopened-draft-authority-not-continuously-validated"
+    },
+    {
+      "id": "PRR-007",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "reliability",
+      "title": "Literal-tilde CODEX_HOME now matches workflowctl",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 288,
+        "line_end": 291,
+        "symbol": "Canonical Codex root",
+        "side": "RIGHT",
+        "commit_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90"
+      },
+      "observation": "The checker expands a literal leading tilde before path resolution, and the refreshed production fixture matrix proves default, isolated absolute and literal-tilde roots return the same non-None authority digest.",
+      "trigger": "A supported installation configures CODEX_HOME with a leading tilde.",
+      "impact": "The prior root-resolution mismatch is closed at the reviewed head.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "All three root forms pass with identical authority in the byte-identical 182-case harness.",
+          "reference": "/private/tmp/cycle11-review-harness.json"
+        }
+      ],
+      "remediation": "Completed for the exact prior finding.",
+      "verification": "Preserve equivalent default, absolute and literal-tilde root regressions.",
+      "status": "resolved",
+      "origin": "DELTA_EXPOSED",
+      "fingerprint": "reliability:v0-1-project-plans-checker:canonical-state-discovery-ignores-codex-home"
+    },
+    {
+      "id": "PRR-005",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "reliability",
+      "title": "GitHub authority pagination remains complete",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 348,
+        "line_end": 355,
+        "symbol": "GitHub authority pagination",
+        "side": "RIGHT",
+        "commit_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90"
+      },
+      "observation": "Validated pagination, boundary, count, duplicate and authority-digest logic remains present, and all retained 100/101 boundary cases remain green.",
+      "trigger": "GitHub authority collections cross a page boundary.",
+      "impact": "The prior truncated-authority path remains closed.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "All retained pagination fixtures pass in the reproduced 182-case harness.",
+          "reference": "/private/tmp/cycle11-review-harness.json"
+        }
+      ],
+      "remediation": "Completed for the exact prior finding.",
+      "verification": "Preserve complete pagination and all page-boundary regressions.",
+      "status": "resolved",
+      "origin": "DELTA_EXPOSED",
+      "fingerprint": "reliability:v0-1-project-plans-checker:github-authority-pagination-truncated"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Cycle-two checker regressions remain closed",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 306,
+        "line_end": 370,
+        "symbol": "Deterministic checker contract",
+        "side": "RIGHT",
+        "commit_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90"
+      },
+      "observation": "The refreshed harness retains every cycle-two authority, mutation and contract regression.",
+      "trigger": "Any retained cycle-two invalid fixture or killed mutant is supplied.",
+      "impact": "The prior false-positive paths remain closed.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "All 182 refreshed harness outcomes reproduce byte-for-byte.",
+          "reference": "/private/tmp/cycle11-review-harness.json"
+        }
+      ],
+      "remediation": "Completed for the exact prior finding.",
+      "verification": "Preserve every retained cycle-two regression while resolving open findings.",
+      "status": "resolved",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "testing:v0-1-project-plans-checker:remaining-contract-false-positives"
+    },
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Original governance and error-output regressions remain closed",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/implementation-plan.md",
+        "line_start": 306,
+        "line_end": 370,
+        "symbol": "Deterministic checker contract",
+        "side": "RIGHT",
+        "commit_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90"
+      },
+      "observation": "The original governance, duplicate-ID, pointer/version, authority, staleness, generated-artifact and error-output cases remain correctly rejected.",
+      "trigger": "Any original invalid governance fixture or invocation/parser error is supplied.",
+      "impact": "The original false-positive and missing-error-output paths remain closed.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The cycle-eleven harness retains every original fixture class.",
+          "reference": "/private/tmp/cycle11-review-harness.json"
+        }
+      ],
+      "remediation": "Completed for the exact prior finding.",
+      "verification": "Preserve the original regressions while resolving open findings.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "testing:v0-1-project-plans-checker:false-positive-governance-gates"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-003",
+      "action": "Handle comments and equivalent trivia without changing sensitive-key identity; retain value-redacted regressions.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-004",
+      "action": "Bind production validation to one trusted active workflowctl identity, reject ambiguity, and include validator provenance in authority.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-008",
+      "action": "Limit exact-file enforcement to managed plans and allow normal implementation files, with a retained non-Draft positive fixture.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-009",
+      "action": "Synchronize portfolio and source lifecycle metadata with the exact cycle-four PASS authority and validate parity.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-006",
+      "action": "Preserve immutable first-reopen authority and the synchronized replacement regression.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-007",
+      "action": "Preserve equivalent default, absolute and literal-tilde root regressions.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-005",
+      "action": "Preserve complete pagination and all 100/101 boundary regressions.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Preserve all cycle-two regression cases.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-001",
+      "action": "Preserve all original governance and error-output regression cases.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "High",
+      "description": "Valid source trivia can hide a credential from the structured scanner.",
+      "mitigation": "Resolve PRR-003 with syntax-aware or conservatively fail-closed key classification.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "data-integrity",
+      "level": "High",
+      "description": "Validator selection and public authority projection are not deterministic or internally consistent.",
+      "mitigation": "Resolve PRR-004 and PRR-009 with trusted validator identity and exact authority parity.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "api-compatibility",
+      "level": "High",
+      "description": "The fixed repository-wide allowlist is incompatible with every future implementation file.",
+      "mitigation": "Resolve PRR-008 and retain a production-shaped lifecycle positive.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Medium",
+      "description": "CODEX_HOME path expansion is now correct, but validator provenance still depends on filesystem layout.",
+      "mitigation": "Preserve PRR-007 and resolve PRR-004.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "Low",
+      "description": "The reviewed GitHub collections paginate and validate complete page sets.",
+      "mitigation": "Preserve 100/101 boundary regressions.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "No deployment occurred; documentation and review records remain recoverable through Git history.",
+      "mitigation": "Use compensating commits and preserve immutable review evidence.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "verify cycle-ten report and JSON bytes at 2c2d0772af15ba9a2a37b2111d34c9c48cb66823",
+        "environment": "Git and SHA-256 on macOS",
+        "head_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The prior JSON exists on this immutable report branch and matches SHA-256 df36e03fa51dd38ee0140f01883268ab4f8f6d31cc61eff717c680854b149da6.",
+        "required_for_approval": true,
+        "evidence_ref": "2c2d0772af15ba9a2a37b2111d34c9c48cb66823"
+      },
+      {
+        "command": "git diff --check 9259d884459dd36bde6c089c3a15b368c985b617..59cb2947802402a30bd307b2d51b31fb8335eb90",
+        "environment": "Git on macOS; isolated exact-head review snapshot",
+        "head_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors; the one-commit three-file delta and complete 14-file PR diff were reconciled with no unclassified change.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node validate-v0-1-project-plans.mjs --repo <isolated-review-root> --checked-commit 59cb2947802402a30bd307b2d51b31fb8335eb90 --output <review-output>",
+        "environment": "Node.js on macOS; clean exact-head isolated review snapshot",
+        "head_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Reproduced 13/13 PASS twice; outputs are byte-identical with SHA-256 730b761366908bc057877f08c8a4c43b748b8778acddae4604f605ee3f797a6d.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/cycle11-review-positive-a.json"
+      },
+      {
+        "command": "node test-validate-v0-1-project-plans.mjs <isolated-review-root> <checker> <review-output>",
+        "environment": "Node.js on macOS; disposable committed fixtures and mutants",
+        "head_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 136 expected failures, 28 expected passes, six expected errors and twelve mutant kills reproduce; summary SHA-256 is d711f6d4d6a7b8096bc8c0dc523962f6e24e2ae3f665050ffda8f1ff0c8b5157.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/cycle11-review-harness.json"
+      },
+      {
+        "command": "primary cycle-eleven forward-risk reproductions",
+        "environment": "Node.js, Python and Git on macOS; disposable exact-head fixtures",
+        "head_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "Commented flow keys, replaceable validator selection, future-file incompatibility and authority-label contradiction remain unsafe; summary SHA-256 is 80bd5e3444e9fb2c595f149026452a3d030040436a71510923754a3ae3f10e90.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/cycle11-primary-forward-risk-summary.json"
+      },
+      {
+        "command": "independent fresh-context exact-head documentation and validation-contract audit",
+        "environment": "Node.js and Git on macOS; separate stock evidence reruns and source inspection",
+        "head_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "The independent audit reproduced stock evidence and confirmed validator provenance, future-file compatibility and authority-projection blockers; evidence SHA-256 is 9e74f0b593c8b294433d036aacc9efae503f4cb9057223dc6ff250eb18db3fb5.",
+        "required_for_approval": true,
+        "evidence_ref": "/private/tmp/cycle11-independent-audit.json"
+      },
+      {
+        "command": "refresh live PR identity, head, mergeability and commit status",
+        "environment": "Connected GitHub app read-only query",
+        "head_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "PR is open, non-draft and mergeable at the exact routed base/head; GitHub returns zero commit statuses.",
+        "required_for_approval": true,
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/1"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "GitHub status checks",
+        "observed_at": "2026-07-29T13:14:12Z",
+        "head_sha": "59cb2947802402a30bd307b2d51b31fb8335eb90",
+        "status": "UNKNOWN",
+        "summary": "GitHub returned zero commit statuses for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/1"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Runtime unit, integration, browser and deployment tests",
+        "reason": "No runtime code changed; the approved plan assigns these checks to later independent IP lifecycles."
+      },
+      {
+        "check": "Production server, DNS, HTTPS, backup and restore validation",
+        "reason": "These require later IP-08 scope and separate external authorization."
+      }
+    ]
+  },
+  "limitations": [
+    "GitHub reported no commit statuses or check logs for the reviewed head.",
+    "The checker, harness and raw outputs are external task evidence rather than commit-bound tracked artifacts; they were inspected and reproduced during this review.",
+    "The exact repository head is all-Draft, so non-Draft lifecycle and GitHub paths were exercised through disposable fixtures.",
+    "Future IP runtime behavior and deployment systems remain outside this documentation-only PR."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "The live PR VerificationEnvelope and supplied external checker, harness and outputs are Engineering Main's intended cycle-eleven evidence.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read the live PR body, compare exact-head fields, rerun the checker and harness and recompute artifact digests.",
+      "evidence": "CheckedCommit equals the request and live head; checker, harness, positive and summary digests reproduce exactly.",
+      "impact_if_false": "The review would be evaluating evidence that Main did not intend to authorize."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "Passing the supplied 136 expected failures, 28 expected passes, six expected errors and twelve mutants is sufficient to establish the full deterministic contract.",
+      "decision_critical": true,
+      "status": "FALSIFIED",
+      "method": "Compare the tracked contract with checker selection, parser and file-set behavior, then run primary reproductions and an independent pass.",
+      "evidence": "Four open security, authority, future-compatibility and metadata-parity paths remain despite all 182 advertised outcomes passing.",
+      "impact_if_false": "The advertised evidence cannot authorize merge until the uncovered paths are implemented and tested."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The exact technical plan snapshot used for implementation was approved before implementation began.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect the immutable technical-plan review branch and exact approved commit and digest.",
+      "evidence": "The immutable plan review records PASS for plan commit 70db0b5341186fa6bafe14a16ce1f69b707d916c before feature implementation.",
+      "impact_if_false": "The implementation would have a separate plan-authorization defect."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
