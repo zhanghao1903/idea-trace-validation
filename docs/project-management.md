@@ -131,7 +131,18 @@ Git common-dir 对应的 Codex canonical lifecycle `config.json`/`state.json`
 PR/base/head、PR 文件、仓库 required-check 集合、check result、merge event、
 merge commit 和验收 review；缺少任一外部读取、引用不存在或投影不一致时一律
 fail closed。生产运行不得通过仓库内文件或命令行覆盖 canonical lifecycle root；
-仓库外 state override 只允许隔离临时测试仓库。
+生产 CLI 不存在 state/config override。测试 authority 只能由 negative harness
+生成的独立 test build 在构建时固定；该 build 必须在路径规范化前逐段拒绝
+state/config 的 symlink、hardlink、tracked inode alias 和 common-dir 不一致。
+
+七种状态、十六条边、source roles、authority 类型、prerequisite 与 durable-stage
+映射必须来自同一个可穷举 registry。`Deferred` 保留延期前合法 stage：
+pre-plan `Draft→Deferred` 不要求虚构 RequirementsHandoff 或 PASS plan；有计划、
+Goal 或 PR 的延期只校验该边实际需要的既有 authority。Requirements-led 决定解析
+durable `PlanStatusDecision`，用户 led 决定解析仓库 OWNER 的未编辑 GitHub
+结构化决定；两类决定都必须包含原因和恢复条件。`Accepted→Draft` 必须追加
+Superseded AcceptanceRecord、增加计划版本、建立新的 lifecycle feature，并把
+新 bundle 绑定到旧 feature 与被替代的 Accepted record。
 
 bundle 必须把 PlanId/version、独立 lifecycle feature/branch 和
 AcceptanceOwner 绑定到精确 RequirementsHandoff、PASS 技术计划 Review，以及该
@@ -148,6 +159,12 @@ head 相对 PASS plan commit 的完整 Git diff，并等于 live PR 文件集；
 actor/feature/branch 文本、通用 URL、
 自造 64 字符 message ID、仅有 SHA 外观的 commit 或 repository-authored JSON
 均不构成 authority。
+
+所有 GitHub collection authority 必须分页到完成。PR files、check runs、combined
+statuses、reviews 与 merge-commit files 的每页都进入
+`authoritySnapshotDigest`；非末页不是 100 项、重复 identity、声明总数与完整结果
+不一致或第二页缺失时一律失败。敏感终端键的标量、数组、对象与跨行结构一律扫描，
+diagnostic 只记录字段名，不记录值。
 
 Main 必须比较 parent/head 状态。任何业务状态变化都只能使用上表允许的边，并由
 bundle 中精确 `from`/`to`、message ID、source roles、时间和原因授权。旧或新任一

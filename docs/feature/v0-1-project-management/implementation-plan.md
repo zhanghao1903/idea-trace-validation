@@ -283,9 +283,12 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 - 发现任何非 `Draft` 投影时，checker 还必须自动定位与当前 Git common-dir 和
   repository key 同时匹配的 Codex canonical lifecycle config/state，并通过
   `gh api` 读取该投影引用的 live GitHub authority；读取缺失或冲突即失败；
-- 生产命令不得接受 lifecycle root 覆盖；可选 `--lifecycle-state` 仅用于
-  `os.tmpdir()` 下的隔离测试仓库，且 state/config 必须位于仓库外、为非链接普通
-  文件、不得与 tracked input inode 相同，并绑定该 fixture 的 Git common-dir；
+- 生产命令只接受 `--repo`、`--checked-commit`、`--output`，不得接受 lifecycle
+  root/state/config 覆盖；fixture authority 只能由 negative harness 从同一源码生成
+  独立 test build，并在构建时固定单一 state 路径，不能由生产 CLI 调用者提供；
+- test build 在 `realpath` 前逐段 `lstat` 固定的 state/config 原始路径，拒绝任一
+  符号链接、非普通文件、多硬链接 inode、repository/tracked-input inode 别名和
+  与 fixture Git common-dir 不一致的配置；
 - 元数据从文档开头 `- Key: Value` 读取；
 - 追踪数据从带有
   `<!-- PRIMARY-TRACE-START -->` / `<!-- PRIMARY-TRACE-END -->` 标记的表读取；
@@ -301,27 +304,37 @@ node /private/tmp/validate-v0-1-project-plans.mjs
 4. 从 primary trace 表统计 REQ-001–027、Slice 0–9 各恰好一次，REQ-028
    只归 management feature；
 5. 统计 AC-001–020 至少一次且每个 IP 至少一个；
-6. 校验状态转换表所需边集合，且 `Stale` 不属于业务状态；
+6. 从一个可穷举 registry 同时派生七种状态、十六条转换、source-role 组合、
+   authority 类型、prerequisite 和 durable-stage 映射；校验状态转换表所需边
+   集合，且 `Stale` 不属于业务状态；
 7. 校验 AcceptanceRecord ID/版本/pointer 规则，要求文档 schema 出现
    `AcceptedBy`、`AcceptedAt`、`AcceptedCommit`、`AcceptanceEvidence`；
    `Accepted` 的三个 `Accepted*` 字段非空且与 decision/commit 相等，
    `Rejected`/`Superseded` 的三个字段为 `None`，并校验各自 authority 与
    recorder；Code Review rejection 路径不得引用 `Rejected` AcceptanceRecord；
-8. 对每个非 `Draft` 投影解析 canonical lifecycle message digest、payload
-   digest、role routing、feature stage 与 GoalRun；Ready、In Progress、Blocked、
-   In Review、Accepted 必须与 durable stage 完全对应；
+8. 对每个受 authority 驱动的投影解析 canonical lifecycle message digest、
+   payload digest、role routing、feature stage 与 GoalRun；`Deferred` 保留延期
+   前的合法 durable stage，pre-plan `Draft→Deferred` 不伪造 handoff/plan；
+   Requirements-led defer/reopen 使用 durable `PlanStatusDecision`，用户 led
+   defer 使用 GitHub OWNER 的未编辑结构化决定；`Accepted→Draft` 必须升高计划
+   版本、建立新的 lifecycle feature，并绑定旧 feature 和被 Superseded 的
+   AcceptanceRecord；
 9. 对 In Review/Accepted 解析 live PR/base/head/files、branch protection 的完整
-   required-check 集合及对应 check/status result；Accepted 只接受 durable
+   required-check 集合及对应 check/status result；PR files、check runs、combined
+   statuses、reviews 和 merge-commit files 必须确定性分页至完成，非末页必须恰好
+   100 项，拒绝重复 identity、不一致 total/count 和不可能的页边界，并把每页
+   response digest 纳入 authority snapshot；Accepted 只接受 durable
    `APPROVE`/`READY` 加独立 `APPROVE`/`MERGED`，再核对 live merge commit/method
    与 AcceptanceOwner 的 `APPROVED` GitHub review；实现文件集取 PASS plan
-   commit 到实现 head 的完整 Git range diff，并与 live PR files 完全相等；
+   commit 到实现 head 的完整 Git range diff，并与全部 live PR files 完全相等；
 10. 校验 StalenessRecord 成对投影；
 11. 解析相对链接并验证目标存在；
 12. 按 CommonMark fence marker 与 opening delimiter length 解析 rendered
     blocks；较短的 closing fence 不得关闭较长 opening fence；
 13. 扫描任意 public/vendor prefix 深度的 password、secret、token、cookie、
-    database URL、API key、AWS access-key ID/secret-access-key 等赋值；只输出字段
-    名，禁止把值写入 diagnostics；
+    database URL、API key、AWS access-key ID/secret-access-key 等赋值；敏感终端
+    键的标量、数组、对象和跨行结构都 fail closed，只输出字段名，禁止把值写入
+    diagnostics；
 14. 按 check ID 排序输出结果。输出同时固定 canonical lifecycle/GitHub response
     的组合 digest；同一 commit 与同一 authority snapshot 产生相同 JSON。
 
@@ -377,6 +390,17 @@ checker 运行后不得修改 tracked 文件；若修改、追加 proof commit �
 新 head，旧 envelope 立即失效，必须对新 head 重新运行、替换 PR 描述中的 envelope，
 再生成或更新 lifecycle request。这样 checker 直接绑定最终 head，不产生“文档包含
 自身 commit/digest”的循环依赖，也不扩展 lifecycle schema。
+
+negative harness 必须保留全部既有回归，并额外证明：
+
+- production-shaped 临时 checkout 不能注入 lifecycle state，state/config 的
+  direct、symlink、hardlink 和 tracked-inode alias 路径均按预期 fail closed；
+- 结构化数组、对象和跨行敏感值被拒绝且诊断不包含值；
+- 七种状态和十六条边均有端到端 PASS；wrong-role、wrong-edge、Stale 和
+  missing-recovery 均有端到端 FAIL；
+- 100 项 required checks、101 项 PR/merge files、101 条 reviews（指定验收证据
+  位于第二页）均 PASS；不一致总数 FAIL；完整多页 authority digest 双跑
+  byte-stable。
 
 另外精确运行：
 
