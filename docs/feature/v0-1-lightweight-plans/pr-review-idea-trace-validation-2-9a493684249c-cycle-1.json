@@ -1,0 +1,324 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 2,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/2",
+    "title": "Docs: reorganize v0.1 into five lightweight plans",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "9259d884459dd36bde6c089c3a15b368c985b617",
+    "head_ref": "codex/v0-1-lightweight-plans",
+    "head_sha": "9a493684249ccfa1d7a228331c8bfaea21661e47",
+    "reviewed_at": "2026-07-30T12:08:43Z",
+    "reviewer": "Codex Engineering Review / PR Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete 9259d884459dd36bde6c089c3a15b368c985b617..9a493684249ccfa1d7a228331c8bfaea21661e47 documentation diff",
+      "lightweight requirements, design, implementation plan and changelog",
+      "five LP plans and the single project-management entry",
+      "exact-head PR metadata, mergeability and required-check configuration"
+    ],
+    "excluded_scope": [
+      "future LP-01 through LP-05 runtime implementations",
+      "production server, DNS, HTTPS, backup and restore environments"
+    ]
+  },
+  "review_context": {
+    "kind": "INITIAL",
+    "forward_risk_review": [
+      {
+        "surface": "Current planning-contract consistency",
+        "risk_triggers": [
+          "public-contract",
+          "data-integrity",
+          "other"
+        ],
+        "reason": "Repository planning documents must expose one unambiguous current five-plan direction after the old governance feature was abandoned.",
+        "affected_paths": [
+          "docs/feature/v0-1-project-management/requirements.md",
+          "docs/feature/v0-1-lightweight-plans/requirements.md",
+          "docs/project-management.md"
+        ],
+        "checks": [
+          "Compare status and plan-count contracts across both requirements documents",
+          "Compare the old requirements with the live five-plan management entry",
+          "Classify every full-diff planning artifact as current or historical"
+        ],
+        "finding_ids": [
+          "PRR-001"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Five-plan document integrity and traceability",
+        "risk_triggers": [
+          "public-contract",
+          "test-adequacy"
+        ],
+        "reason": "The five LP files and management index must have valid links, required sections, initial states and complete unique primary mappings.",
+        "affected_paths": [
+          "docs/project-management.md",
+          "docs/implementation-plans/v0-1/lp-01-core-idea-flow.md",
+          "docs/implementation-plans/v0-1/lp-02-execution-decisions.md",
+          "docs/implementation-plans/v0-1/lp-03-reporting-role-experience.md",
+          "docs/implementation-plans/v0-1/lp-04-ai-skill-demo.md",
+          "docs/implementation-plans/v0-1/lp-05-deployment-release.md"
+        ],
+        "checks": [
+          "Check six target files and all relative links",
+          "Check ten required sections and initial status fields",
+          "Review REQ, AC and Slice primary assignments"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      },
+      {
+        "surface": "Documentation-only scope and original baseline",
+        "risk_triggers": [
+          "deployment-compatibility",
+          "security-privacy",
+          "test-adequacy"
+        ],
+        "reason": "The PR must not change the original v0.1 technical baseline, add runtime code or recreate the excluded governance checker.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "docs/feature/v0-1-lightweight-plans/design.md",
+          "docs/feature/v0-1-lightweight-plans/implementation-plan.md",
+          "docs/feature/v0-1-project-plan"
+        ],
+        "checks": [
+          "Verify the original v0.1 baseline path has no diff",
+          "Classify all changed filenames",
+          "Search changed scope for excluded software artifacts and obvious credential patterns"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ]
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "The five lightweight plans and their proportional validation pass, but the PR also adds the superseded eight-plan requirements as a still-Confirmed current contract. That direct documentation conflict must be removed or explicitly marked superseded before merge.",
+    "blocking_finding_ids": [
+      "PRR-001"
+    ]
+  },
+  "summary": "The intended six lightweight planning documents are coherent, linked and trace-complete, and the original v0.1 baseline is unchanged. Approval is withheld only because the full PR diff still adds a conflicting old eight-plan requirements document without a superseded marker.",
+  "change_map": [
+    {
+      "area": "Lightweight management entry",
+      "change": "Adds a five-plan index, dependency chain, initial status and primary ownership table.",
+      "external_behavior": "Maintainers can navigate and track five independently accepted plans from one page.",
+      "risk": "Low",
+      "validation": "Content, links, status and trace review passed."
+    },
+    {
+      "area": "Five LP plans",
+      "change": "Groups Slice 0 through Slice 9 into five result-oriented plan documents.",
+      "external_behavior": "Each plan can enter a separate Requirements and acceptance lifecycle.",
+      "risk": "Low",
+      "validation": "Ten-section, acceptance-scenario, dependency and initial-record checks passed."
+    },
+    {
+      "area": "Superseded project-management requirements",
+      "change": "Adds the old eight-plan governance requirements to the PR base diff with Status Confirmed.",
+      "external_behavior": "Repository readers see conflicting five-plan and eight-plan current contracts.",
+      "risk": "Medium",
+      "validation": "Direct full-diff and cross-document comparison; PRR-001."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "documentation",
+      "title": "Superseded eight-plan requirements remain marked Confirmed",
+      "location": {
+        "path": "docs/feature/v0-1-project-management/requirements.md",
+        "line_start": 3,
+        "line_end": 3,
+        "symbol": "Requirements status",
+        "side": "RIGHT",
+        "commit_sha": "9a493684249ccfa1d7a228331c8bfaea21661e47"
+      },
+      "observation": "The full PR diff adds the old project-management requirements as Status Confirmed. Its goals and functional requirements still mandate eight IP documents, the old status model and the old lifecycle contract, while the new confirmed lightweight requirements and management entry mandate five LP documents and a simpler status model. The old file has no superseded or abandoned marker and no replacement link.",
+      "trigger": "A maintainer, AI client or later Requirements task searches the repository for current project-management requirements after merge.",
+      "impact": "The repository presents two incompatible current planning contracts, so an executor can restore the abandoned eight-plan governance direction and the lightweight cleanup outcome is not unambiguous.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "The base-to-head diff adds docs/feature/v0-1-project-management/requirements.md; lines 3, 42-49 and 146-163 keep the eight-plan contract current.",
+          "reference": "docs/feature/v0-1-project-management/requirements.md"
+        },
+        {
+          "kind": "spec",
+          "description": "The replacement requirements require cleanup of old complex governance documents and define LP-01 through LP-05 as the current plan boundaries.",
+          "reference": "docs/feature/v0-1-lightweight-plans/requirements.md"
+        },
+        {
+          "kind": "code",
+          "description": "The current management entry exposes only LP-01 through LP-05 with the new controlled statuses.",
+          "reference": "docs/project-management.md"
+        }
+      ],
+      "remediation": "Ensure the old file no longer appears as a current confirmed contract: remove it from this PR, or clearly mark it Superseded/Abandoned at the top, link to the lightweight replacement requirements and eliminate current-status ambiguity. Preserve docs/feature/v0-1-project-plan as the original product baseline.",
+      "verification": "At a new exact head, confirm the repository exposes one current five-plan contract, then rerun the full diff, target-file, link, section, status, trace and original-baseline checks.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "documentation:planning-contract:superseded-eight-plan-requirements-still-current"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Remove the old eight-plan requirements from the PR or mark them unmistakably superseded and link the current lightweight requirements.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "maintainability",
+      "level": "Medium",
+      "description": "Two incompatible requirements documents are presented as current and can send future work back toward the abandoned governance direction.",
+      "mitigation": "Resolve PRR-001 before merge.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "No high-signal credential pattern was found in the documentation diff.",
+      "mitigation": "Future LP implementations must perform their own security review.",
+      "owner": "Future LP owners"
+    },
+    {
+      "category": "api-compatibility",
+      "level": "Low",
+      "description": "The original product, domain, protocol, architecture and source implementation-plan baseline is unchanged.",
+      "mitigation": "Preserve that path in remediation.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "This documentation-only change can be reverted with compensating commits and performs no deployment.",
+      "mitigation": "Keep remediation documentation-only.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "PASSED",
+    "reviewer_runs": [
+      {
+        "command": "git diff --check 9259d884459dd36bde6c089c3a15b368c985b617..9a493684249ccfa1d7a228331c8bfaea21661e47",
+        "environment": "Git on macOS; isolated exact-head review worktree",
+        "head_sha": "9a493684249ccfa1d7a228331c8bfaea21661e47",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors in the complete 11-file documentation diff.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "target-file, ten-section, initial-state, acceptance-record and relative-link shell checks",
+        "environment": "rg and shell on macOS; isolated exact-head review worktree",
+        "head_sha": "9a493684249ccfa1d7a228331c8bfaea21661e47",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All six target documents exist; every LP has exactly ten required sections, Not Started, no blocker, an empty acceptance record and valid relative links.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "git diff --exit-code 9259d884459dd36bde6c089c3a15b368c985b617..9a493684249ccfa1d7a228331c8bfaea21661e47 -- docs/feature/v0-1-project-plan",
+        "environment": "Git on macOS; isolated exact-head review worktree",
+        "head_sha": "9a493684249ccfa1d7a228331c8bfaea21661e47",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The original v0.1 product and technical baseline has no diff.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "changed-file classification plus excluded-artifact and obvious-secret pattern checks",
+        "environment": "Git and rg on macOS; complete base-to-head diff",
+        "head_sha": "9a493684249ccfa1d7a228331c8bfaea21661e47",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No runtime/checker/simulator/fixture/harness files or high-signal credential patterns were added.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "refresh live PR identity, head, draft state and GitHub mergeability",
+        "environment": "Connected GitHub app",
+        "head_sha": "9a493684249ccfa1d7a228331c8bfaea21661e47",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "PR is open, non-draft and GitHub-mergeable with the exact routed base and head.",
+        "required_for_approval": true,
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/2"
+      },
+      {
+        "command": "gh pr checks plus base protection and repository ruleset inspection",
+        "environment": "GitHub CLI and REST API",
+        "head_sha": "9a493684249ccfa1d7a228331c8bfaea21661e47",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No checks are reported; the base branch is unprotected and the repository has no rulesets, so no required check context is missing.",
+        "required_for_approval": true,
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/2/checks"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "GitHub required checks",
+        "observed_at": "2026-07-30T12:08:43Z",
+        "head_sha": "9a493684249ccfa1d7a228331c8bfaea21661e47",
+        "status": "PASS",
+        "summary": "No commit statuses are present and no branch protection or repository ruleset defines a required check.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/2/checks"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Runtime unit, integration, browser and deployment tests",
+        "reason": "The PR changes only planning Markdown; runtime checks belong to later independently authorized LP implementations."
+      },
+      {
+        "check": "Production server, DNS, HTTPS, backup and restore validation",
+        "reason": "These are LP-05 scope and require separate external authorization."
+      }
+    ]
+  },
+  "limitations": [
+    "No runtime behavior is implemented by this PR, so the future LP acceptance scenarios are plans rather than executable proof.",
+    "GitHub reports no CI checks; this is non-blocking only because the base branch has no protection and the repository has no ruleset requiring a context."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "The routed PR number, base SHA and head SHA identify the live snapshot to review.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Compare the routed request with the GitHub PR snapshot and fetched remote refs.",
+      "evidence": "PR 2 and origin/codex/v0-1-lightweight-plans match the exact requested base and head.",
+      "impact_if_false": "The review would be bound to the wrong snapshot."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "There is no required GitHub check context for this base branch.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read exact-head statuses, PR checks, base-branch protection and repository rulesets.",
+      "evidence": "Statuses and checks are empty, the branch is not protected and repository rulesets are empty.",
+      "impact_if_false": "A READY result could be issued while a required check is missing."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
