@@ -25,3 +25,6 @@
 
 - Move the structured-report v1 JSON Schema into `packages/contracts/schemas` as
   its single canonical location and update all documentation links.
+- Reuse Fastify's request-scoped ID across LP-01 logs, responses, idempotency
+  and audit, add post-mutation rollback evidence, and enforce the configured
+  shutdown deadline for lingering requests or resources.

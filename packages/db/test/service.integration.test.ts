@@ -155,6 +155,94 @@ describe("PostgreSQL command protocol", () => {
     });
   });
 
+  it("rolls back business, audit and idempotency writes after a post-mutation infrastructure failure", async () => {
+    const key = "integration-post-mutation-failure";
+    const digest = requestDigest("POST", "/api/v1/ideas", {}, createBody);
+    await pool.query(`
+      CREATE OR REPLACE FUNCTION lp01_test_fail_target_audit() RETURNS trigger
+      LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.idempotency_key = '${key}' THEN
+          RAISE EXCEPTION 'injected failure after business mutation'
+            USING ERRCODE = 'P0001';
+        END IF;
+        RETURN NEW;
+      END
+      $$
+    `);
+    await pool.query(`
+      CREATE TRIGGER lp01_test_fail_target_audit_trigger
+      BEFORE INSERT ON audit_events
+      FOR EACH ROW EXECUTE FUNCTION lp01_test_fail_target_audit()
+    `);
+
+    try {
+      await expect(
+        service.createIdea(createBody, {
+          idempotencyKey: key,
+          requestId: "req_01ARZ3NDEKTSV4RRFFQ69G5FBD",
+          requestDigest: digest,
+        }),
+      ).rejects.toMatchObject({ code: "P0001" });
+    } finally {
+      await pool.query(
+        "DROP TRIGGER lp01_test_fail_target_audit_trigger ON audit_events",
+      );
+      await pool.query("DROP FUNCTION lp01_test_fail_target_audit()");
+    }
+
+    const rolledBack = await pool.query<{
+      auditEvents: number;
+      clarificationQuestions: number;
+      ideas: number;
+      idempotencyRecords: number;
+      statements: number;
+    }>(`
+      SELECT
+        (SELECT count(*)::int FROM ideas) AS "ideas",
+        (SELECT count(*)::int FROM idea_statements) AS "statements",
+        (SELECT count(*)::int FROM clarification_questions)
+          AS "clarificationQuestions",
+        (SELECT count(*)::int FROM audit_events) AS "auditEvents",
+        (SELECT count(*)::int FROM idempotency_records)
+          AS "idempotencyRecords"
+    `);
+    expect(rolledBack.rows[0]).toEqual({
+      auditEvents: 0,
+      clarificationQuestions: 0,
+      ideas: 0,
+      idempotencyRecords: 0,
+      statements: 0,
+    });
+
+    const retried = await service.createIdea(createBody, {
+      idempotencyKey: key,
+      requestId: "req_01ARZ3NDEKTSV4RRFFQ69G5FBE",
+      requestDigest: digest,
+    });
+    expect(retried).toMatchObject({
+      ok: true,
+      idempotentReplay: false,
+      requestId: "req_01ARZ3NDEKTSV4RRFFQ69G5FBE",
+    });
+    expect(
+      (
+        await pool.query(
+          "SELECT status FROM idempotency_records WHERE idempotency_key = $1",
+          [key],
+        )
+      ).rows[0]?.status,
+    ).toBe("SUCCEEDED");
+    expect(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS count FROM audit_events WHERE idempotency_key = $1",
+          [key],
+        )
+      ).rows[0]?.count,
+    ).toBe(1);
+  });
+
   it("commits a deterministic correction rejection without partial business writes", async () => {
     const withQuestion = {
       ...createBody,

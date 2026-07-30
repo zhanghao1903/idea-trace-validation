@@ -6,11 +6,7 @@ import { authenticateWrite } from "../authenticate-write.js";
 import { errorEnvelope } from "../errors.js";
 
 export const promotionRoutes =
-  (
-    service: IdeaService,
-    aiApiToken: string,
-    requestId: () => string,
-  ): FastifyPluginAsyncTypebox =>
+  (service: IdeaService, aiApiToken: string): FastifyPluginAsyncTypebox =>
   async (app) => {
     app.post(
       "/ideas/:ideaId/promotions",
@@ -22,7 +18,7 @@ export const promotionRoutes =
         const { ideaId } = request.params;
         const result = await service.promoteIdea(ideaId, request.body, {
           idempotencyKey: request.headers["idempotency-key"],
-          requestId: requestId(),
+          requestId: request.id,
           requestDigest: requestDigest(
             "POST",
             "/api/v1/ideas/:ideaId/promotions",

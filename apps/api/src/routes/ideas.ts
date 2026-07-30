@@ -10,11 +10,7 @@ import { authenticateWrite } from "../authenticate-write.js";
 import { errorEnvelope, notFoundError } from "../errors.js";
 
 export const ideaRoutes =
-  (
-    service: IdeaService,
-    aiApiToken: string,
-    requestId: () => string,
-  ): FastifyPluginAsyncTypebox =>
+  (service: IdeaService, aiApiToken: string): FastifyPluginAsyncTypebox =>
   async (app) => {
     app.post(
       "/ideas",
@@ -26,7 +22,7 @@ export const ideaRoutes =
         const idempotencyKey = request.headers["idempotency-key"];
         const result = await service.createIdea(request.body, {
           idempotencyKey,
-          requestId: requestId(),
+          requestId: request.id,
           requestDigest: requestDigest(
             "POST",
             "/api/v1/ideas",
@@ -61,7 +57,7 @@ export const ideaRoutes =
           page: { limit: result.limit, nextCursor: result.nextCursor },
           view,
         },
-        meta: { requestId: requestId() },
+        meta: { requestId: request.id },
       };
     });
 
@@ -72,17 +68,19 @@ export const ideaRoutes =
         const view = request.query.view ?? "proposer";
         const idea = await service.getIdea(request.params.ideaId, view);
         if (idea === null) {
-          const id = requestId();
           return reply
             .code(404)
             .send(
-              errorEnvelope(id, notFoundError("IDEA", request.params.ideaId)),
+              errorEnvelope(
+                request.id,
+                notFoundError("IDEA", request.params.ideaId),
+              ),
             );
         }
         return {
           ok: true as const,
           data: { idea, view },
-          meta: { requestId: requestId() },
+          meta: { requestId: request.id },
         };
       },
     );

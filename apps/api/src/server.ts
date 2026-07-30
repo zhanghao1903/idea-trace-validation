@@ -2,6 +2,7 @@ import { createPool, PostgresIdeaService, PostgresReadiness } from "@idea/db";
 
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import { shutdownApplication } from "./shutdown.js";
 
 const config = loadConfig(process.env);
 const pool = createPool({
@@ -16,19 +17,26 @@ const app = await buildApp({
   readiness,
 });
 
-const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
-  app.log.info({ signal }, "shutdown requested");
-  const timeout = setTimeout(() => {
-    app.log.error("shutdown grace period exceeded");
-    process.exitCode = 1;
-  }, config.shutdownGraceMs);
-  timeout.unref();
-  await app.close();
-  await pool.end();
-  clearTimeout(timeout);
-};
+const shutdown = (signal: NodeJS.Signals): Promise<void> =>
+  shutdownApplication({
+    app,
+    pool,
+    graceMs: config.shutdownGraceMs,
+    signal,
+  });
 
-process.once("SIGTERM", () => void shutdown("SIGTERM"));
-process.once("SIGINT", () => void shutdown("SIGINT"));
+let shutdownStarted = false;
+const onSignal = (signal: NodeJS.Signals): void => {
+  if (shutdownStarted) return;
+  shutdownStarted = true;
+  process.removeListener("SIGTERM", onSigterm);
+  process.removeListener("SIGINT", onSigint);
+  void shutdown(signal);
+};
+const onSigterm = (): void => onSignal("SIGTERM");
+const onSigint = (): void => onSignal("SIGINT");
+
+process.once("SIGTERM", onSigterm);
+process.once("SIGINT", onSigint);
 
 await app.listen({ host: config.host, port: config.port });

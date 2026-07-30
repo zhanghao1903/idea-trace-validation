@@ -6,11 +6,7 @@ import { authenticateWrite } from "../authenticate-write.js";
 import { errorEnvelope } from "../errors.js";
 
 export const clarificationRoutes =
-  (
-    service: IdeaService,
-    aiApiToken: string,
-    requestId: () => string,
-  ): FastifyPluginAsyncTypebox =>
+  (service: IdeaService, aiApiToken: string): FastifyPluginAsyncTypebox =>
   async (app) => {
     app.post(
       "/ideas/:ideaId/clarifications/:questionId/answers",
@@ -26,7 +22,7 @@ export const clarificationRoutes =
           request.body,
           {
             idempotencyKey: request.headers["idempotency-key"],
-            requestId: requestId(),
+            requestId: request.id,
             requestDigest: requestDigest(
               "POST",
               "/api/v1/ideas/:ideaId/clarifications/:questionId/answers",

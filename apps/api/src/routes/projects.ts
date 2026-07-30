@@ -8,7 +8,7 @@ import type { FastifyPluginAsyncTypebox } from "@fastify/type-provider-typebox";
 import { errorEnvelope, notFoundError } from "../errors.js";
 
 export const projectRoutes =
-  (service: IdeaService, requestId: () => string): FastifyPluginAsyncTypebox =>
+  (service: IdeaService): FastifyPluginAsyncTypebox =>
   async (app) => {
     app.get(
       "/projects",
@@ -28,7 +28,7 @@ export const projectRoutes =
             page: { limit: result.limit, nextCursor: result.nextCursor },
             view,
           },
-          meta: { requestId: requestId() },
+          meta: { requestId: request.id },
         };
       },
     );
@@ -43,12 +43,11 @@ export const projectRoutes =
           view,
         );
         if (project === null) {
-          const id = requestId();
           return reply
             .code(404)
             .send(
               errorEnvelope(
-                id,
+                request.id,
                 notFoundError("PROJECT", request.params.projectId),
               ),
             );
@@ -56,7 +55,7 @@ export const projectRoutes =
         return {
           ok: true as const,
           data: { project, view },
-          meta: { requestId: requestId() },
+          meta: { requestId: request.id },
         };
       },
     );

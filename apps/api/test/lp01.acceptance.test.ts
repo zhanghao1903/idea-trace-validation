@@ -15,6 +15,7 @@ const databaseUrl =
 const token = "acceptance-token-that-is-at-least-thirty-two-characters";
 const pool = createPool({ databaseUrl, max: 8, connectTimeoutMs: 2_000 });
 let app: FastifyInstance;
+const observedRequests: { id: string; method: string; url: string }[] = [];
 
 const writeHeaders = (key: string) => ({
   authorization: `Bearer ${token}`,
@@ -50,6 +51,13 @@ beforeAll(async () => {
     },
     service: new PostgresIdeaService(pool),
     readiness: new PostgresReadiness(pool),
+  });
+  app.addHook("onRequest", async (request) => {
+    observedRequests.push({
+      id: request.id,
+      method: request.method,
+      url: request.url,
+    });
   });
   await app.ready();
 });
@@ -89,6 +97,12 @@ describe("LP1-AC-014 objective flow", () => {
     expect(created.statusCode, created.body).toBe(201);
     const createEnvelope = created.json();
     expect(createEnvelope.data.idea.intakeStatus).toBe("NEEDS_CLARIFICATION");
+    const firstProcessing = observedRequests.at(-1);
+    expect(firstProcessing).toMatchObject({
+      method: "POST",
+      url: "/api/v1/ideas",
+    });
+    expect(createEnvelope.meta.requestId).toBe(firstProcessing?.id);
 
     const replay = await app.inject({
       method: "POST",
@@ -101,6 +115,7 @@ describe("LP1-AC-014 objective flow", () => {
       requestId: createEnvelope.meta.requestId,
       idempotentReplay: true,
     });
+    expect(observedRequests.at(-1)?.id).not.toBe(createEnvelope.meta.requestId);
 
     const ideaId = createEnvelope.data.idea.id as string;
     const initialDetail = await app.inject(`/api/v1/ideas/${ideaId}`);
@@ -212,6 +227,13 @@ describe("LP1-AC-014 objective flow", () => {
       authority: { projectId, version: 4 },
     });
     expect(finalIdea.json().data.idea.history).toHaveLength(4);
+    expect(
+      finalIdea
+        .json()
+        .data.idea.history.find(
+          (event: { eventType: string }) => event.eventType === "IDEA_CREATED",
+        ).requestId,
+    ).toBe(createEnvelope.meta.requestId);
   });
 
   it("requires the write credential before exposing idempotency state", async () => {

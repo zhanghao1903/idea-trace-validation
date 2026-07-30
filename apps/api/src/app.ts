@@ -104,7 +104,6 @@ export const buildApp = async ({
     );
   });
 
-  const idFactory = createIdFactory();
   await app.register(helmet);
   await app.register(swagger, {
     openapi: {
@@ -152,20 +151,10 @@ export const buildApp = async ({
           );
         }
       });
-      await business.register(
-        ideaRoutes(service, config.aiApiToken, () => idFactory.request()),
-      );
-      await business.register(
-        clarificationRoutes(service, config.aiApiToken, () =>
-          idFactory.request(),
-        ),
-      );
-      await business.register(
-        promotionRoutes(service, config.aiApiToken, () => idFactory.request()),
-      );
-      await business.register(
-        projectRoutes(service, () => idFactory.request()),
-      );
+      await business.register(ideaRoutes(service, config.aiApiToken));
+      await business.register(clarificationRoutes(service, config.aiApiToken));
+      await business.register(promotionRoutes(service, config.aiApiToken));
+      await business.register(projectRoutes(service));
     },
     { prefix: "/api/v1" },
   );
