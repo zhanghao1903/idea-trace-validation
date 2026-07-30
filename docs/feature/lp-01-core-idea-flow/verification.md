@@ -15,7 +15,7 @@
 | Contracts | TypeBox request/error fixtures and canonical structured-report JSON Schema valid/invalid fixtures pass |
 | OpenAPI | Generated from registered route schemas; drift check passes; no reporting write route is present |
 | Migration/readiness | Empty PostgreSQL 17.10 migration applies; a second run is idempotent; ID/checksum gate passes |
-| Transaction safety | Success/rejection persistence, replay/conflict, optimistic versioning and append-only audit pass; an injected audit-write failure after business mutation rolls back Idea, statements, questions, audit and idempotency state, then the same key succeeds after recovery |
+| Transaction safety | Success/rejection persistence, replay/conflict, optimistic versioning and append-only audit pass; an injected terminal-idempotency failure after Idea, statements, question and audit insertion rolls back every row, then the same key succeeds after recovery |
 | Concurrency | Competing idempotency insert commit, rollback and 2-second lock-timeout paths pass; concurrent promotion creates exactly one project |
 | End-to-end | Incomplete Idea create + replay, two explicit clarifications, explicit promotion, proposer/executor reads and four audit events pass |
 | Request traceability | Initial reads and writes reuse Fastify `request.id` across access-log serialization, response metadata, command context and audit; terminal replay returns the original first-processing ID |

@@ -157,13 +157,36 @@ describe("PostgreSQL command protocol", () => {
 
   it("rolls back business, audit and idempotency writes after a post-mutation infrastructure failure", async () => {
     const key = "integration-post-mutation-failure";
-    const digest = requestDigest("POST", "/api/v1/ideas", {}, createBody);
+    const withQuestion = {
+      ...createBody,
+      clarificationQuestions: [
+        {
+          prompt: "Which customer segment should be tested first?",
+          targetField: "OTHER" as const,
+        },
+      ],
+    };
+    const digest = requestDigest("POST", "/api/v1/ideas", {}, withQuestion);
     await pool.query(`
-      CREATE OR REPLACE FUNCTION lp01_test_fail_target_audit() RETURNS trigger
+      CREATE OR REPLACE FUNCTION lp01_test_fail_terminal_idempotency_update()
+      RETURNS trigger
       LANGUAGE plpgsql AS $$
       BEGIN
-        IF NEW.idempotency_key = '${key}' THEN
-          RAISE EXCEPTION 'injected failure after business mutation'
+        IF NEW.idempotency_key = '${key}'
+           AND OLD.status = 'IN_PROGRESS'
+           AND NEW.status = 'SUCCEEDED' THEN
+          IF NOT EXISTS (
+            SELECT 1
+            FROM audit_events audit
+            JOIN ideas idea ON idea.id = audit.aggregate_id
+            JOIN idea_statements statement ON statement.idea_id = idea.id
+            JOIN clarification_questions question ON question.idea_id = idea.id
+            WHERE audit.idempotency_key = NEW.idempotency_key
+          ) THEN
+            RAISE EXCEPTION 'fault injection precondition missing'
+              USING ERRCODE = 'P0002';
+          END IF;
+          RAISE EXCEPTION 'injected failure after business and audit mutation'
             USING ERRCODE = 'P0001';
         END IF;
         RETURN NEW;
@@ -171,14 +194,15 @@ describe("PostgreSQL command protocol", () => {
       $$
     `);
     await pool.query(`
-      CREATE TRIGGER lp01_test_fail_target_audit_trigger
-      BEFORE INSERT ON audit_events
-      FOR EACH ROW EXECUTE FUNCTION lp01_test_fail_target_audit()
+      CREATE TRIGGER lp01_test_fail_terminal_idempotency_update_trigger
+      BEFORE UPDATE ON idempotency_records
+      FOR EACH ROW
+      EXECUTE FUNCTION lp01_test_fail_terminal_idempotency_update()
     `);
 
     try {
       await expect(
-        service.createIdea(createBody, {
+        service.createIdea(withQuestion, {
           idempotencyKey: key,
           requestId: "req_01ARZ3NDEKTSV4RRFFQ69G5FBD",
           requestDigest: digest,
@@ -186,9 +210,11 @@ describe("PostgreSQL command protocol", () => {
       ).rejects.toMatchObject({ code: "P0001" });
     } finally {
       await pool.query(
-        "DROP TRIGGER lp01_test_fail_target_audit_trigger ON audit_events",
+        "DROP TRIGGER lp01_test_fail_terminal_idempotency_update_trigger ON idempotency_records",
       );
-      await pool.query("DROP FUNCTION lp01_test_fail_target_audit()");
+      await pool.query(
+        "DROP FUNCTION lp01_test_fail_terminal_idempotency_update()",
+      );
     }
 
     const rolledBack = await pool.query<{
@@ -215,7 +241,7 @@ describe("PostgreSQL command protocol", () => {
       statements: 0,
     });
 
-    const retried = await service.createIdea(createBody, {
+    const retried = await service.createIdea(withQuestion, {
       idempotencyKey: key,
       requestId: "req_01ARZ3NDEKTSV4RRFFQ69G5FBE",
       requestDigest: digest,
@@ -225,6 +251,8 @@ describe("PostgreSQL command protocol", () => {
       idempotentReplay: false,
       requestId: "req_01ARZ3NDEKTSV4RRFFQ69G5FBE",
     });
+    if (!retried.ok) throw new Error("expected retry success");
+    expect(retried.data.created.questionIds).toHaveLength(1);
     expect(
       (
         await pool.query(
@@ -238,6 +266,13 @@ describe("PostgreSQL command protocol", () => {
         await pool.query(
           "SELECT count(*)::int AS count FROM audit_events WHERE idempotency_key = $1",
           [key],
+        )
+      ).rows[0]?.count,
+    ).toBe(1);
+    expect(
+      (
+        await pool.query(
+          "SELECT count(*)::int AS count FROM clarification_questions",
         )
       ).rows[0]?.count,
     ).toBe(1);
