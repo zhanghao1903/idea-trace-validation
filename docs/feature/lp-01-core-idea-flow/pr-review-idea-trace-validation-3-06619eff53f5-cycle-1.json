@@ -1,0 +1,513 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 3,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/3",
+    "title": "LP-01: implement core Idea flow",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "30aa27129f21efe6e4ef2bfc17ffa0e1a7282682",
+    "head_ref": "codex/lp-01-core-idea-flow",
+    "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+    "reviewed_at": "2026-07-30T18:36:15Z",
+    "reviewer": "OpenAI Codex Engineering Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete base-to-head diff and all 99 changed paths",
+      "requirements, approved design, implementation plan, verification, README, changelog, and project status",
+      "workspace, dependency lock, install-script allowlist, static/build/CI configuration",
+      "contracts, generated OpenAPI source and drift boundary, structured-report Schema relocation",
+      "domain, application, PostgreSQL migration/service/readiness, Fastify API and runtime lifecycle",
+      "unit, contract, integration, acceptance, concurrency, authentication, idempotency, and audit tests"
+    ],
+    "excluded_scope": [
+      "generated OpenAPI and package lock were consistency-checked rather than manually reviewed line by line",
+      "production traffic, deployment supervisor behavior, real secrets, and exhaustive dependency internals"
+    ]
+  },
+  "review_context": {
+    "kind": "INITIAL",
+    "forward_risk_review": [
+      {
+        "surface": "Transactional Idea, clarification, promotion, audit, and idempotency persistence",
+        "risk_triggers": [
+          "mutation-recovery",
+          "data-integrity",
+          "concurrency",
+          "test-adequacy"
+        ],
+        "reason": "LP-01 establishes the first durable mutation boundary and promises atomic failure behavior.",
+        "affected_paths": [
+          "packages/db/src/service.ts",
+          "packages/db/migrations/0001_lp01_core.sql",
+          "packages/db/test/service.integration.test.ts",
+          "docs/feature/lp-01-core-idea-flow/requirements.md"
+        ],
+        "checks": [
+          "Run idempotency, rejection, lock-timeout, rollback-contender, and concurrent-promotion integration tests",
+          "Audit committed tests for a post-mutation infrastructure failure with no partial facts, audit, or terminal idempotency result"
+        ],
+        "finding_ids": [
+          "PRR-001"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Server-generated request identity across HTTP logs, API envelopes, idempotency, and audit",
+        "risk_triggers": [
+          "public-contract",
+          "other"
+        ],
+        "reason": "The API and audit expose request IDs intended to support traceability, while Pino records the request-scoped ID.",
+        "affected_paths": [
+          "apps/api/src/app.ts",
+          "apps/api/src/logger.ts",
+          "apps/api/src/routes/ideas.ts",
+          "apps/api/src/routes/clarifications.ts",
+          "apps/api/src/routes/promotions.ts",
+          "apps/api/src/routes/projects.ts"
+        ],
+        "checks": [
+          "Capture the incoming/completed Pino request ID for an injected business read",
+          "Compare it with response meta.requestId and trace command context propagation"
+        ],
+        "finding_ids": [
+          "PRR-002"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Signal-driven shutdown and database resource cleanup",
+        "risk_triggers": [
+          "deployment-compatibility",
+          "other"
+        ],
+        "reason": "The runtime exposes a configurable grace period and the approved design promises finite shutdown.",
+        "affected_paths": [
+          "apps/api/src/server.ts",
+          "apps/api/src/config.ts"
+        ],
+        "checks": [
+          "Trace the timeout and awaited close path for a request that remains attached to a live handle",
+          "Check whether grace expiry resolves or force-closes shutdown"
+        ],
+        "finding_ids": [
+          "PRR-003"
+        ],
+        "result": "PARTIAL"
+      },
+      {
+        "surface": "Public TypeBox/OpenAPI contracts, bearer write boundary, bounded inputs, and secret redaction",
+        "risk_triggers": [
+          "public-contract",
+          "trust-boundary",
+          "security-privacy"
+        ],
+        "reason": "LP-01 introduces the repository's first executable public API and write credential.",
+        "affected_paths": [
+          "packages/contracts/src",
+          "apps/api/src/authenticate-write.ts",
+          "apps/api/src/config.ts",
+          "apps/api/src/logger.ts",
+          "openapi/lp01.v1.json"
+        ],
+        "checks": [
+          "Run contract, health, authentication, and acceptance checks",
+          "Inspect schemas, logger serializer/redaction, body and collection bounds, and generated OpenAPI drift"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ]
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "The exact head and existing CI are green, but LP1-REQ-021/LP1-AC-008 lack the required executable post-mutation transaction-failure proof, and every successful business route returns/audits a request ID different from the ID written to its request logs.",
+    "blocking_finding_ids": [
+      "PRR-001",
+      "PRR-002"
+    ]
+  },
+  "summary": "PR #3 implements the full LP-01 API, persistence, contracts, readiness, and verification slice, and all existing local and exact-head CI gates pass. Approval is withheld for two concrete issues: the committed suite does not exercise the explicitly required service-owned transaction failure after mutation, and the route layer generates a second request ID that breaks response/audit-to-log correlation. The configured shutdown grace period is also not enforced, recorded as non-blocking because production deployment is outside this slice.",
+  "change_map": [
+    {
+      "area": "Contracts and API",
+      "change": "Adds strict TypeBox schemas, shared envelopes, generated OpenAPI, and Idea/project routes.",
+      "external_behavior": "Clients can create, clarify, promote, and read LP-01 state through a versioned API.",
+      "risk": "Medium",
+      "validation": "Contract tests and OpenAPI drift check pass; route paths and response propagation were inspected."
+    },
+    {
+      "area": "Persistence and mutation protocol",
+      "change": "Adds PostgreSQL migration, constraints, audit, idempotency, version checks, and transactional services.",
+      "external_behavior": "Writes are durable, replayable, concurrent-safe, and append-only under covered cases.",
+      "risk": "High",
+      "validation": "Nine integration tests pass, but required post-mutation infrastructure-failure coverage is absent in PRR-001."
+    },
+    {
+      "area": "Access, logging, and runtime",
+      "change": "Adds bearer authentication, public reads, secret redaction, health gating, and signal shutdown.",
+      "external_behavior": "Writes require a deployment capability and the API exposes health/readiness and request IDs.",
+      "risk": "Medium",
+      "validation": "Access and health checks pass; request correlation fails in PRR-002 and shutdown remains partially bounded in PRR-003."
+    },
+    {
+      "area": "Documentation and project state",
+      "change": "Documents setup, commands, evidence, contracts, and LP-01 readiness without claiming formal acceptance.",
+      "external_behavior": "Maintainers have a reproducible path and truthful acceptance boundary.",
+      "risk": "Low",
+      "validation": "Documentation diff, status transitions, and links were inspected."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Required transaction-failure rollback has no executable regression",
+      "location": {
+        "path": "packages/db/test/service.integration.test.ts",
+        "line_start": 142,
+        "line_end": 142,
+        "symbol": "PostgreSQL command protocol",
+        "side": "RIGHT",
+        "commit_sha": "06619eff53f577a27846b75a299aea580be3a9a3"
+      },
+      "observation": "LP1-REQ-021 and LP1-AC-008 require an automated simulated transaction failure that proves no partial business fact/history remains. The suite covers deterministic pre-mutation rejection and a separate contender transaction rollback, but never fails the service-owned transaction after a business mutation and before audit/idempotency completion.",
+      "trigger": "A future change weakens rollback or moves an Idea, audit, or idempotency terminal write outside the application transaction while the existing tests remain green.",
+      "impact": "The repository can claim LP-01 atomicity without executable evidence for its failure case, allowing a partial-write regression to reach merge undetected.",
+      "evidence": [
+        {
+          "kind": "spec",
+          "description": "LP1-REQ-021 explicitly lists transaction failure and LP1-AC-008 requires a simulated failure with no partial facts or history.",
+          "reference": "docs/feature/lp-01-core-idea-flow/requirements.md:72,86"
+        },
+        {
+          "kind": "analysis",
+          "description": "All repository tests were audited; deterministic rejection tests stop before business mutation and the rollback-contender test expects the reviewed service call to succeed.",
+          "reference": "packages/db/test/service.integration.test.ts:158-365"
+        }
+      ],
+      "remediation": "Add a committed integration regression that injects a service-owned failure after a business mutation but before commit, then proves business facts, audit, and terminal idempotency state all rolled back and the same key can be retried after recovery.",
+      "verification": "The regression fails if any write escapes the transaction, passes on the current remediation head, and the full integration and acceptance suites pass.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "testing:postgres-service:missing-post-mutation-rollback-regression"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "observability",
+      "title": "Business responses and audit records use a different request ID from request logs",
+      "location": {
+        "path": "apps/api/src/app.ts",
+        "line_start": 155,
+        "line_end": 167,
+        "symbol": "buildApp",
+        "side": "RIGHT",
+        "commit_sha": "06619eff53f577a27846b75a299aea580be3a9a3"
+      },
+      "observation": "Fastify creates request.id for Pino, but buildApp injects a second ID factory into all business routes. Handlers use the second value for response metadata and write context, so first-time business requests have different log and API/audit IDs.",
+      "trigger": "Any successful business read or first-time write, or a domain rejection returned from a business handler.",
+      "impact": "Callers and operators cannot use response or audit requestId values to find the corresponding incoming/completed request logs across the entire business API.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "Fastify genReqId and Pino use request.id, while route registration supplies another idFactory.request callback used by every handler.",
+          "reference": "apps/api/src/app.ts:34-37,155-167; apps/api/src/logger.ts:24-28"
+        },
+        {
+          "kind": "reproduction",
+          "description": "An injected GET /api/v1/ideas logged req_01KYT4NB3Q53WJPG30TQ3J3Y32 and returned req_01KYT4NB3TA2FM10QAJR7V9P3Y in the same 200 response.",
+          "reference": "reviewer request-ID counterexample at exact head"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved design defines the server-generated first-processing request ID and request-ID-based logging.",
+          "reference": "docs/feature/lp-01-core-idea-flow/design.md:452,964-966"
+        }
+      ],
+      "remediation": "Use the Fastify request-scoped ID as the authoritative first-processing ID for route responses and command context, while preserving the documented original first-processing ID on terminal idempotent replay and explicitly distinguishing any current replay-attempt ID.",
+      "verification": "Route tests prove initial response, audit, and incoming/completed log IDs match; a separate replay test proves the original first-processing ID is still returned.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "observability:fastify-business-routes:split-request-identity"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "reliability",
+      "title": "Shutdown grace expiry does not bound process termination",
+      "location": {
+        "path": "apps/api/src/server.ts",
+        "line_start": 19,
+        "line_end": 28,
+        "symbol": "shutdown",
+        "side": "RIGHT",
+        "commit_sha": "06619eff53f577a27846b75a299aea580be3a9a3"
+      },
+      "observation": "The grace timer only sets process.exitCode and does not abort or force-close app.close or remaining resources, so a request attached to a live handle can keep shutdown pending beyond SHUTDOWN_GRACE_MS.",
+      "trigger": "SIGTERM or SIGINT arrives while an in-flight handler remains blocked longer than the configured grace period.",
+      "impact": "A restart or deployment can hang until an external supervisor force-kills the process, contrary to the approved finite-grace behavior.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "The timeout callback logs and sets exitCode while shutdown continues to await app.close and only then pool.end.",
+          "reference": "apps/api/src/server.ts:19-28"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved design requires a finite in-flight grace period followed by pool closure.",
+          "reference": "docs/feature/lp-01-core-idea-flow/design.md:1011"
+        }
+      ],
+      "remediation": "Make grace expiry settle the shutdown path by aborting or force-closing remaining work and resources with a defined exit outcome.",
+      "verification": "A child-process test holds an in-flight request, sends SIGTERM, and observes listener stop plus process exit within the configured grace and a deterministic scheduling margin.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "reliability:server-shutdown:unenforced-grace-deadline"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Add the required post-mutation infrastructure-failure rollback regression.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Unify first-processing request identity across logs, API responses, command context, and audit while preserving replay identity semantics.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "No runtime secret-leak path was found; current tests mostly assert logger configuration rather than emitted production output.",
+      "mitigation": "Preserve bounded serializers/redaction and add output-level coverage when logging expands.",
+      "owner": "LP-01 API owner"
+    },
+    {
+      "category": "data-integrity",
+      "level": "Medium",
+      "description": "Atomic rollback is structurally implemented but lacks the explicitly required post-mutation failure regression.",
+      "mitigation": "Resolve PRR-001 before merge.",
+      "owner": "LP-01 persistence owner"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Medium",
+      "description": "Idempotency and promotion concurrency tests pass, but the process shutdown deadline is not enforced.",
+      "mitigation": "Preserve the concurrency suite and resolve PRR-003 before deployment.",
+      "owner": "LP-01 runtime owner"
+    },
+    {
+      "category": "api-compatibility",
+      "level": "Medium",
+      "description": "Strict API contracts pass, but response/audit request identity cannot be correlated to request logs.",
+      "mitigation": "Resolve PRR-002 before merge and cover initial and replay identity separately.",
+      "owner": "LP-01 API owner"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "Low",
+      "description": "List/detail assembly performs bounded database fan-out up to the page limit of 100.",
+      "mitigation": "Measure and batch if later UI/reporting load makes the fan-out material.",
+      "owner": "future LP-03 owner"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "LP-01 is not production deployment-ready and graceful shutdown remains incomplete.",
+      "mitigation": "Keep the LP-05 boundary explicit and resolve PRR-003 before deployment.",
+      "owner": "future LP-05 owner"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm ci --engine-strict=false",
+        "environment": "macOS; Node.js 26.0.0; npm 11.12.1; exact head 06619eff53f577a27846b75a299aea580be3a9a3",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 238 locked packages; local engine override is recorded and not used as exact-runtime approval proof.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run format:check; npm run lint; npm run typecheck; npm run build",
+        "environment": "macOS; Node.js 26.0.0; npm 11.12.1; exact head",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Formatting, lint, strict TypeScript project references, and build all passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx scripts/check-openapi.ts",
+        "environment": "macOS; Node.js 26.0.0; exact head",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Generated OpenAPI artifact is current; direct loader avoided sandbox-denied tsx IPC.",
+        "required_for_approval": true,
+        "evidence_ref": "openapi/lp01.v1.json"
+      },
+      {
+        "command": "npm run test:unit",
+        "environment": "macOS; Node.js 26.0.0; exact head",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "4 files and 11 tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:contract",
+        "environment": "macOS; Node.js 26.0.0; built exact head",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "3 files and 6 tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:integration",
+        "environment": "macOS; Node.js 26.0.0; PostgreSQL 17.10-alpine isolated idea_validation_test",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "1 file and 9 PostgreSQL integration tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:acceptance",
+        "environment": "macOS; Node.js 26.0.0; PostgreSQL 17.10-alpine isolated idea_validation_test",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "1 file and 2 LP-01 acceptance tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "request-ID counterexample: inject GET /api/v1/ideas and compare Pino req.requestId with response meta.requestId",
+        "environment": "macOS; built exact head; in-memory service/readiness doubles",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "Pino logged req_01KYT4NB3Q53WJPG30TQ3J3Y32 while the same response returned req_01KYT4NB3TA2FM10QAJR7V9P3Y.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-002"
+      },
+      {
+        "command": "transaction-failure coverage audit across all repository tests",
+        "environment": "exact requirements/design/head; static and executable-test inventory",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "No test forces a service-owned transaction to fail after mutation and asserts fact/audit/idempotency rollback.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "git diff --check 30aa27129f21efe6e4ef2bfc17ffa0e1a7282682..06619eff53f577a27846b75a299aea580be3a9a3",
+        "environment": "exact local git objects",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors; all 99 changed files were classified.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-07-30T18:36:15Z",
+        "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+        "status": "PASS",
+        "summary": "Exact-head GitHub Actions run 30570020130 job 90964082839 completed successfully using .nvmrc.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30570020130/job/90964082839"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Production deployment and shutdown observation",
+        "reason": "LP-05 scope and production environment were not authorized for this LP-01 review."
+      },
+      {
+        "check": "Exhaustive third-party dependency source audit",
+        "reason": "Lock integrity, registry origin, exact versions, and install-script allowlist were inspected; dependency internals were outside this review."
+      }
+    ]
+  },
+  "limitations": [
+    "Reviewer-local execution used Node.js 26.0.0 and npm 11.12.1; exact Node.js 24.18.0/npm 11.16.0 execution is evidenced by the exact-head GitHub ci / verify check.",
+    "Generated OpenAPI and package-lock content were source-consistency and boundary checked rather than manually reviewed line by line.",
+    "Production traffic, deployment supervisor behavior, and real secrets were unavailable and outside LP-01 authority."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #3 still points to the exact base and head in the accepted CodeReviewRequest.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh GitHub PR metadata and compare remote branch refs.",
+      "evidence": "GitHub and git ls-remote both report base 30aa27129f21efe6e4ef2bfc17ffa0e1a7282682 and head 06619eff53f577a27846b75a299aea580be3a9a3.",
+      "impact_if_false": "The report and decision would be stale and non-authorizing."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed green GitHub check belongs to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect PR statusCheckRollup after refreshing head metadata.",
+      "evidence": "ci / verify completed successfully for the unchanged head in run 30570020130.",
+      "impact_if_false": "Passing checks could not support any merge decision."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "Reviewer database tests used the documented isolated test database rather than shared or production data.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect test defaults, running PostgreSQL container, and table reset targets.",
+      "evidence": "Tests connected to idea_validation_test on PostgreSQL 17.10-alpine at port 54329 and truncate only the LP-01 test tables.",
+      "impact_if_false": "Test execution could mutate data outside the authorized review boundary."
+    },
+    {
+      "id": "ASM-004",
+      "statement": "The exact Node.js 24.18.0/npm 11.16.0 runtime behavior is represented by the GitHub CI result.",
+      "decision_critical": false,
+      "status": "VERIFIED",
+      "method": "Inspect .nvmrc, package engines, CI workflow, and exact-head check result.",
+      "evidence": "The workflow uses actions/setup-node with .nvmrc and the exact-head verify job passed.",
+      "impact_if_false": "A runtime-specific issue could remain despite reviewer-local Node.js 26 checks."
+    }
+  ],
+  "non_blocking_recommendations": [
+    {
+      "id": "NOTE-001",
+      "category": "reliability",
+      "recommendation": "Resolve PRR-003 and add a child-process shutdown-deadline regression before LP-05 deployment work relies on this server lifecycle.",
+      "value": "This prevents rollout hangs and makes SHUTDOWN_GRACE_MS an enforced contract rather than a log-only timer."
+    }
+  ]
+}
