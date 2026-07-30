@@ -6,7 +6,7 @@
 - Requirements: [requirements.md](./requirements.md)
 - RequirementsCommit: `42078fa3e2b20cb599ef795a88ee37377897c5ab`
 - Design: [design.md](./design.md)
-- DesignCommit: `da247f8739fff61344d7abf6c30bb35b921f38be`
+- DesignCommit: `bdf55be8eb4c56d4efb0fc276f2a467d93738957`
 
 ## 1. Scope
 
@@ -43,7 +43,18 @@
 - 若 Review 发现需求、设计或计划不一致，只修订 F2/F3 并重新送审。
 - 若实现需要改变公开路由、状态、表约束、幂等算法、访问边界或依赖主版本，停止 F4，
   修订技术计划并重新审查。
+- F4 必须逐列、逐字段实现 design §7.1–7.4 和 §9.4；不得在代码阶段自行新增默认值、
+  nullable、删除/TTL、请求字段、响应字段或 config alias。
 - 不因 LP-01 实现自动开始 LP-02，也不把 LP-01 验收描述为完整 v0.1 发布。
+
+### Cycle 1 remediation
+
+| Finding | Plan remediation |
+| --- | --- |
+| TPR-001 | Design §7.1–7.4 锁定十张表、字段、类型、owner、约束、索引、changed fields 和全部对象 retention；§9.4 锁定 request/response/error/config Shape |
+| TPR-002 | Design §8.4 增加 end-to-end sequence diagram 和 Idea lifecycle state diagram |
+| TPR-003 | Design §12 统一为 config 合法后始终监听；health/OpenAPI 不 gate；全部业务 API 未 ready 时 503 |
+| TPR-004 | 本 plan 头部和 §12 统一引用 design commit `bdf55be8eb4...` |
 
 ## 3. Target Repository Structure
 
@@ -160,7 +171,8 @@ Work:
 3. 添加 Node、TypeScript、ESLint、Prettier、build 和 CI 配置。
 4. 建立 TypeBox common envelope、错误和 Actor 类型。
 5. 移动报告 Schema，更新协议链接并添加 Ajv 契约测试。
-6. 添加 Fastify composition root、config/log redact 和 live/ready route skeleton。
+6. 添加 Fastify composition root、design §11.1 的 exact config/log redact、始终监听的
+   live/ready route 和共享 business readiness preHandler。
 
 Verification:
 
@@ -168,7 +180,9 @@ Verification:
 - format/lint/typecheck/build
 - report Schema valid/invalid fixtures
 - OpenAPI 可生成且不包含报告写入路由
-- `/health/live` 200；未连接或未迁移 DB 时 `/health/ready` 503
+- 配置合法但 DB 未连接/未迁移时 listener 存在：live 200、ready 503、所有
+  `/api/v1` route 503、OpenAPI 200
+- 配置字段名、默认、边界、`AI_API_TOKEN` 保留和禁止 alias 的 contract tests
 
 Commit boundary: workspace、契约、Schema move 和 health；不得包含业务 command。
 
@@ -179,10 +193,11 @@ Rollback: revert 新增 workspace 文件和 Schema move；恢复协议到原唯�
 Work:
 
 1. 实现 Idea、Statement、Clarification、Project 值对象和 promotion policy。
-2. 创建设计 §7 的全部 LP-01 表、约束、索引、seed 和 audit trigger。
+2. 逐列创建设计 §7.2 的全部 LP-01 表、约束、索引、seed 和 audit trigger。
 3. 实现 transaction、repository、clock/ID ports。
 4. 实现全局 idempotency key/digest 协议、`IN_PROGRESS/SUCCEEDED/REJECTED` 状态、
-   2 秒并发等待和终态响应保存。
+   `SET LOCAL lock_timeout='2s'` + `INSERT ... ON CONFLICT DO NOTHING RETURNING`、
+   SQLSTATE `55P03` 事务外映射和终态响应保存。
 5. 实现 `SELECT ... FOR UPDATE`、expected version 和统一 audit event。
 6. readiness 校验期望 migration ID。
 
@@ -191,8 +206,12 @@ Verification:
 - migration 从空 PostgreSQL 17.10 成功且可重复检测已应用状态
 - 表/外键/check/unique/audit append-only 约束测试
 - 相同 key/same digest、same key/different digest、并发 in-progress 测试
+- 首事务 commit/rollback/超过 2 秒三种 competing insert 路径；确认 aborted
+  transaction 中没有继续查询
 - 版本冲突和 transaction rollback/fault injection
 - migration 缺失、错误版本和数据库不可达 readiness 测试
+- 所有对象无 DELETE/TTL/cleanup route/job；audit trigger 与 idempotency lifetime
+  contract tests
 
 Commit boundary: domain、application infrastructure、DB migration/repositories；不暴露未完成
 的业务 route。
@@ -203,7 +222,8 @@ Rollback: 应用代码回退；已创建表保留。只允许隔离测试数据�
 
 Work:
 
-1. 实现 `CreateIdea`，保存原始意图、提出者、期望结果、分类陈述和问题。
+1. 实现 `CreateIdea`，保存 `intentSummary`、完整 declared proposer Actor、
+   `desiredOutcome`、分类陈述和问题。
 2. 对缺少期望结果/假设生成字段型问题并计算 `NEEDS_CLARIFICATION`。
 3. 实现受凭据保护的 `POST /api/v1/ideas`。
 4. 实现公开 Idea list/detail 和 proposer/executor projections。
@@ -232,6 +252,7 @@ Work:
 3. 重新计算开放问题和 intake 状态。
 4. Idea detail 返回完整问题/回答和 LP-01 audit history。
 5. 保证回答不会隐式创建项目或从自由文本推断事实。
+6. Idea 已关联 project 时以新 key 返回并绑定 `IDEA_ALREADY_PROMOTED`，不追加回答。
 
 Verification:
 
@@ -239,6 +260,7 @@ Verification:
 - stale version 不覆盖；响应提供 current version/recovery
 - 回答后原问题/回答可追溯，当前投影正确
 - 条件完整可离开待澄清，但项目数仍为零
+- 已推进 Idea 的 clarification 被确定性拒绝且原 key 重放同一错误
 - audit 失败使回答和版本更新一起回滚
 
 Commit boundary: clarification only；不混入 promotion。
@@ -296,8 +318,9 @@ Rollback: 以补偿提交把状态恢复到事实值；不删除历史证据。
 1. 安装精确依赖并构建 packages。
 2. 对目标数据库执行 `0001_lp01_core.sql`。
 3. migration 创建表、约束、audit trigger 和固定 workspace。
-4. migration 成功且 checksum/ID 与应用一致后，readiness 才返回 200。
-5. 启动 API；写路由直到数据库 ready 才可用。
+4. 配置合法后启动 listener；此时 live/OpenAPI 可用，ready 和业务 route 可为 503。
+5. migration 成功且 checksum/ID 与应用一致后，readiness 返回 200，下一次共享 probe
+   自动开放所有 `/api/v1` route。
 
 本期没有旧数据回填或兼容窗口。migration 必须在事务中运行；失败时 PostgreSQL 回滚，
 readiness 保持 503。应用进程不在请求路径自动执行 migration。
@@ -342,17 +365,17 @@ npm run verify
 | Requirement / AC | Automated evidence |
 | --- | --- |
 | LP1-REQ-001 / AC-001 | CI clean `npm ci` + `npm run verify` |
-| LP1-REQ-002–005 / AC-002 | migration + incomplete create integration test |
+| LP1-REQ-002–005 / AC-002 | exact-column migration + incomplete create integration test |
 | LP1-REQ-005–006 / AC-003 | clarification history/correction test |
 | LP1-REQ-007–010 / AC-004–005 | promotion policy + API integration |
 | LP1-REQ-011–012 / AC-006 | success/rejection replay、digest conflict、concurrent first request |
 | LP1-REQ-013 / AC-007 | stale expectedVersion concurrency test |
 | LP1-REQ-002,014 / AC-008 | PostgreSQL fault injection and rollback assertions |
 | LP1-REQ-016–017 / AC-009 | list/detail and projection equivalence tests |
-| LP1-REQ-015–016 / AC-010 | TypeBox/OpenAPI/error matrix contract tests |
+| LP1-REQ-015–016 / AC-010 | Design §9.4 TypeBox/OpenAPI/data/error matrix contract tests |
 | LP1-REQ-018–019 / AC-011 | auth boundary and Pino redaction tests |
 | LP1-REQ-020 / AC-012 | single report Schema path + Ajv fixtures + no routes |
-| LP1-REQ-022 / AC-013 | live/ready state matrix |
+| LP1-REQ-022 / AC-013 | listener/live/ready/business-gate startup and runtime matrix |
 | LP1-REQ-002–022 / AC-014 | `scripts/lp01-acceptance.ts` objective flow |
 
 测试 fixture 只使用少量、可读、虚构的 Idea。mutation harness、future-state simulator 和
@@ -371,6 +394,7 @@ GitHub/lifecycle fixture 明确不属于验证范围。
 - concurrent create/promote 不绕过 unique/version/idempotency 约束；
 - audit trigger 拒绝 update/delete；
 - readiness 不把数据库可连接但 migration 缺失误报为 ready。
+- route DTO/SQL/config snapshot tests 覆盖 design §7.2、§9.4 和 §11.1，不允许实现漂移。
 
 不把声明 Actor 与 token 绑定成人类身份，不写“已认证提出者”之类结论。
 
@@ -419,14 +443,14 @@ F4 文档变化：
 | Actor 被误认为身份 | `declaredActor` 命名、凭据/身份边界测试和文档 |
 | 公开读取泄露真实数据 | 无生产部署；虚构 fixture；README 明示演示数据限制 |
 | Schema 形成双规范源 | 文件 move + 旧路径不存在断言 + 单一 Ajv test |
-| readiness 误报 | 同时检查连接、migration table 和 expected ID |
+| readiness 误报或无法观察 | listener 始终存在；同一 probe 同时检查连接、migration table 和 expected ID；业务 preHandler 503 |
 | 状态文档先于事实 | LP1-S6 最后同提交同步，并引用 exact evidence |
 | 范围膨胀到 LP-02–LP-05 | route/table/file allowlist 和 PR diff 人工核对 |
 
 ## 12. Commit And Review Plan
 
-1. F2 design 已单独提交并推送：
-   `218fe7975fad075a948df746154ad70b38ee474c`。
+1. F2 design authority 修订已单独提交并推送：
+   `bdf55be8eb4c56d4efb0fc276f2a467d93738957`。
 2. F3 plan 与 truthful Changelog Docs entry 单独提交并推送。
 3. 用包含 exact requirements/design/plan 的 F3 commit 生成
    `TechnicalPlanReviewRequest`。
@@ -443,5 +467,8 @@ F4 文档变化：
 
 ## 14. Implementation And Verification Record
 
-尚未开始 F4。Technical Plan Review PASS、GoalRun、实现提交、验证命令、PR 和验收
-证据均为空，不得在实际发生前预填。
+尚未开始 F4。Cycle 1 Technical Plan Review
+`c39f003d1754a10633a9aa7c4c890422dc6049c4f497367819814f585d84b21a`
+对 exact commit `905f858201de...` 返回 FAIL；TPR-001 至 TPR-004 已按本 plan 的
+Cycle 1 remediation 表修订，等待新 exact snapshot 复审。Technical Plan Review PASS、
+GoalRun、实现提交、验证命令、PR 和验收证据仍为空，不得在实际发生前预填。
