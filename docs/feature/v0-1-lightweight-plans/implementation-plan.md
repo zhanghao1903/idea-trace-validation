@@ -1,11 +1,11 @@
 # Implementation Plan: v0.1 轻量实施计划重整
 
-- Status: Draft F3 Implementation Plan
+- Status: Implemented F4
 - FeatureId: `v0-1-lightweight-plans-3e7b1c9a5d42`
 - Branch: `codex/v0-1-lightweight-plans`
 - Requirements: [requirements.md](./requirements.md)
 - Design: [design.md](./design.md)
-- Current phase: F3; implementation awaits Technical Plan Review PASS
+- Current phase: F4 implemented; lightweight verification completed
 
 ## 1. Scope
 
@@ -195,3 +195,16 @@ git diff --name-status <approved-plan-commit>..HEAD
 
 无产品或文档边界开放决定。唯一实施前置阻塞是旧 Goal 槽位的合法释放；其处理属于
 Engineering Lifecycle 运行状态修复，不属于仓库文档实现范围。
+
+## 13. Implementation And Verification Record
+
+- Technical Plan Review PASS:
+  `78da90854e4ae36a6fe99ff79fa171cc54b218be3a7b60acbfe25740adb13e00`
+- 旧 blocked GoalRun 已通过正式、幂等的 `abandon-development` 迁移保留为
+  `ABANDONED`；本 feature 随后获得新的独立 GoalRun。
+- 已创建唯一管理入口和五份 LP 文档，未修改原
+  `docs/feature/v0-1-project-plan/` 基线。
+- `git diff --check`、目标路径、相对链接、十章节结构、初始状态、依赖链及
+  REQ/AC/Slice 唯一主归属均已按第 7 节轻量检查复核。
+- 未增加 checker、fixture、authority engine、GitHub pagination、插件 provenance、
+  lifecycle simulator、future-state validator 或 mutation/negative harness。

@@ -1,6 +1,6 @@
 # Technical Design: v0.1 轻量实施计划重整
 
-- Status: Draft F2 Design
+- Status: Implemented F4
 - FeatureId: `v0-1-lightweight-plans-3e7b1c9a5d42`
 - Branch: `codex/v0-1-lightweight-plans`
 - Requirements: [requirements.md](./requirements.md)
@@ -203,3 +203,10 @@ flowchart LR
 无阻塞性开放决定。目录、五份计划边界、依赖顺序、轻量状态和明确排除项均来自已确认
 需求。技术计划 Review 可要求纠正遗漏或矛盾，但不得把被排除的软件验证系统重新加入
 范围。
+
+## 15. Implementation Outcome
+
+F4 已按本设计创建 `docs/project-management.md` 和 LP-01 至 LP-05 五份计划。管理
+入口保持为状态摘要与唯一主归属表；每份计划采用十个固定章节、`Not Started` 初始
+状态、空验收记录和独立 Requirements 下一步。实现没有增加运行时代码、checker、
+fixture、模拟状态或外部响应缓存。
