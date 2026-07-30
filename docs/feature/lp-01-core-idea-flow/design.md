@@ -201,7 +201,7 @@ domain -> no framework, HTTP or database dependency
 | `clarification_answers` | 追加式回答；自引用 supersedes 外键 |
 | `validation_projects` | `idea_id UNIQUE NOT NULL`；LP-01 phase/status check |
 | `project_hypotheses` | 项目假设快照；来源 statement 外键 |
-| `idempotency_records` | `(workspace_id, idempotency_key)` 唯一结果 |
+| `idempotency_records` | `(workspace_id, idempotency_key)` 唯一；保存 `IN_PROGRESS`、`SUCCEEDED` 或 `REJECTED` 终态 |
 | `audit_events` | 追加式成功业务历史 |
 | `schema_migrations` | readiness 使用的 migration 版本记录 |
 
@@ -237,21 +237,27 @@ SHA-256(method + route-template + canonical-path-ids + canonical-json-body)
 Authorization、Cookie、`X-Request-Id` 和日志上下文不进入 digest。canonical JSON
 递归排序对象键，保留数组顺序，使用验证后的值。
 
-每个命令在一个数据库事务中：
+认证、JSON Schema 和通用 envelope 校验在事务前完成；这些请求尚未形成有效业务意图，
+不会占用 key。通过上述校验后，每个命令在一个数据库事务中：
 
-1. 尝试插入 idempotency key、request digest 和业务操作名；
+1. 尝试以 `IN_PROGRESS` 插入 idempotency key、request digest 和业务操作名；
 2. 唯一冲突时读取现有记录：
-   - digest 相同且已完成：返回原 HTTP 状态和响应体，标记 replay；
+   - digest 相同且为 `SUCCEEDED` 或 `REJECTED`：返回原 HTTP 状态和响应体，标记
+     replay；
    - digest 不同：返回 `IDEMPOTENCY_CONFLICT`；
    - 首事务仍占用唯一键超过 2 秒：返回可重试的
      `IDEMPOTENCY_IN_PROGRESS`；
-3. 执行业务校验和写入；
-4. 插入同事务 audit event；
-5. 保存成功 HTTP 状态和响应 JSON；
-6. 提交后才向客户端返回成功。
+3. 在任何业务 mutation 前完成存在性、版本和 lifecycle 前置校验；
+4. 对 404/409/422 等确定性业务拒绝，不写业务事实或 audit，把稳定错误响应保存为
+   `REJECTED` 并提交；
+5. 对合法命令执行业务写入并插入同事务 audit event；
+6. 保存成功 HTTP 状态和响应 JSON，把记录更新为 `SUCCEEDED`；
+7. 提交后才向客户端返回终态响应。
 
-业务失败回滚整个事务，不保存失败幂等记录，调用方可修正输入后复用或更换 key；
-未知结果重试必须复用原 key。只有成功响应被持久化重放。
+一旦有效业务意图绑定 key，相同 key 携带不同 digest 始终冲突，包括首次结果为确定性
+业务拒绝的情况。调用方修正意图必须使用新 key；未知结果重试必须复用原 key。
+数据库断连、事务提交失败或其他非确定性基础设施错误会回滚包括幂等记录在内的整个
+事务，同 key 可安全重试。`IDEMPOTENCY_IN_PROGRESS` 也不改变首次事务。
 
 ### 8.3 Optimistic concurrency
 
@@ -426,7 +432,7 @@ TypeBox 路由 Schema 是 LP-01 API 请求、响应和 OpenAPI 的唯一规范�
 | 相同 key、相同 digest | 返回原成功响应 | 无需恢复 |
 | 相同 key、不同 digest | 409，保留首次结果 | 读取原结果或使用新 key |
 | 版本过期 | 409，无覆盖 | 重新读取并提交新意图 |
-| 推进条件不足 | 422，Idea 不变 | 补齐目标/假设并明确推进 |
+| 推进条件不足 | 422，Idea 不变；原 key 绑定拒绝结果 | 补齐后使用新 key 明确推进 |
 | 并发重复推进 | 一个提交；另一个 replay 或确定性冲突 | 使用返回的现有项目 |
 | 事实或 audit 写入失败 | 整个事务回滚，不报告成功 | 同 key 重试未知结果 |
 | 数据库不可达 | readiness 503；业务失败脱敏 | 恢复数据库后重试 |
