@@ -83,9 +83,7 @@
     "generator": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "name"
-      ],
+      "required": ["name"],
       "properties": {
         "name": {
           "type": "string",
@@ -102,11 +100,7 @@
     "section": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "title",
-        "blocks"
-      ],
+      "required": ["id", "title", "blocks"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -159,11 +153,7 @@
     "textBlock": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "type",
-        "markdown"
-      ],
+      "required": ["id", "type", "markdown"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -181,11 +171,7 @@
     "metricsBlock": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "type",
-        "items"
-      ],
+      "required": ["id", "type", "items"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -206,11 +192,7 @@
     "metricItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "label",
-        "value"
-      ],
+      "required": ["id", "label", "value"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -243,24 +225,14 @@
           "maxLength": 240
         },
         "trend": {
-          "enum": [
-            "up",
-            "down",
-            "flat",
-            "unknown"
-          ]
+          "enum": ["up", "down", "flat", "unknown"]
         }
       }
     },
     "listBlock": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "type",
-        "ordered",
-        "items"
-      ],
+      "required": ["id", "type", "ordered", "items"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -284,10 +256,7 @@
     "listItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "text"
-      ],
+      "required": ["id", "text"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -305,12 +274,7 @@
     "tableBlock": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "type",
-        "columns",
-        "rows"
-      ],
+      "required": ["id", "type", "columns", "rows"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -338,10 +302,7 @@
     "tableColumn": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "key",
-        "label"
-      ],
+      "required": ["key", "label"],
       "properties": {
         "key": {
           "$ref": "#/$defs/safeId"
@@ -352,11 +313,7 @@
           "maxLength": 80
         },
         "align": {
-          "enum": [
-            "start",
-            "center",
-            "end"
-          ],
+          "enum": ["start", "center", "end"],
           "default": "start"
         }
       }
@@ -364,10 +321,7 @@
     "tableRow": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "cells"
-      ],
+      "required": ["id", "cells"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -399,11 +353,7 @@
     "timelineBlock": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "type",
-        "items"
-      ],
+      "required": ["id", "type", "items"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -424,10 +374,7 @@
     "timelineItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "title"
-      ],
+      "required": ["id", "title"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -459,11 +406,7 @@
     "evidenceRefsBlock": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "type",
-        "evidenceIds"
-      ],
+      "required": ["id", "type", "evidenceIds"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"
@@ -485,11 +428,7 @@
     "actionRefsBlock": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "id",
-        "type",
-        "attentionItemIds"
-      ],
+      "required": ["id", "type", "attentionItemIds"],
       "properties": {
         "id": {
           "$ref": "#/$defs/safeId"

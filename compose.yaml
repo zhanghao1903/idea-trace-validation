@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17.10-alpine
+    environment:
+      POSTGRES_DB: idea_validation
+      POSTGRES_PASSWORD: idea_validation
+      POSTGRES_USER: idea_validation
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U idea_validation -d idea_validation
+      interval: 2s
+      timeout: 2s
+      retries: 20
+    ports:
+      - "54329:5432"
+    volumes:
+      - idea-validation-pgdata:/var/lib/postgresql/data
+
+volumes:
+  idea-validation-pgdata:

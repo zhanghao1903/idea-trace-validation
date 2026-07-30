@@ -8,7 +8,7 @@
 
 | Plan ID | Plan | Depends on | Status | Blocker | Next step |
 | --- | --- | --- | --- | --- | --- |
-| LP-01 | [核心基础与 Idea 流程](./implementation-plans/v0-1/lp-01-core-idea-flow.md) | None | Not Started | None | 为 LP-01 启动独立 Requirements 阶段 |
+| LP-01 | [核心基础与 Idea 流程](./implementation-plans/v0-1/lp-01-core-idea-flow.md) | None | Ready for Acceptance | None | 完成 PR 审查并记录正式验收 |
 | LP-02 | [项目执行与决策闭环](./implementation-plans/v0-1/lp-02-execution-decisions.md) | LP-01 | Not Started | None | 为 LP-02 启动独立 Requirements 阶段 |
 | LP-03 | [结构化汇报与双角色体验](./implementation-plans/v0-1/lp-03-reporting-role-experience.md) | LP-02 | Not Started | None | 为 LP-03 启动独立 Requirements 阶段 |
 | LP-04 | [AI Skill 与可重复演示](./implementation-plans/v0-1/lp-04-ai-skill-demo.md) | LP-03 | Not Started | None | 为 LP-04 启动独立 Requirements 阶段 |
@@ -21,7 +21,8 @@
 
 当前阻塞：`None`。
 
-总体下一步：从 LP-01 开始独立进入 Engineering Lifecycle Requirements 阶段。
+总体下一步：完成 LP-01 精确 head 代码审查和正式验收；通过后再单独启动 LP-02
+Requirements。
 
 ## 主归属
 
