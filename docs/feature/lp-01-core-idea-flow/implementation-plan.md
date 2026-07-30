@@ -6,7 +6,7 @@
 - Requirements: [requirements.md](./requirements.md)
 - RequirementsCommit: `42078fa3e2b20cb599ef795a88ee37377897c5ab`
 - Design: [design.md](./design.md)
-- DesignCommit: `bdf55be8eb4c56d4efb0fc276f2a467d93738957`
+- DesignCommit: `51c186be9834bfbd9e979f76dff0d8bda7e348a3`
 
 ## 1. Scope
 
@@ -54,7 +54,16 @@
 | TPR-001 | Design §7.1–7.4 锁定十张表、字段、类型、owner、约束、索引、changed fields 和全部对象 retention；§9.4 锁定 request/response/error/config Shape |
 | TPR-002 | Design §8.4 增加 end-to-end sequence diagram 和 Idea lifecycle state diagram |
 | TPR-003 | Design §12 统一为 config 合法后始终监听；health/OpenAPI 不 gate；全部业务 API 未 ready 时 503 |
-| TPR-004 | 本 plan 头部和 §12 统一引用 design commit `bdf55be8eb4...` |
+| TPR-004 | 本 plan 头部和 §12 使用当轮 exact design authority |
+
+### Cycle 2 remediation
+
+| Finding | Plan remediation |
+| --- | --- |
+| TPR-001 | Design §9.4 新增 `ProjectAuthorityDto`、`ProjectMutationDto`、project summary/detail 的 proposer/executor discriminated focus Shape、nullability 和 route data |
+| TPR-005 | §9.1 的 create/promotion 示例改为单一合法值，并与权威 enum/Actor 条件一致 |
+| TPR-006 | `audit_events.actor_type`/`actor_role` 拆为独立列；`ActorInput` optional 与 `ActorDto` required-null 分开 |
+| TPR-007 | `idempotency_records.response_payload` 只保存 success data 或 rejection error；adapter 统一重建 envelope |
 
 ## 3. Target Repository Structure
 
@@ -197,7 +206,7 @@ Work:
 3. 实现 transaction、repository、clock/ID ports。
 4. 实现全局 idempotency key/digest 协议、`IN_PROGRESS/SUCCEEDED/REJECTED` 状态、
    `SET LOCAL lock_timeout='2s'` + `INSERT ... ON CONFLICT DO NOTHING RETURNING`、
-   SQLSTATE `55P03` 事务外映射和终态响应保存。
+   SQLSTATE `55P03` 事务外映射，以及 success data / rejection error payload 保存。
 5. 实现 `SELECT ... FOR UPDATE`、expected version 和统一 audit event。
 6. readiness 校验期望 migration ID。
 
@@ -226,7 +235,8 @@ Work:
    `desiredOutcome`、分类陈述和问题。
 2. 对缺少期望结果/假设生成字段型问题并计算 `NEEDS_CLARIFICATION`。
 3. 实现受凭据保护的 `POST /api/v1/ideas`。
-4. 实现公开 Idea list/detail 和 proposer/executor projections。
+4. 实现公开 Idea list/detail 和 proposer/executor projections；Idea detail 内嵌的 project
+   summary 使用同一个 query `view` 的 project focus union。
 5. 注册 TypeBox routes，生成 OpenAPI 和稳定成功/错误响应。
 6. 确保创建、history 和 idempotency response 同事务提交。
 
@@ -284,6 +294,8 @@ Verification:
 - 同 key replay 返回同响应；新 key 重复推进确定性拒绝并返回现有项目
 - 两个并发推进最终只有一个项目
 - 项目假设快照、来源 Idea、版本、服务端时间和 audit 正确
+- project list/detail 的 proposer focus 精确突出 source Idea/outcome，executor focus
+  精确突出 execution/hypotheses；两者 authority ID/status/version 完全一致
 - 基础项目读取不包含 LP-02 进展或 LP-03 报告字段
 
 Commit boundary: promotion + project reads；不实现项目执行 mutation。
@@ -371,7 +383,7 @@ npm run verify
 | LP1-REQ-011–012 / AC-006 | success/rejection replay、digest conflict、concurrent first request |
 | LP1-REQ-013 / AC-007 | stale expectedVersion concurrency test |
 | LP1-REQ-002,014 / AC-008 | PostgreSQL fault injection and rollback assertions |
-| LP1-REQ-016–017 / AC-009 | list/detail and projection equivalence tests |
+| LP1-REQ-016–017 / AC-009 | Idea/project list/detail，双 focus discriminated Schema 和 authority equivalence tests |
 | LP1-REQ-015–016 / AC-010 | Design §9.4 TypeBox/OpenAPI/data/error matrix contract tests |
 | LP1-REQ-018–019 / AC-011 | auth boundary and Pino redaction tests |
 | LP1-REQ-020 / AC-012 | single report Schema path + Ajv fixtures + no routes |
@@ -394,7 +406,8 @@ GitHub/lifecycle fixture 明确不属于验证范围。
 - concurrent create/promote 不绕过 unique/version/idempotency 约束；
 - audit trigger 拒绝 update/delete；
 - readiness 不把数据库可连接但 migration 缺失误报为 ready。
-- route DTO/SQL/config snapshot tests 覆盖 design §7.2、§9.4 和 §11.1，不允许实现漂移。
+- route DTO/SQL/config snapshot tests 覆盖 design §7.2、§9.4 和 §11.1；特别断言
+  Actor optional/null、project focus union 和 idempotency payload/envelope 边界。
 
 不把声明 Actor 与 token 绑定成人类身份，不写“已认证提出者”之类结论。
 
@@ -450,7 +463,7 @@ F4 文档变化：
 ## 12. Commit And Review Plan
 
 1. F2 design authority 修订已单独提交并推送：
-   `bdf55be8eb4c56d4efb0fc276f2a467d93738957`。
+   `51c186be9834bfbd9e979f76dff0d8bda7e348a3`。
 2. F3 plan 与 truthful Changelog Docs entry 单独提交并推送。
 3. 用包含 exact requirements/design/plan 的 F3 commit 生成
    `TechnicalPlanReviewRequest`。
@@ -470,5 +483,8 @@ F4 文档变化：
 尚未开始 F4。Cycle 1 Technical Plan Review
 `c39f003d1754a10633a9aa7c4c890422dc6049c4f497367819814f585d84b21a`
 对 exact commit `905f858201de...` 返回 FAIL；TPR-001 至 TPR-004 已按本 plan 的
-Cycle 1 remediation 表修订，等待新 exact snapshot 复审。Technical Plan Review PASS、
+Cycle 1 remediation 表修订。Cycle 2 result
+`f481d8b00a5cfaf9d9d3ab07adb9a0fcaefffd32a2e43f289e70c929968428bc`
+确认 TPR-002 至 TPR-004 已关闭，并要求补齐项目 focus 与三项局部一致性；这些内容已按
+Cycle 2 remediation 表修订，等待新 exact snapshot 复审。Technical Plan Review PASS、
 GoalRun、实现提交、验证命令、PR 和验收证据仍为空，不得在实际发生前预填。
