@@ -353,12 +353,13 @@ LP-01 不提供 workspace route 或 mutation。
 | `first_request_id` | `varchar(30) NOT NULL` | application | `req_<ULID>` |
 | `status` | `varchar(16) NOT NULL` | transaction | `IN_PROGRESS/SUCCEEDED/REJECTED` |
 | `response_status` | `smallint NULL` | transaction | 终态必填，100–599 |
-| `response_body` | `jsonb NULL` | transaction | 终态 envelope；序列化后最大 256 KiB |
+| `response_payload` | `jsonb NULL` | transaction | 成功时只存 `data`，拒绝时只存 `error`；最大 256 KiB |
 | `created_at` | `timestamptz NOT NULL` | database | 首次有效意图时间 |
 | `completed_at` | `timestamptz NULL` | database | 终态必填 |
 
-`CHECK` 保证 `IN_PROGRESS` 没有 response/completed，终态三者齐全。LP-01 不提供读取
-route，replay 只把原 envelope 返回给通过写认证的调用方。
+`CHECK` 保证 `IN_PROGRESS` 没有 response payload/completed，终态三者齐全。LP-01
+不提供读取 route；adapter 用 payload、status、first request ID 和 replay 布尔值重建
+TypeBox envelope。
 
 #### `audit_events`
 
@@ -371,7 +372,8 @@ route，replay 只把原 envelope 返回给通过写认证的调用方。
 | `aggregate_version` | `integer NOT NULL` | domain | `>=1` |
 | `event_type` | `varchar(48) NOT NULL` | command | 受控值见 lifecycle 表 |
 | `occurred_at` | `timestamptz NOT NULL` | database | API `occurredAt` |
-| `actor_type/actor_role` | `varchar(16) NOT NULL` | request/domain | declared Actor |
+| `actor_type` | `varchar(16) NOT NULL` | request/domain | declared `HUMAN/AI/SYSTEM` |
+| `actor_role` | `varchar(16) NOT NULL` | request/domain | declared role |
 | `actor_display_name` | `varchar(120) NOT NULL` | request/domain | declared Actor |
 | `actor_client` | `varchar(120) NULL` | request | declared client |
 | `on_behalf_of_role` | `varchar(16) NULL` | request | declared delegation |
@@ -471,16 +473,17 @@ Authorization、Cookie、客户端 request/correlation header 和日志上下文
    `INSERT ... ON CONFLICT DO NOTHING RETURNING idempotency_key` 尝试以
    `IN_PROGRESS` 插入 key、digest 和业务操作名；
 2. 唯一冲突时读取现有记录：
-   - digest 相同且为 `SUCCEEDED` 或 `REJECTED`：返回原 HTTP 状态和响应体，标记
-     replay；
+   - digest 相同且为 `SUCCEEDED` 或 `REJECTED`：读取原 HTTP 状态和 payload，
+     用 `first_request_id` 重建 envelope；成功结果标记 replay；
    - digest 不同：返回 `IDEMPOTENCY_CONFLICT`；
    - 首事务仍占用唯一键超过 2 秒：返回可重试的
      `IDEMPOTENCY_IN_PROGRESS`；
 3. 在任何业务 mutation 前完成存在性、版本和 lifecycle 前置校验；
-4. 对 404/409/422 等确定性业务拒绝，不写业务事实或 audit，把稳定错误响应保存为
-   `REJECTED` 并提交；
+4. 对 404/409/422 等确定性业务拒绝，不写业务事实或 audit，只把稳定 `error`
+   object 保存为 payload，标记 `REJECTED` 并提交；
 5. 对合法命令执行业务写入并插入同事务 audit event；
-6. 保存成功 HTTP 状态和响应 JSON，把记录更新为 `SUCCEEDED`；
+6. 只把成功 `data` object 保存为 payload，同时保存 HTTP 状态并把记录更新为
+   `SUCCEEDED`；
 7. 提交后才向客户端返回终态响应。
 
 一旦有效业务意图绑定 key，相同 key 携带不同 digest 始终冲突，包括首次结果为确定性
@@ -616,14 +619,14 @@ API base path 为 `/api/v1`。写入受 bearer token 保护；读取和健康检
   "facts": [{"text": "string"}],
   "hypotheses": [{"text": "string"}],
   "clarificationQuestions": [
-    {"prompt": "string", "targetField": "EXPECTED_OUTCOME|HYPOTHESIS|OTHER"}
+    {"prompt": "string", "targetField": "DESIRED_OUTCOME"}
   ],
   "actor": {
-    "actorType": "HUMAN|AI",
-    "role": "PROPOSER|EXECUTOR",
-    "displayName": "string",
-    "client": "optional string",
-    "onBehalfOfRole": "optional PROPOSER|EXECUTOR"
+    "actorType": "AI",
+    "role": "EXECUTOR",
+    "displayName": "LP-01 API client",
+    "client": "codex",
+    "onBehalfOfRole": "PROPOSER"
   },
   "reason": "string"
 }
@@ -640,10 +643,9 @@ statement correction；所有可选变更分别校验并追加。
   "expectedVersion": 3,
   "explicitIntent": "PROMOTE",
   "actor": {
-    "actorType": "HUMAN|AI",
-    "role": "PROPOSER|EXECUTOR",
-    "displayName": "string",
-    "onBehalfOfRole": "optional PROPOSER"
+    "actorType": "HUMAN",
+    "role": "PROPOSER",
+    "displayName": "Declared proposer"
   },
   "reason": "string"
 }
@@ -658,7 +660,7 @@ statement correction；所有可选变更分别校验并追加。
   "ok": true,
   "data": {},
   "meta": {
-    "requestId": "01...",
+    "requestId": "req_01...",
     "idempotentReplay": false
   }
 }
@@ -724,26 +726,27 @@ Project detail 返回目标、假设快照、来源 Idea 和当前排队状态�
 
 | Shape | Fields |
 | --- | --- |
-| `ActorContext` | `actorType: HUMAN\|AI\|SYSTEM`、`role: PROPOSER\|EXECUTOR\|MAINTAINER\|SYSTEM`、`displayName: string(1..120)`、`client?: string(1..120)`、`onBehalfOfRole?: PROPOSER\|EXECUTOR\|MAINTAINER` |
+| `ActorInput` | `actorType: HUMAN\|AI`、`role: PROPOSER\|EXECUTOR\|MAINTAINER`、`displayName: string(1..120)`、`client?: string(1..120)`、`onBehalfOfRole?: PROPOSER\|EXECUTOR\|MAINTAINER`；可选字段缺省，不接受 null |
+| `ActorDto` | `actorType: HUMAN\|AI\|SYSTEM`、`role: PROPOSER\|EXECUTOR\|MAINTAINER\|SYSTEM`、`displayName: string`、`client: string\|null`、`onBehalfOfRole: PROPOSER\|EXECUTOR\|MAINTAINER\|null`；五个字段全部必返 |
 | `PageQuery` | `view?: proposer\|executor`（默认 proposer）、`limit?: integer(1..100)`（默认 20）、`cursor?: string(1..512)` |
 | `PageMeta` | `limit: integer`、`nextCursor: string\|null` |
 | `WriteMeta` | `requestId: req_<ULID>`、`idempotentReplay: boolean` |
 | `ReadMeta` | `requestId: req_<ULID>` |
 
-`SYSTEM` Actor 只由领域生成问题时使用，客户端写请求拒绝 `SYSTEM`。`client` 和
-`onBehalfOfRole` 缺省时响应为 null，不在数据库中制造空字符串。
+`SYSTEM` Actor 只由领域生成问题时使用，客户端只可提交 `ActorInput`。Input 的可选字段
+缺省时持久化为 SQL null，并在 `ActorDto` 中序列化为 JSON null，不制造空字符串。
 
 #### Create request
 
 | Field | Required | Type and validation |
 | --- | --- | --- |
 | `intentSummary` | yes | string 1..4000 |
-| `proposer` | yes | `ActorContext`；role 必须 `PROPOSER`，actorType 不得 SYSTEM |
+| `proposer` | yes | `ActorInput`；role 必须 `PROPOSER` |
 | `desiredOutcome` | no | string 1..2000 |
 | `facts` | yes | array 0..20 of `{text: string(1..2000)}` |
 | `hypotheses` | yes | array 0..20 of `{text: string(1..2000)}` |
 | `clarificationQuestions` | yes | array 0..20 of `{prompt: string(1..1000), targetField: DESIRED_OUTCOME\|HYPOTHESIS\|FACT\|OTHER}` |
-| `actor` | yes | client `ActorContext` |
+| `actor` | yes | `ActorInput` |
 | `reason` | yes | string 1..500 |
 
 整个 JSON body 上限 64 KiB。相同数组内 trim 后重复的 text/prompt 返回
@@ -759,7 +762,7 @@ Project detail 返回目标、假设快照、来源 Idea 和当前排队状态�
 | `newFacts` | yes | array 0..20 of `StatementInput` |
 | `newHypotheses` | yes | array 0..20 of `StatementInput`；target HYPOTHESIS 时至少 1 |
 | `supersedesAnswerId` | no | `ans_<ULID>`；question 已回答时必须等于 current answer |
-| `actor` | yes | client `ActorContext` |
+| `actor` | yes | `ActorInput` |
 | `reason` | yes | string 1..500 |
 
 `StatementInput` 为 `{text: string(1..2000), supersedesStatementId?: stmt_<ULID>}`。
@@ -772,7 +775,7 @@ supersedes 目标必须属于 route Idea、与数组 kind 相同且仍是 curren
 | --- | --- | --- |
 | `expectedVersion` | yes | integer >= 1 |
 | `explicitIntent` | yes | literal `PROMOTE` |
-| `actor` | yes | `HUMAN/PROPOSER`，或 `AI` 且 `onBehalfOfRole=PROPOSER` |
+| `actor` | yes | `ActorInput`；`HUMAN/PROPOSER`，或 `AI` 且 `onBehalfOfRole=PROPOSER` |
 | `reason` | yes | string 1..500 |
 
 #### Read DTOs
@@ -783,7 +786,7 @@ supersedes 目标必须属于 route Idea、与数组 kind 相同且仍是 curren
 | --- | --- | --- |
 | `id` | `idea_<ULID>` | ideas.id |
 | `intentSummary` | string | ideas.intent_summary |
-| `proposer` | `ActorContext`，onBehalf null | proposer columns |
+| `proposer` | `ActorDto`；`onBehalfOfRole` 固定 null | proposer columns |
 | `desiredOutcome` | string or null | ideas.desired_outcome |
 | `intakeStatus` | `IDEA\|NEEDS_CLARIFICATION` | ideas.intake_status |
 | `version` | integer | ideas.version |
@@ -794,11 +797,11 @@ supersedes 目标必须属于 route Idea、与数组 kind 相同且仍是 curren
 `supersedesStatementId: string|null`、`recordedAt`。`QuestionDto` 为 `id`、
 `prompt`、`targetField`、`source`、`status`、`currentAnswerId: string|null`、
 `createdAt`、`updatedAt`、`answers: AnswerDto[]`。`AnswerDto` 为 `id`、
-`answerText`、`desiredOutcomeRevision: string|null`、`declaredActor`、
+`answerText`、`desiredOutcomeRevision: string|null`、`declaredActor: ActorDto`、
 `reason`、`supersedesAnswerId: string|null`、`resultingIdeaVersion`、`createdAt`。
 
 `AuditEventDto` 为 `id`、`aggregateType`、`aggregateId`、`aggregateVersion`、
-`eventType`、`occurredAt`、`declaredActor`、`reason`、`requestId`、
+`eventType`、`occurredAt`、`declaredActor: ActorDto`、`reason`、`requestId`、
 `beforeSummary: object|null`、`afterSummary: object`、`relatedEventId: string|null`；
 不返回 idempotency key。
 
@@ -830,12 +833,74 @@ history: AuditEventDto[]
 focus: same discriminated proposer/executor focus
 ```
 
-`ProjectSummaryDto` 为 `id`、`ideaId`、`goal`、`phase`、`status`,
-`sourceIdeaVersion`、`version`、`createdAt`、`updatedAt`。`ProjectDetailDto` 在此基础
-上增加 `hypotheses: ProjectHypothesisDto[]` 和
-`sourceIdea: IdeaAuthorityDto`。`ProjectHypothesisDto` 为 `id`、
-`sourceStatementId`、`text`、`position`、`createdAt`。项目 focus 只重新排列 goal、
-hypotheses 和 source idea 摘要，不增加状态字段。
+`ProjectAuthorityDto` 为 `id`、`ideaId`、`goal`、`phase`、`status`,
+`sourceIdeaVersion`、`version`、`createdAt`、`updatedAt`；
+`ProjectHypothesisDto` 为 `id`、`sourceStatementId`、`text`、`position`、
+`createdAt`。两者没有可选字段。promotion write 使用
+`ProjectMutationDto = {authority: ProjectAuthorityDto, hypotheses:
+ProjectHypothesisDto[]}`，不带角色 focus。
+
+公开项目列表的 `ProjectSummaryDto` 精确为：
+
+```text
+authority: ProjectAuthorityDto
+focus:
+  proposer -> {
+    view: "proposer",
+    sourceIdea: {
+      id: idea_<ULID>,
+      intentSummary: string,
+      proposer: ActorDto,
+      desiredOutcome: string
+    },
+    projectOutcome: {goal: string, status: "QUEUED"}
+  }
+  executor -> {
+    view: "executor",
+    execution: {
+      goal: string,
+      phase: "PLANNING",
+      status: "QUEUED",
+      version: integer
+    },
+    hypothesisCount: integer >= 1,
+    sourceIdea: {id: idea_<ULID>, version: integer}
+  }
+```
+
+公开项目详情的 `ProjectDetailDto` 精确为：
+
+```text
+authority: ProjectAuthorityDto
+hypotheses: ProjectHypothesisDto[]
+sourceIdea: IdeaAuthorityDto
+focus:
+  proposer -> {
+    view: "proposer",
+    sourceIdea: {
+      id: idea_<ULID>,
+      intentSummary: string,
+      proposer: ActorDto,
+      desiredOutcome: string
+    },
+    projectOutcome: {goal: string, status: "QUEUED"}
+  }
+  executor -> {
+    view: "executor",
+    execution: {
+      goal: string,
+      phase: "PLANNING",
+      status: "QUEUED",
+      version: integer
+    },
+    hypotheses: ProjectHypothesisDto[],
+    sourceIdea: {id: idea_<ULID>, version: integer}
+  }
+```
+
+`focus.view` 必须等于 query `view`；proposer/executor union 都必返 `authority`，并从同一
+project/source-Idea query result 构造。`desiredOutcome` 在 project focus 中不可空，
+因为 promotion 前置条件保证它存在。JSON 字段顺序不承载投影语义。
 
 #### Route response data
 
@@ -843,7 +908,7 @@ hypotheses 和 source idea 摘要，不增加状态字段。
 | --- | --- | --- |
 | `POST /ideas` | 201 first / 201 replay | `{idea: IdeaAuthorityDto, created: {statementIds: string[], questionIds: string[]}}` |
 | `POST /ideas/:id/clarifications/:id/answers` | 200 | `{idea: IdeaAuthorityDto, answer: AnswerDto, createdStatementIds: string[], openQuestionCount: integer}` |
-| `POST /ideas/:id/promotions` | 201 | `{idea: IdeaAuthorityDto, project: ProjectDetailDto}` |
+| `POST /ideas/:id/promotions` | 201 | `{idea: IdeaAuthorityDto, project: ProjectMutationDto}` |
 | `GET /ideas` | 200 | `{items: IdeaSummaryDto[], page: PageMeta, view}` |
 | `GET /ideas/:id` | 200 | `{idea: IdeaDetailDto, view}` |
 | `GET /projects` | 200 | `{items: ProjectSummaryDto[], page: PageMeta, view}` |
@@ -851,9 +916,11 @@ hypotheses 和 source idea 摘要，不增加状态字段。
 | `GET /health/live` | 200 | `{status: "live"}` |
 | `GET /health/ready` | 200/503 | `{status: "ready"}` or error envelope |
 
-写 replay 返回首次保存的原 status/body，只把 `meta.idempotentReplay` 在保存时设置为
-false 会导致 replay 不可辨识，因此保存 response data/status，replay 时重新包装相同
-data 并把该布尔值设置为 true；其余字段和首次 requestId 保持不变。
+`idempotency_records.response_payload` 在 `SUCCEEDED` 时只保存上述 `data` object，在
+`REJECTED` 时只保存上述 `error` object；不保存 `ok` 或 `meta`。adapter 用
+`first_request_id` 重建 envelope。成功首次调用的 `idempotentReplay=false`，成功 replay
+为 true；拒绝首次/replay 的 error 和 requestId 完全相同。HTTP status 始终来自
+`response_status`。
 
 #### Error `details`
 
