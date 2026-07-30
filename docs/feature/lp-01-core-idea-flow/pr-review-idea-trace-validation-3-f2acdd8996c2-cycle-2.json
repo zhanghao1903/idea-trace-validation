@@ -1,0 +1,592 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 3,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/3",
+    "title": "LP-01: implement core Idea flow",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "30aa27129f21efe6e4ef2bfc17ffa0e1a7282682",
+    "head_ref": "codex/lp-01-core-idea-flow",
+    "head_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d",
+    "reviewed_at": "2026-07-30T19:19:41Z",
+    "reviewer": "OpenAI Codex Engineering Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "immutable previous result and all three previous finding closure paths",
+      "complete 06619eff53f577a27846b75a299aea580be3a9a3..f2acdd8996c2465f004308b0058f8b7f2406165d remediation delta and all 14 changed paths",
+      "current base-to-head persistence, request-identity, shutdown, documentation, and regression surfaces",
+      "current-head static, build, OpenAPI, unit, contract, integration, acceptance, and exact-head CI evidence"
+    ],
+    "excluded_scope": [
+      "generated OpenAPI and package lock were consistency-checked rather than manually reviewed line by line",
+      "production traffic, deployment supervisor behavior, real secrets, and exhaustive dependency internals"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "codex/review-records/lp-01-core-idea-flow-7a4c1e9d2b60/code-1-06619eff53f5 @ 3464c1b309817621d5b42dc751743779fa772b81",
+      "result_path": "docs/feature/lp-01-core-idea-flow/pr-review-idea-trace-validation-3-06619eff53f5-cycle-1.json",
+      "result_sha256": "45851320d0d24940c6860094c312fa6b1a957ef0d3b8218807336e968bcd3a71",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 3,
+      "reviewed_at": "2026-07-30T18:36:15Z",
+      "base_sha": "30aa27129f21efe6e4ef2bfc17ffa0e1a7282682",
+      "head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": [
+        "PRR-001",
+        "PRR-002",
+        "PRR-003"
+      ],
+      "blocking_finding_ids": [
+        "PRR-001",
+        "PRR-002"
+      ]
+    },
+    "delta_review": {
+      "previous_base_sha": "30aa27129f21efe6e4ef2bfc17ffa0e1a7282682",
+      "previous_head_sha": "06619eff53f577a27846b75a299aea580be3a9a3",
+      "current_base_sha": "30aa27129f21efe6e4ef2bfc17ffa0e1a7282682",
+      "current_head_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d",
+      "triggers": [
+        "HEAD_CHANGED"
+      ],
+      "commit_range": "06619eff53f577a27846b75a299aea580be3a9a3..f2acdd8996c2465f004308b0058f8b7f2406165d",
+      "commits_reviewed": [
+        "f2acdd8996c2465f004308b0058f8b7f2406165d"
+      ],
+      "changed_files": [
+        "CHANGELOG.md",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/clarifications.ts",
+        "apps/api/src/routes/ideas.ts",
+        "apps/api/src/routes/projects.ts",
+        "apps/api/src/routes/promotions.ts",
+        "apps/api/src/server.ts",
+        "apps/api/src/shutdown.ts",
+        "apps/api/test/fixtures/shutdown-child.ts",
+        "apps/api/test/lp01.acceptance.test.ts",
+        "apps/api/test/request-id.contract.test.ts",
+        "apps/api/test/shutdown.unit.test.ts",
+        "docs/feature/lp-01-core-idea-flow/verification.md",
+        "packages/db/test/service.integration.test.ts"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "apps/api/src/app.ts",
+        "apps/api/src/routes/clarifications.ts",
+        "apps/api/src/routes/ideas.ts",
+        "apps/api/src/routes/projects.ts",
+        "apps/api/src/routes/promotions.ts",
+        "apps/api/src/server.ts",
+        "apps/api/src/shutdown.ts",
+        "apps/api/test/fixtures/shutdown-child.ts",
+        "apps/api/test/lp01.acceptance.test.ts",
+        "apps/api/test/request-id.contract.test.ts",
+        "apps/api/test/shutdown.unit.test.ts",
+        "docs/feature/lp-01-core-idea-flow/verification.md",
+        "packages/db/test/service.integration.test.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "The remediation adds targeted transaction-failure recovery coverage, unifies first-processing request identity, and enforces a finite shutdown deadline.",
+      "evidence": "All 14 delta files, all previous finding paths, and the complete affected base-to-head call paths were inspected."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "The new test proves Idea, statement, and idempotency rollback, but creates no clarification question and raises before audit insertion, so its question and audit zero-count assertions are non-discriminating.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "All business routes use Fastify request.id for first processing; contract and acceptance tests prove initial log/response/audit correlation and preserved original-ID replay semantics.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-003",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "The shutdown helper races close work against a real deadline, force-closes remaining connections, and the held-request child regression exits within the deterministic deadline margin.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Transactional Idea, clarification-question, audit, and idempotency rollback evidence",
+        "risk_triggers": [
+          "mutation-recovery",
+          "data-integrity",
+          "test-adequacy"
+        ],
+        "reason": "The remediation claims complete atomic rollback coverage for every persisted write category.",
+        "affected_paths": [
+          "packages/db/test/service.integration.test.ts",
+          "packages/db/src/service.ts",
+          "docs/feature/lp-01-core-idea-flow/requirements.md",
+          "docs/feature/lp-01-core-idea-flow/verification.md"
+        ],
+        "checks": [
+          "Inspect which row types the fixture actually creates before failure",
+          "Inspect whether the failure occurs after a successful audit mutation",
+          "Verify each zero-row assertion would fail if its corresponding write escaped the transaction"
+        ],
+        "finding_ids": [
+          "PRR-001"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Server-generated request identity across logs, initial responses, audit, and terminal replay",
+        "risk_triggers": [
+          "public-contract",
+          "other"
+        ],
+        "reason": "The remediation changes the authoritative request-ID source throughout the business API.",
+        "affected_paths": [
+          "apps/api/src/app.ts",
+          "apps/api/src/routes/ideas.ts",
+          "apps/api/src/routes/clarifications.ts",
+          "apps/api/src/routes/promotions.ts",
+          "apps/api/src/routes/projects.ts",
+          "apps/api/test/request-id.contract.test.ts",
+          "apps/api/test/lp01.acceptance.test.ts"
+        ],
+        "checks": [
+          "Compare Fastify onRequest ID with Pino and initial response metadata",
+          "Compare initial response ID with audit request ID",
+          "Verify terminal replay returns the original first-processing ID while the attempt has a distinct ID"
+        ],
+        "finding_ids": [
+          "PRR-002"
+        ],
+        "result": "PASS"
+      },
+      {
+        "surface": "Signal-driven bounded shutdown and database resource cleanup",
+        "risk_triggers": [
+          "deployment-compatibility",
+          "other"
+        ],
+        "reason": "The remediation adds force-close behavior and an explicit process-exit deadline.",
+        "affected_paths": [
+          "apps/api/src/server.ts",
+          "apps/api/src/shutdown.ts",
+          "apps/api/test/fixtures/shutdown-child.ts",
+          "apps/api/test/shutdown.unit.test.ts"
+        ],
+        "checks": [
+          "Hold an in-flight request and a non-settling close hook",
+          "Send SIGTERM and observe listener stop plus bounded process exit",
+          "Run graceful and deadline unit paths"
+        ],
+        "finding_ids": [
+          "PRR-003"
+        ],
+        "result": "PASS"
+      },
+      {
+        "surface": "Existing public API, authentication, OpenAPI, persistence, and concurrency behavior",
+        "risk_triggers": [
+          "public-contract",
+          "trust-boundary",
+          "test-adequacy"
+        ],
+        "reason": "The delta touches shared app construction and acceptance/integration coverage.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "apps/api/src",
+          "apps/api/test",
+          "packages/db/test/service.integration.test.ts"
+        ],
+        "checks": [
+          "Run complete format, lint, typecheck, build, OpenAPI, unit, contract, integration, and acceptance verification",
+          "Observe the exact-head GitHub CI result"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "PASS",
+        "reviewer": "fresh-context independent reviewer",
+        "summary": "The independent pass reviewed all 14 delta files, confirmed PRR-002 and PRR-003 closure, and independently identified the non-discriminating question/audit assertions that keep PRR-001 open."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "PRR-002 and PRR-003 are resolved and all current checks pass, but PRR-001 remains open because the rollback test creates no clarification question and fails before audit insertion while claiming both states were rolled back.",
+    "blocking_finding_ids": [
+      "PRR-001"
+    ]
+  },
+  "summary": "This re-review closes the request-identity and finite-shutdown findings. The transaction regression usefully proves rollback of the idempotency record, Idea, and hypothesis statement plus same-key recovery, but cannot prove question or audit rollback because it creates neither before failing. Approval renewal is withheld on preserved finding PRR-001 only.",
+  "change_map": [
+    {
+      "area": "Transaction rollback evidence",
+      "change": "Adds a targeted failure before audit insert and a same-key recovery retry.",
+      "external_behavior": "Rollback is demonstrated for earlier Idea, statement, and idempotency writes but not for question or successful audit writes.",
+      "risk": "High",
+      "validation": "Integration regression passes; discriminating-evidence audit fails PRR-001."
+    },
+    {
+      "area": "Request traceability",
+      "change": "Uses Fastify request.id throughout first-processing business routes.",
+      "external_behavior": "Initial logs, responses, and audit correlate while terminal replay keeps the original first-processing ID.",
+      "risk": "Low",
+      "validation": "Contract, acceptance, and reviewer counterexample regression pass."
+    },
+    {
+      "area": "Runtime lifecycle",
+      "change": "Adds deadline-raced shutdown, force-closing, and held-request child coverage.",
+      "external_behavior": "New traffic stops and process exit is bounded by the configured grace period.",
+      "risk": "Low",
+      "validation": "Shutdown unit and complete verify runs pass."
+    },
+    {
+      "area": "Verification documentation",
+      "change": "Records cycle-1 finding closure and objective evidence.",
+      "external_behavior": "The transaction-safety claim overstates the committed regression for question and audit rollback.",
+      "risk": "Medium",
+      "validation": "Documentation-to-test reconciliation fails PRR-001."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Rollback regression does not prove every claimed mutation rolls back",
+      "location": {
+        "path": "packages/db/test/service.integration.test.ts",
+        "line_start": 32,
+        "line_end": 42,
+        "symbol": "createBody and post-mutation failure regression",
+        "side": "RIGHT",
+        "commit_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d"
+      },
+      "observation": "The fixture has no clarification question, so a zero question count is vacuous. The BEFORE INSERT audit trigger raises before any audit row exists, so a zero audit count does not prove rollback of a successful audit mutation. verification.md nevertheless claims Idea, statements, questions, audit, and idempotency state were all demonstrated to roll back.",
+      "trigger": "A future change moves clarification-question or audit persistence outside the service-owned transaction while this regression continues to create no question and fail before audit insertion.",
+      "impact": "The repository can claim complete LP1-REQ-021/LP1-AC-008 atomicity while regressions in two explicitly claimed write categories remain undetected.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "createBody declares clarificationQuestions as an empty array.",
+          "reference": "packages/db/test/service.integration.test.ts:32-42"
+        },
+        {
+          "kind": "code",
+          "description": "The injected trigger raises BEFORE INSERT on audit_events, before the target audit row can exist.",
+          "reference": "packages/db/test/service.integration.test.ts:161-177"
+        },
+        {
+          "kind": "analysis",
+          "description": "The zero-count assertions for clarification_questions and audit_events are therefore true without rollback of either mutation.",
+          "reference": "packages/db/test/service.integration.test.ts:194-216"
+        },
+        {
+          "kind": "spec",
+          "description": "The verification record claims the regression demonstrates rollback of questions and audit state in addition to the earlier writes.",
+          "reference": "docs/feature/lp-01-core-idea-flow/verification.md:18"
+        }
+      ],
+      "remediation": "Make the fixture create at least one clarification question and inject the infrastructure failure after a successful audit insert but before commit, such as on the terminal idempotency-status update. Assert all created business, question, audit, and idempotency rows are absent and that the same key succeeds after recovery.",
+      "verification": "The regression fails if either question or audit writes escape the transaction, passes on the remediation head, and the full integration and acceptance suites pass.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "testing:postgres-service:missing-post-mutation-rollback-regression"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "observability",
+      "title": "One request identity now spans first-processing logs, responses, and audit",
+      "location": {
+        "path": "apps/api/src/app.ts",
+        "line_start": 34,
+        "line_end": 167,
+        "symbol": "buildApp and route registration",
+        "side": "RIGHT",
+        "commit_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d"
+      },
+      "observation": "Business routes now use the Fastify request-scoped ID, while terminal idempotent replay returns the documented original first-processing ID.",
+      "trigger": "Initial business reads or writes and a later terminal replay.",
+      "impact": "Operators can correlate initial response and audit IDs with request logs without breaking replay identity semantics.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "Contract coverage compares the on-request ID, logger serializer ID, and response ID.",
+          "reference": "apps/api/test/request-id.contract.test.ts"
+        },
+        {
+          "kind": "test",
+          "description": "Acceptance coverage compares initial response/audit identity and distinguishes the replay attempt from the original returned ID.",
+          "reference": "apps/api/test/lp01.acceptance.test.ts"
+        },
+        {
+          "kind": "reproduction",
+          "description": "The original reviewer counterexample now logs and returns one initial request ID.",
+          "reference": "reviewer request-ID correlation proof at exact head"
+        }
+      ],
+      "remediation": "Completed at the current head.",
+      "verification": "Request-ID contract and acceptance tests pass; the reviewer log/response correlation proof passes.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "observability:fastify-business-routes:split-request-identity"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "reliability",
+      "title": "Shutdown grace now bounds process termination",
+      "location": {
+        "path": "apps/api/src/shutdown.ts",
+        "line_start": 1,
+        "line_end": 120,
+        "symbol": "shutdownApplication",
+        "side": "RIGHT",
+        "commit_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d"
+      },
+      "observation": "Shutdown now races application and pool closure against a real deadline, force-closes remaining work, and exits with a defined failure outcome on expiry.",
+      "trigger": "SIGTERM or SIGINT arrives while a request and close hook remain unsettled.",
+      "impact": "Restart and deployment no longer rely solely on an external supervisor to terminate the process after grace expiry.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "The helper races graceful work against a deadline and force-closes connections on expiry.",
+          "reference": "apps/api/src/shutdown.ts"
+        },
+        {
+          "kind": "test",
+          "description": "A child holds an in-flight request and non-settling hook, then exits with code 1 inside the deterministic deadline margin after SIGTERM.",
+          "reference": "apps/api/test/shutdown.unit.test.ts; apps/api/test/fixtures/shutdown-child.ts"
+        }
+      ],
+      "remediation": "Completed at the current head.",
+      "verification": "Shutdown unit tests and the complete verify run pass.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "reliability:server-shutdown:unenforced-grace-deadline"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Make the post-mutation rollback regression discriminating for clarification-question and successful audit writes, then align verification.md with the demonstrated evidence.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Unify first-processing request identity across logs, initial responses, command context, and audit while preserving replay identity semantics.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-003",
+      "action": "Enforce a finite shutdown deadline and cover it with a held-request child process.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "No new secret-leak or authorization defect was found in the remediation delta.",
+      "mitigation": "Preserve bounded serializers, redaction, and bearer-write tests.",
+      "owner": "LP-01 API owner"
+    },
+    {
+      "category": "data-integrity",
+      "level": "Medium",
+      "description": "Question and audit writes are structurally inside the transaction, but the new regression does not discriminatingly prove their rollback.",
+      "mitigation": "Resolve PRR-001 before merge.",
+      "owner": "LP-01 persistence owner"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Low",
+      "description": "Deadline enforcement and concurrency paths pass; a forced process exit can still discard final buffered shutdown logs.",
+      "mitigation": "Preserve the child-process and concurrency suites and revalidate under deployment conditions.",
+      "owner": "LP-01 runtime owner"
+    },
+    {
+      "category": "api-compatibility",
+      "level": "Low",
+      "description": "Request identity is repaired and strict API/OpenAPI checks pass.",
+      "mitigation": "Preserve separate initial-processing and terminal-replay identity coverage.",
+      "owner": "LP-01 API owner"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "Low",
+      "description": "Existing bounded list/detail database fan-out remains unchanged by this delta.",
+      "mitigation": "Measure and batch if later UI/reporting load makes it material.",
+      "owner": "future LP-03 owner"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "Production supervisor behavior remains outside LP-01, but the process deadline is now executable.",
+      "mitigation": "Exercise production server signal wiring during LP-05 deployment work.",
+      "owner": "future LP-05 owner"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm ci --engine-strict=false",
+        "environment": "macOS; Node.js 26.0.0; npm 11.12.1; exact head f2acdd8996c2465f004308b0058f8b7f2406165d",
+        "head_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 238 locked packages; local engine variance is recorded and exact-runtime proof comes from CI.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run verify",
+        "environment": "macOS; Node.js 26.0.0; npm 11.12.1; PostgreSQL 17.10 isolated idea_validation_test; exact head",
+        "head_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Formatting, lint, typecheck, build, OpenAPI, 13 unit, 7 contract, 10 integration, and 2 acceptance tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "request-ID correlation proof: compare incoming/completed Pino ID with response meta.requestId",
+        "environment": "macOS; built exact head; in-memory service/readiness doubles",
+        "head_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Incoming/completed Pino and response all used req_01KYT73FMDR8BM6QRP74GRBXYD.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-002"
+      },
+      {
+        "command": "PRR-001 discriminating-evidence audit",
+        "environment": "exact current source, requirements, verification, and integration-test fixture",
+        "head_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "No clarification question is created and failure occurs before audit insertion, so those zero-row assertions cannot prove rollback.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "git diff --check and complete remediation-delta classification",
+        "environment": "exact local git objects",
+        "head_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors; all 14 delta paths were classified and the complete PR diff was reconciled.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-07-30T19:19:41Z",
+        "head_sha": "f2acdd8996c2465f004308b0058f8b7f2406165d",
+        "status": "PASS",
+        "summary": "Exact-head GitHub Actions run 30573279485 job 90975154429 completed successfully using .nvmrc.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30573279485/job/90975154429"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Production deployment and supervisor observation",
+        "reason": "LP-05 scope and the production environment were not authorized for this LP-01 review."
+      },
+      {
+        "check": "Exhaustive third-party dependency source audit",
+        "reason": "Lock integrity and the affected dependency boundary were checked; dependency internals were outside review scope."
+      }
+    ]
+  },
+  "limitations": [
+    "Reviewer-local execution used Node.js 26.0.0 and npm 11.12.1; exact Node.js 24.18.0/npm 11.16.0 execution is evidenced by the exact-head GitHub ci / verify check.",
+    "Generated OpenAPI and package-lock content were source-consistency and boundary checked rather than manually reviewed line by line.",
+    "Production traffic, deployment supervisor behavior, and real secrets were unavailable and outside LP-01 authority."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #3 still points to the exact base and head in the accepted CodeReviewRequest.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh GitHub PR metadata and compare local exact snapshot.",
+      "evidence": "GitHub and local review objects report base 30aa27129f21efe6e4ef2bfc17ffa0e1a7282682 and head f2acdd8996c2465f004308b0058f8b7f2406165d.",
+      "impact_if_false": "The report and decision would be stale and non-authorizing."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed green GitHub check belongs to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect PR statusCheckRollup after refreshing exact head metadata.",
+      "evidence": "ci / verify completed successfully for unchanged head f2acdd8996c2465f004308b0058f8b7f2406165d in run 30573279485.",
+      "impact_if_false": "Passing checks could not support the review decision."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "Reviewer database tests used the documented isolated test database rather than shared or production data.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect test defaults, PostgreSQL target, and reset tables.",
+      "evidence": "Tests target idea_validation_test on PostgreSQL 17.10 and truncate only the LP-01 test tables.",
+      "impact_if_false": "Test execution could mutate data outside the authorized review boundary."
+    },
+    {
+      "id": "ASM-004",
+      "statement": "The exact Node.js 24.18.0/npm 11.16.0 runtime behavior is represented by the GitHub CI result.",
+      "decision_critical": false,
+      "status": "VERIFIED",
+      "method": "Inspect .nvmrc, package engines, workflow runtime setup, and exact-head check result.",
+      "evidence": "The workflow uses actions/setup-node with .nvmrc and the exact-head verify job passed.",
+      "impact_if_false": "A runtime-specific issue could remain despite reviewer-local Node.js 26 checks."
+    }
+  ],
+  "non_blocking_recommendations": [
+    {
+      "id": "NOTE-001",
+      "category": "reliability",
+      "recommendation": "Exercise the production server.ts signal wiring directly in a later deployment-level regression; the current child fixture duplicates the wiring around the production shutdown helper.",
+      "value": "This catches drift between the production entrypoint and the validated helper without weakening the current PRR-003 closure."
+    }
+  ]
+}
