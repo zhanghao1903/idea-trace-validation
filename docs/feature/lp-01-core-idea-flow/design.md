@@ -262,7 +262,7 @@ LP-01 不提供 workspace route 或 mutation。
 | `kind` | `varchar(16) NOT NULL` | request | `FACT/HYPOTHESIS`；API `kind` |
 | `text` | `varchar(2000) NOT NULL` | request | API `text` |
 | `source_type` | `varchar(32) NOT NULL` | command | `CREATE_REQUEST/CLARIFICATION_ANSWER/CORRECTION` |
-| `source_ref` | `varchar(128) NOT NULL` | command | 创建为 idempotency key；回答为 answer ID |
+| `source_ref` | `varchar(128) NOT NULL` | command | 创建为 server request ID；回答为 answer ID |
 | `supersedes_statement_id` | `varchar(31) NULL` | correction request | self FK；只能指向同 Idea、同 kind 的当前记录 |
 | `recorded_at` | `timestamptz NOT NULL` | database | API `recordedAt` |
 
@@ -447,7 +447,7 @@ questionId、answerId、projectId；不保存完整 intent、answer、token 或�
 
 - `Authorization: Bearer <AI_API_TOKEN>`
 - `Idempotency-Key: <caller-generated UUID or ULID>`
-- 可选 `X-Request-Id`；缺省时服务端生成 ULID
+- 服务端为每次首次处理生成 `req_<ULID>`；客户端 `X-Request-Id` 不作为权威字段
 - JSON body 中的 `actor` 和 `reason`
 - 修改 Idea 的澄清和推进 body 还要求整数 `expectedVersion`
 
@@ -461,7 +461,7 @@ questionId、answerId、projectId；不保存完整 intent、answer、token 或�
 SHA-256(method + route-template + canonical-path-ids + canonical-json-body)
 ```
 
-Authorization、Cookie、`X-Request-Id` 和日志上下文不进入 digest。canonical JSON
+Authorization、Cookie、客户端 request/correlation header 和日志上下文不进入 digest。canonical JSON
 递归排序对象键，保留数组顺序，使用验证后的值。
 
 认证、JSON Schema 和通用 envelope 校验在事务前完成；这些请求尚未形成有效业务意图，
@@ -801,6 +801,10 @@ supersedes 目标必须属于 route Idea、与数组 kind 相同且仍是 curren
 `eventType`、`occurredAt`、`declaredActor`、`reason`、`requestId`、
 `beforeSummary: object|null`、`afterSummary: object`、`relatedEventId: string|null`；
 不返回 idempotency key。
+
+所有嵌套数组都有确定顺序：current/history statements 按 `recordedAt,id`，questions 按
+`createdAt,id`，answers 按 `createdAt,id`，audit 按 `occurredAt,id`，项目假设按
+`position`。current statements 保持源记录的时间顺序，不按文本或 kind 重新排序。
 
 `IdeaSummaryDto` 为：
 
