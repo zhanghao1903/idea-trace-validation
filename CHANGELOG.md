@@ -33,6 +33,15 @@
   stable historical reads and an independently generated LP-02 OpenAPI artifact.
 - Add transaction failpoint, confirmation security, operation-matrix and
   end-to-end LP-02 acceptance verification.
+- Add the canonical LP-03 structured-report types, strict schema/semantic/safe
+  Markdown compiler and immutable report revision persistence.
+- Add report submit/current/history/revision APIs, authoritative proposer and
+  executor experience projections, and the independently generated LP-03 OpenAPI
+  artifact.
+- Add the React proposer/executor Web, project details, seven controlled report
+  renderers, scoped confirmation page and strict same-origin static hosting.
+- Add component and Chromium acceptance coverage for role URLs, pagination,
+  narrow screens, capability isolation, render fallback and failure states.
 
 ### Changed
 
@@ -48,4 +57,6 @@
   confirmation capability hashes and return raw capabilities through scoped
   secure cookies.
 - Keep the LP-01 OpenAPI artifact immutable by pinned digest and generate the
-  expanded current contract as `openapi/lp02.v1.json`.
+  LP-02 and LP-03 expanded contracts as independently pinned artifacts.
+- Compile dynamic report content into frozen safe tokens and keep every project
+  authority field outside the dynamic render boundary.

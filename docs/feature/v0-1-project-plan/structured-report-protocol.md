@@ -2,11 +2,12 @@
 
 - Protocol name: `project-report`
 - Protocol version: `1.0`
-- Status: Proposed F2 Design
-- Requirements baseline: `aedb210b95cbbeabc69ce776ed6966b36677196b`
+- Status: Implemented by LP-03
+- Requirements baseline: `e8149c722f4c2eb88596fc8a80ab31cfae3bb436`
+- Compiler: `lp03-report-compiler/1`
 - Machine-readable schema:
   [structured-report.v1.schema.json](../../../packages/contracts/schemas/structured-report.v1.schema.json)
-- Updated: 2026-07-27
+- Updated: 2026-07-31
 
 ## 1. 协议目标
 
@@ -59,7 +60,7 @@ AI 提交的根对象是 `ReportSubmissionV1`：
 | --- | --- | --- |
 | `schemaVersion` | string | 固定为 `"1.0"` |
 | `projectId` | string | 必须匹配 URL 中的项目且项目存在 |
-| `clientRequestId` | string | 幂等键，格式 `req_<ulid>` 或等价安全标识 |
+| `clientRequestId` | string | 幂等键，匹配 `^req_[0-9A-Za-z_-]{10,96}$`，且必须等于 `Idempotency-Key` header |
 | `basedOnRevision` | integer | 0 表示首次提交，否则必须等于当前最新版本 |
 | `locale` | string | v0.1 默认 `zh-CN` |
 | `title` | string | 汇报标题，不是项目权威标题 |
@@ -230,7 +231,8 @@ AI 提交的根对象是 `ReportSubmissionV1`：
 
 ## 8. 成功响应
 
-首次创建返回 HTTP `201`；同一幂等请求重放返回 HTTP `200`：
+首次创建和同一幂等请求的已存储重放均返回 HTTP `201`；调用方通过
+`meta.idempotentReplay` 区分：
 
 ```json
 {
@@ -240,7 +242,7 @@ AI 提交的根对象是 `ReportSubmissionV1`：
     "projectId": "proj_01K0EXAMPLE000000000000000",
     "revision": 4,
     "previousRevision": 3,
-    "contentDigest": "sha256:4f8b...",
+    "contentSha256": "4f8b000000000000000000000000000000000000000000000000000000000000",
     "acceptedAt": "2026-07-27T13:00:01Z"
   },
   "meta": {
@@ -250,7 +252,7 @@ AI 提交的根对象是 `ReportSubmissionV1`：
 }
 ```
 
-`reportId`、`revision`、`contentDigest` 和 `acceptedAt` 均由服务端产生。
+`reportId`、`revision`、`contentSha256` 和 `acceptedAt` 均由服务端产生。
 
 ## 9. 错误响应
 
@@ -280,24 +282,25 @@ AI 提交的根对象是 `ReportSubmissionV1`：
 | HTTP | `error.code` | 含义与恢复 |
 | --- | --- | --- |
 | 400 | `INVALID_JSON` | 修复 JSON 语法后使用同一意图的新请求重试 |
-| 400 | `PROJECT_ID_MISMATCH` | 使 URL 与载荷项目一致 |
+| 400 | `REPORT_IDENTITY_MISMATCH` | 使 URL、header 与载荷请求身份一致 |
 | 404 | `PROJECT_NOT_FOUND` | 重新读取项目列表，不猜测 ID |
 | 409 | `REPORT_REVISION_CONFLICT` | 读取最新版本、合并后用新 `clientRequestId` 提交 |
-| 409 | `IDEMPOTENCY_CONFLICT` | 同一 ID 对应不同内容；生成新 ID 或恢复原内容 |
-| 413 | `REPORT_PAYLOAD_TOO_LARGE` | 精简内容，不依赖服务端截断 |
-| 422 | `REPORT_SCHEMA_UNSUPPORTED` | 改用支持的协议版本 |
-| 422 | `REPORT_VALIDATION_FAILED` | 按 `details[].path` 修正 |
-| 422 | `REPORT_UNSAFE_CONTENT` | 移除不允许的 Markdown、URL 或可执行内容 |
-| 422 | `REPORT_REFERENCE_INVALID` | 创建/修正权威对象后重试 |
-| 409 | `PROJECT_COMPLETED` | 已完成项目需先按领域规则重开才能发布新汇报 |
-| 500 | `REPORT_STORE_FAILED` | 结果未知时使用同一 `clientRequestId` 安全重试 |
+| 409 | `IDEMPOTENCY_IN_PROGRESS` | 同键请求仍在处理；稍后以相同内容重试 |
+| 409 | `IDEMPOTENCY_KEY_REUSED` | 同一 ID 对应不同内容；生成新 ID 或恢复原内容 |
+| 413 | `REQUEST_TOO_LARGE` | 精简内容，不依赖服务端截断 |
+| 400 | `REPORT_SCHEMA_UNSUPPORTED` | 改用支持的协议版本 |
+| 400 | `REPORT_VALIDATION_FAILED` | 按 bounded issue path 修正 |
+| 400 | `REPORT_UNSAFE_CONTENT` | 移除不允许的 Markdown、URL 或可执行内容 |
+| 400 | `REPORT_REFERENCE_INVALID` | 创建/修正权威对象后重试 |
+| 409 | `PROJECT_REPORT_FROZEN` | 已完成项目需先按领域规则重开才能发布新汇报 |
+| 500 | `INTERNAL_ERROR` | 结果未知时使用同一 `clientRequestId` 和内容安全重试 |
 
 ## 10. 幂等、并发与版本
 
-- 幂等范围为 `projectId + clientRequestId`。
+- 幂等范围为 `workspaceId + projectId + clientRequestId`；header 与 body 请求身份必须一致。
 - 服务端对规范化 JSON 计算内容摘要。
 - 相同幂等键和相同摘要返回原成功结果；不新增 revision。
-- 相同幂等键和不同摘要返回 `IDEMPOTENCY_CONFLICT`。
+- 相同幂等键和不同摘要返回 `IDEMPOTENCY_KEY_REUSED`。
 - `basedOnRevision` 必须等于项目最新 revision；首次提交为 0。
 - 校验、保存 revision、更新最新指针和写审计事件在同一事务中完成。
 - 每个 `ReportRevision` 不可变；修订只能创建下一版本。
@@ -308,18 +311,19 @@ AI 提交的根对象是 `ReportSubmissionV1`：
 服务端持久化对象在提交内容之外增加：
 
 ```text
-reportId, revision, previousRevision, contentDigest,
-acceptedAt, submittedBy, renderStatus, renderFailure
+reportId, revision, previousRevision, contentSha256,
+acceptedAt, submittedBy, renderStatus, compilerVersion
 ```
 
-`renderStatus` 为 `UNVERIFIED | RENDERABLE | RENDER_FAILED`：
+`renderStatus` 为 `RENDERABLE | UNSUPPORTED`。当前 v1 提交在同一事务内完成验证、
+安全 token 编译、不可变 revision、accepted/renderable 指针和审计写入，因此成功的
+当前编译器 revision 直接为 `RENDERABLE`。保留 `UNSUPPORTED` 供旧协议或旧编译器数据的
+只读兼容测试，不猜测或重写内容。
 
-1. API 通过校验并保存后，revision 初始为 `UNVERIFIED`。
-2. 共用的渲染模型验证成功后标记为 `RENDERABLE` 并成为 `latestRenderableRevision`。
-3. Web 运行时若捕获块渲染异常，记录安全的失败摘要并回退到
-   `latestRenderableRevision` 之前的版本。
-4. 页面显示“最新汇报暂不可展示，当前为上一有效版本”，但权威项目头仍显示最新业务事实。
-5. 失败内容只在受控诊断接口中可见，不能作为可执行 DOM 注入页面。
+`GET /api/v1/projects/:projectId/reports/current` 分别返回 `accepted`、`primary` 与
+`runtimeFallback` 三个 slot，并用 `EMPTY | CURRENT | FALLBACK | UNSUPPORTED` 表达选择结果。
+浏览器运行时若 `primary` 组件抛错，只在动态区域显示固定安全摘要，并仅使用响应中已
+独立补全引用的 `runtimeFallback`；它不把客户端异常写回数据库或改变服务端指针。
 
 ## 12. 权威信息隔离
 

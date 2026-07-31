@@ -51,13 +51,13 @@
 
 ## 7. Acceptance checklist
 
-- [ ] 两个结构与顺序不同的有效项目汇报无需项目专用页面即可正确渲染。
-- [ ] 无效、不支持或危险内容被拒绝且不创建 revision。
-- [ ] 渲染异常显示安全提示并回退上一份可渲染汇报。
-- [ ] 汇报不能覆盖项目状态、确认结果、操作者或审计历史。
-- [ ] 想法提出者视图展示全部 Idea、状态、执行进度及待其处理事项。
-- [ ] 执行者视图区分未完成/已完成并突出下一步、阻塞、待确认和支持请求。
-- [ ] 角色切换无需登录，刷新或直接 URL 后仍读取同一权威事实。
+- [x] 两个结构与顺序不同的有效项目汇报无需项目专用页面即可正确渲染。
+- [x] 无效、不支持或危险内容被拒绝且不创建 revision。
+- [x] 渲染异常显示安全提示并回退上一份可渲染汇报。
+- [x] 汇报不能覆盖项目状态、确认结果、操作者或审计历史。
+- [x] 想法提出者视图展示全部 Idea、状态、执行进度及待其处理事项。
+- [x] 执行者视图区分未完成/已完成并突出下一步、阻塞、待确认和支持请求。
+- [x] 角色切换无需登录，刷新或直接 URL 后仍读取同一权威事实。
 
 至少一个客观验收场景：为两个项目提交章节和块顺序完全不同的有效汇报，两者由同一
 通用渲染器正确显示；随后提交危险或无效汇报得到可定位错误，且原有效汇报与权威状态
@@ -65,10 +65,11 @@
 
 Acceptance record:
 
-- Result: `None`
+- Result: `Ready for formal acceptance`
 - Accepted by: `None`
 - Accepted at (UTC): `None`
-- Evidence: `None`
+- Evidence:
+  [LP-03 verification](../../feature/lp-03-reporting-role-experience/verification.md)
 
 ## 8. Risks and blockers
 
@@ -78,11 +79,12 @@ Acceptance record:
 
 ## 9. Status
 
-`Not Started`
+`Ready for Acceptance`
 
-LP-02 未验收前，本计划可以验证独立 UI 原型，但不能将模拟数据结果视为本计划完成。
+结构化汇报、不可变 persistence、API、权威体验投影、Web 与比例化自动化证据已完成。
+该状态不表示 Review 批准、已合并、已发布或已正式验收。
 
 ## 10. Next step
 
-为 LP-03 启动独立 Engineering Lifecycle Requirements 阶段，并根据 LP-02 已交付
-查询与确认接口确认页面集成范围。
+提交精确 Git head 代码审查；审查通过后由外部 merge owner 合并，再由正式验收方决定
+是否对精确 merge commit 执行 acceptance-only/no-publish。LP-04 保持 `Not Started`。
