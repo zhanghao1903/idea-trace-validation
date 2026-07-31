@@ -6,9 +6,11 @@
 - Requirements: [requirements.md](./requirements.md)
 - Requirements commit: `e8149c722f4c2eb88596fc8a80ab31cfae3bb436`
 - Technical design: [design.md](./design.md)
-- Technical design commit: `ad296f098ddd01229b9624dd907773297aebd05b`
+- Technical design commit: `c7d5a4c2d77a391f0c0cd28c4f40f088934a71bc`
 - Runtime baseline: `644af4f186b054a9c5d1c6db087a97e009f545a3`
 - Delivery mode: acceptance-only / no publish unless separately authorized
+- Previous review: Cycle 1 `FAIL`, result
+  `b598d13e673c1a41c418e11e111581d502a4d9633df6b20aa374efb06ae99d14`
 
 ## 1. Entry Gate And Scope Control
 
@@ -28,6 +30,14 @@ workflowctl status                         # feature PLAN_APPROVED / implementat
 The deliverable is LP-03 only. It excludes accounts/RBAC, LP-04 Skill/demo orchestration, LP-05
 deployment/release, general editing, remote content fetch, arbitrary report components, project-state
 mutation from reports and lifecycle authorization tooling.
+
+Cycle 1 findings are closed in this snapshot as follows:
+
+| Finding | Closure |
+| --- | --- |
+| TPR-001 | bearer authentication attaches a closed credential `WritePrincipal`; config, revision columns, audit actor/reason/request/key mapping and positive/negative/rollback tests are fixed in design §3/§5 and plan slices 2–3 |
+| TPR-002 | `ReportCurrentDto` now contains independent `accepted`, `primary` and nullable `runtimeFallback`; slot fields, selection, per-slot hydration and client fault behavior are fixed in design §6 and plan slices 3/6/7 |
+| TPR-003 | proposer categories use only current `intakeStatus` and unique linked-project `status`, with a mutually exclusive truth table and boundary fixtures in design §6 and plan slice 4 |
 
 Superdesign remains a non-authoritative UI reference. Its required login attempt expired during plan
 drafting, so no canvas ID or generated artifact is claimed. It may be retried only in a later explicit
@@ -131,6 +141,8 @@ more than 50 errors.
   fixtures.
 - Add application contracts:
   - `packages/application/src/ports/report-service.ts`
+  - credential-bound principal and closed `{ principal, requestId, idempotencyKey }` command context
+    in `packages/application/src/report-write-context.ts`
   - report IDs in `packages/application/src/ids.ts`
   - report audit type/event in `packages/application/src/audit.ts`
   - exports from `packages/application/src/index.ts`.
@@ -143,6 +155,10 @@ Create `project_reports`, `report_revisions`, and `report_submission_keys` exact
 5. Add foreign keys, workspace/project uniqueness, revision/pointer checks, accepted timestamps and
 an update/delete rejection trigger on revision rows. Extend audit controlled values only with
 aggregate `REPORT` and event `REPORT_REVISION_ACCEPTED`; preserve all LP-01/LP-02 rows and values.
+Revision rows store non-null `submitted_by_type=AI`, `submitted_by_role=EXECUTOR`, validated
+`submitted_by_display_name`, nullable `submitted_by_client` and null delegation, all copied from the
+credential-bound `WritePrincipal` supplied to the service. No actor value comes from report source or
+`generator` metadata.
 
 Migration verification starts from a populated LP-02 database and proves old IDs, versions, history,
 confirmations and read projections are unchanged. Running migration twice follows existing migration
@@ -152,18 +168,24 @@ runner semantics and does not duplicate objects or data.
 
 Implement one transaction with fixed lock order:
 
-1. claim/lock `(workspaceId, projectId, clientRequestId)`;
+1. accept the immutable typed `ReportWriteContext` attached by bearer authentication/route identity
+   checks and claim/lock `(workspaceId, projectId, clientRequestId)`;
 2. replay completed same digest, reject different digest, or wait at most two seconds for owner;
 3. lock project and stable report aggregate; reject completed project;
 4. compare `basedOnRevision` and batch-check Evidence/Attention ownership;
 5. insert immutable revision and compiled model;
 6. update accepted/renderable pointers;
-7. append redacted report audit event;
+7. append redacted report audit with the same principal, fixed reason
+   `Submit structured project report revision`, Fastify request ID and matched idempotency key;
 8. persist exact success replay and commit.
 
 Add deterministic failpoints after revision insert, pointer update and audit insert. Every failpoint
 must roll back all four durable effects and allow the same key/content to succeed later. Concurrent
 tests use two independent DB connections and prove one revision/result.
+Positive tests assert every revision principal column equals the audit actor snapshot and that
+before/after summaries contain only bounded revision/digest/schema/compiler fields. Negative tests
+prove missing principal is unrepresentable at the typed port, report `generator` cannot alter actor,
+and every failpoint leaves neither revision nor audit attribution behind.
 
 ### 4.4 Slice Gate
 
@@ -182,22 +204,40 @@ npm run test:acceptance:lp02
 - Add `apps/api/src/routes/reports.ts` and `apps/api/test/lp03-report-api.acceptance.test.ts`.
 - Update `apps/api/src/app.ts` to register routes, inject the report service, skip trim normalization
   for this body and apply only this POST route's 262,144-byte limit.
-- Update `apps/api/src/errors.ts`, `apps/api/src/config.ts`, `apps/api/src/logger.ts` only where needed
-  for stable codes/redaction; old mappings remain.
+- Update `apps/api/src/authenticate-write.ts` to attach a typed `WritePrincipal` only after successful
+  constant-time bearer validation. Existing LP-01/LP-02 request-body actors remain unchanged.
+- Update `apps/api/src/config.ts` with optional non-secret `AI_WRITE_DISPLAY_NAME` (default
+  `LP-03 report writer`) and nullable `AI_WRITE_CLIENT`, both strict 1–120-character values when
+  explicit. Actor type `AI`, role `EXECUTOR` and null delegation are fixed, not configurable.
+- Update `apps/api/src/errors.ts` and `apps/api/src/logger.ts` only where needed for stable
+  codes/redaction; old mappings remain.
 - Update `scripts/generate-openapi.ts`, `scripts/check-openapi.ts`, `scripts/openapi-support.ts` and add
   `openapi/lp03.v1.json` plus frozen digest tests.
 
 ### 5.2 Routes And Behavior
 
 Implement the four report routes in design section 6.1. POST requires AI bearer and matching
-header/body request identity. GET routes are public read but readiness-gated. Current read returns
-explicit `EMPTY | CURRENT | FALLBACK | UNSUPPORTED`, accepted/rendered revision identities, safe
-render model and batch-hydrated reference DTOs. History uses existing signed/opaque cursor conventions
-and a stable `(revision DESC, report_id)` order.
+header/body request identity. The route builds `ReportWriteContext` only from the auth-attached
+principal, Fastify request ID and the already matched header idempotency key; it never takes those
+fields from report source. Report `generator` remains presentation metadata. Missing/invalid bearer
+produces no principal or write, invalid explicit principal config fails startup, and credential/token
+bytes never enter DTOs, storage, error or log.
+
+GET routes are public read but readiness-gated. Current read implements the closed
+`ReportCurrentDto` from design section 6.1: always-non-null `projectId`; nullable `reportId` and
+`accepted`; `displayMode`; independent nullable `primary` and `runtimeFallback` render slots; and
+bounded `compatibilityCode`. Each render slot contains its own revision/schema/compiler/digest/time,
+safe model and stable-ordered hydrated Evidence/Attention collections. Query selection is accepted
+latest, primary greatest supported/renderable <= accepted, runtime fallback greatest supported/
+renderable < primary. A slot is null exactly under the design union rules. History uses existing
+signed/opaque cursor conventions and stable `(revision DESC, report_id)` order.
 
 Do not pass POST through global `trimJsonStrings`. Do not increase global `bodyLimit`. Map JSON parse,
 size, schema, safety, reference, idempotency, stale revision, frozen project and readiness failures to
 the exact codes in design section 6.3. Logs and errors omit body/cookie/bearer and offending values.
+Contract/API tests cover all four display modes, `CURRENT` with and without an earlier runtime
+candidate, protocol `FALLBACK` with its own earlier candidate, independent slot hydration, empty/
+unsupported nullability, principal defaults/config validation and exact revision/audit actor mapping.
 
 ### 5.3 Slice Gate
 
@@ -223,8 +263,12 @@ npm run test:acceptance:lp02
 ### 6.2 Query Rules
 
 Implement the three experience routes from design section 6.2. Proposer category is calculated in a
-single authority query from Idea plus unique linked project and clarification state. Every Idea enters
-exactly one category. Executor `OPEN` is `QUEUED | IN_PROGRESS | PAUSED`; `COMPLETED` is separate.
+single authority query from Idea plus its unique linked project. The mutually exclusive truth table
+is: linked project takes precedence and maps `QUEUED`, `IN_PROGRESS`, `PAUSED`, `COMPLETED` to their
+four promoted categories; otherwise `projectId IS NULL AND intakeStatus=NEEDS_CLARIFICATION` maps to
+that category and `projectId IS NULL AND intakeStatus=IDEA` maps to `IDEA`. An impossible linked-project
+card or duplicated link fails rather than being silently classified. Every Idea enters exactly one
+category. Executor `OPEN` is `QUEUED | IN_PROGRESS | PAUSED`; `COMPLETED` is separate.
 
 Batch-load preview facts to avoid N+1 queries: latest progress, current next step, open blockers,
 decision/support requests, pending confirmations and latest confirmed conclusion. Every card includes
@@ -240,8 +284,10 @@ npm run test:contract
 npm run typecheck
 ```
 
-Fixtures cover every proposer category, open/completed executor grouping, no-data previews, more than
-one page, stable cursor ordering and equality of IDs/versions across both views and old APIs.
+Fixtures cover both unpromoted intake statuses, every linked project status, promoted Ideas whose
+intake display value remains stale, impossible/duplicate relation defense, open/completed executor
+grouping, no-data previews, more than one page, stable cursor ordering and equality of IDs/versions
+across both views and old APIs.
 
 ## 7. Slice 5 — Web Shell And Role Overview Pages
 
@@ -298,9 +344,12 @@ ordering. The authority header and execution collections live outside the dynami
 Report components switch only on seven controlled types and render text nodes/safe tokens; no raw
 HTML, `dangerouslySetInnerHTML`, remote embed, dynamic import or project-specific component dispatch.
 
-On dynamic exception, show a fixed safe notice and render the API-provided prior render model. Label
-its actual revision and the accepted revision it replaces. Without fallback show report empty/
-compatibility state while keeping project facts usable.
+On dynamic exception, show a fixed safe `REPORT_RENDER_RUNTIME_FAILED` notice and render only
+`ReportCurrentDto.runtimeFallback`. Label accepted, primary and fallback revision identities. The
+candidate already carries its own hydrated refs; never reuse primary refs. Do not mutate server
+`displayMode`, accepted pointers or revision rows. When `runtimeFallback` is null, show the safe
+dynamic empty state while keeping project facts usable. Component tests cover both candidate branches
+and a primary that is itself a server compatibility fallback.
 
 `/confirmations/:confirmationId` calls existing LP-02 confirmation reads/decision routes. It never
 receives a token in URL/JavaScript, never sets a broader cookie and exposes no unrelated write form.
@@ -338,8 +387,9 @@ immutable/cacheable, CSP forbids inline/eval/object/frame content and no secret 
 5. Use only keyboard to switch role, filter, paginate, open project and decide a scoped confirmation;
    assert visible focus and semantic labels.
 6. Run at desktop and narrow viewport and assert no core control/content is obscured.
-7. Induce a deterministic dynamic-render test fault for newest revision and prove authority remains,
-   safe notice appears and prior revision renders; prove safe empty state with no prior revision.
+7. Induce a deterministic primary-render fault for a `CURRENT` response, prove the separately
+   hydrated `runtimeFallback` revision renders and authority remains; repeat with no candidate for a
+   safe empty state and with server `FALLBACK` to select the next lower candidate.
 8. Exercise API unavailable, readiness failure, 404, empty and pagination failure as distinct states.
 9. Inspect DOM/URLs/browser console/server logs for absence of capability, bearer, cookie, connection
    string, source-danger text, raw HTML and executable elements.
@@ -441,17 +491,17 @@ rerun.
 | LP3-AC-001 | 2–4, 7 | populated migration + frozen LP-01/LP-02 contract/acceptance |
 | LP3-AC-002 | 1–3 | schema/semantic unit + API revision persistence |
 | LP3-AC-003 | 2, 4, 6 | ownership integration + fixed authority browser assertion |
-| LP3-AC-004 | 2–3 | replay/conflict/concurrency/failpoint integration |
+| LP3-AC-004 | 2–3 | principal/audit mapping plus replay/conflict/concurrency/failpoint integration |
 | LP3-AC-005 | 2–3, 6 | complete/reopen/history/compatibility tests |
 | LP3-AC-006 | 1, 6–7 | seven-component DOM and two-report browser scenario |
-| LP3-AC-007 | 3, 6–7 | dynamic fault fallback with preserved authority |
-| LP3-AC-008 | 4–5, 7 | all-category paginated proposer scenario |
+| LP3-AC-007 | 3, 6–7 | closed primary/runtime-candidate DTO and dynamic fault with/without candidate |
+| LP3-AC-008 | 4–5, 7 | exact intake/project truth-table and paginated proposer scenario |
 | LP3-AC-009 | 4–5, 7 | executor grouping and cross-view authority equality |
 | LP3-AC-010 | 5–7 | URL switch/refresh/history/deep-link browser scenario |
 | LP3-AC-011 | 3–7 | no-report detail with complete authority collections |
 | LP3-AC-012 | 6–7 | public denial/scoped cookie decision and secret absence |
 | LP3-AC-013 | 5–7 | keyboard semantics, focus and narrow viewport |
-| LP3-AC-014 | 1–7 | boundary failpoints, DB assertions, DOM/log secret scans |
+| LP3-AC-014 | 1–7 | auth-principal boundary, audit failpoints, DB assertions and DOM/log secret scans |
 | LP3-AC-015 | 8 | exact management fact contract test and review |
 | LP3-AC-016 | 1–8 | principal full E2E plus complete `npm run verify` |
 
