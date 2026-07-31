@@ -75,21 +75,25 @@ packages/domain -> no framework, HTTP, SQL or React dependency
 5. Submission identity is unambiguous: HTTP `Idempotency-Key` is required and must equal body
    `clientRequestId`. Mismatch is rejected before persistence. Fastify `requestId` remains a separate
    server correlation ID.
-6. A successful submission atomically writes revision, accepted/renderable pointer, idempotency
+6. Report submitter authority comes only from the credential-bound server `WritePrincipal` attached
+   after successful bearer authentication. It is never read from report `generator`, source content,
+   headers other than the bearer, or public role view. The single v0.1 bearer maps to a closed AI
+   principal configured by the deployment and the report body remains presentation-only.
+7. A successful submission atomically writes revision, accepted/renderable pointer, idempotency
    result and a redacted audit event. Failed validation or transaction writes none of them.
-7. Canonical digest excludes transport-only variability but includes the complete normalized report
+8. Canonical digest excludes transport-only variability but includes the complete normalized report
    intent. Object keys are sorted; array order and string content are preserved.
-8. The global API string-trim hook does not run on report bodies because Markdown and document
+9. The global API string-trim hook does not run on report bodies because Markdown and document
    whitespace are content. Report semantic validation rejects blank required strings without mutating
    accepted source JSON.
-9. Reports store only stable Evidence/Attention IDs. Read-time batch hydration supplies current
+10. Reports store only stable Evidence/Attention IDs. Read-time batch hydration supplies current
    authoritative labels, states and links; cross-project references are rejected at submission.
-10. Accepted source and compiled render model are immutable. Runtime React failure never modifies
+11. Accepted source and compiled render model are immutable. Runtime React failure never modifies
     a revision or pointer; the current response already contains a previous compatible render model
     for client-side fallback.
-11. proposer/executor are URL-visible presentation modes, not identities. Both derive from the same
+12. proposer/executor are URL-visible presentation modes, not identities. Both derive from the same
     Idea/project rows and versions and never persist client-derived business status.
-12. Public Web is read-only except the already accepted LP-02 single-confirmation capability flow.
+13. Public Web is read-only except the already accepted LP-02 single-confirmation capability flow.
     No generic Web write token or general edit form is introduced.
 
 ## 4. Canonical Report Contract
@@ -183,7 +187,11 @@ Migration `0003_lp03_reporting_experience.sql` is additive and never edits `0001
 | `render_model` | jsonb | immutable safe compiled model |
 | `render_status` | text | `RENDERABLE` or future compatibility status |
 | `compiler_version` | text | deterministic compiler version |
-| `submitted_by_type`, `submitted_by_id` | text | declared AI actor snapshot |
+| `submitted_by_type` | text not null | credential principal; fixed `AI` |
+| `submitted_by_role` | text not null | credential principal; fixed `EXECUTOR` for v0.1 report writes |
+| `submitted_by_display_name` | varchar(120) not null | validated deployment config snapshot |
+| `submitted_by_client` | varchar(120) null | validated deployment config snapshot or null |
+| `submitted_on_behalf_of_role` | varchar(16) null | fixed null; report writes do not assert delegation |
 | `accepted_at` | timestamptz | server authority |
 
 An update/delete trigger rejects mutation of `report_revisions`. Foreign keys and checks enforce
@@ -210,6 +218,7 @@ sequenceDiagram
     participant A as Report API
     participant D as PostgreSQL
     C->>A: POST report (header key == body clientRequestId)
+    A->>A: validate bearer; attach credential WritePrincipal
     A->>A: size/schema/semantic/security validation
     A->>D: BEGIN; claim/lock report_submission_keys
     alt completed same digest
@@ -236,8 +245,22 @@ First submission requires `basedOnRevision = 0`. Later submission must equal
 reopen, the existing report aggregate and all revisions remain and the next revision continues.
 
 The audit event adds aggregate type `REPORT` and event `REPORT_REVISION_ACCEPTED`; its aggregate
-version equals report revision. It stores report/project IDs, schema/compiler versions, digest and
-actor metadata, never source/render content. Report writes do not increment LP-02 project version.
+version equals report revision. The revision submitter columns and audit actor fields are copied from
+the same immutable request `WritePrincipal`: `actor_type=AI`, `actor_role=EXECUTOR`, validated
+`display_name`, optional `client`, and null `on_behalf_of_role`. Audit `reason` is the server constant
+`Submit structured project report revision`; `request_id` is Fastify's request ID and
+`idempotency_key` is the already matched request identity. `before_summary` contains only the prior
+revision/digest/schema (or null on first submit), while `after_summary` contains the new
+revision/digest/schema/compiler. Neither summary contains source/render content. Report writes do not
+increment LP-02 project version.
+
+`authenticateWrite` is extended to attach this typed principal after constant-time token validation.
+Existing LP-01/LP-02 command bodies and declared-actor semantics do not change. `AppConfig` adds the
+non-secret optional fields `AI_WRITE_DISPLAY_NAME` (default `LP-03 report writer`, explicit values
+trimmed and 1–120 characters) and `AI_WRITE_CLIENT` (unset means null; explicit values trimmed and
+1–120 characters). Type, role and delegation are not configurable. Invalid explicit values fail
+startup. The principal object is never accepted from the request and bearer/token material is never
+persisted or logged.
 
 ## 6. Public API Contract
 
@@ -249,7 +272,7 @@ authentication conventions. Existing LP-01/LP-02 routes and frozen OpenAPI proof
 | Method / route | Access | Request | Success |
 | --- | --- | --- | --- |
 | `POST /projects/:projectId/reports` | AI bearer | required `Idempotency-Key`; canonical v1 body; 256 KiB route limit | `201` first commit or stored replay with report ID, revision, digest, acceptedAt |
-| `GET /projects/:projectId/reports/current` | public read | project path | current accepted/renderable/fallback descriptor, source declaration, safe render model, hydrated refs |
+| `GET /projects/:projectId/reports/current` | public read | project path | accepted revision plus closed primary/runtime-fallback render slots |
 | `GET /projects/:projectId/reports` | public read | `limit`, opaque `cursor` | stable descending revision summaries |
 | `GET /projects/:projectId/reports/:revision` | public read | positive revision | immutable revision plus compatibility/render descriptor and hydrated refs |
 
@@ -265,6 +288,34 @@ The current response has an explicit `displayMode`:
 `acceptedRevision`, `renderedRevision`, `fallbackFromRevision`, `compatibilityCode` and a bounded
 diagnostic are separate fields. The API never labels a fallback as current content.
 
+The current response is one closed `ReportCurrentDto`:
+
+| Field | Type / null | Selection and meaning |
+| --- | --- | --- |
+| `projectId` | project ID, non-null | requested authority project in every variant |
+| `reportId` | report ID or null | null only in `EMPTY`, before a report aggregate exists |
+| `displayMode` | `EMPTY\|CURRENT\|FALLBACK\|UNSUPPORTED` | server protocol/compiler compatibility decision |
+| `accepted` | `AcceptedReportDto \| null` | latest accepted revision, source declaration, digest/schema/acceptedAt and credential-principal snapshot; null only for `EMPTY` |
+| `primary` | `ReportRenderSlotDto \| null` | accepted slot for `CURRENT`; greatest supported/renderable revision <= accepted for `FALLBACK`; null for `EMPTY/UNSUPPORTED` |
+| `runtimeFallback` | `ReportRenderSlotDto \| null` | greatest supported/renderable revision strictly below `primary.revision`; null when primary is null or no earlier candidate exists |
+| `compatibilityCode` | bounded enum or null | why accepted differs from primary, never a runtime exception/body |
+
+`ReportRenderSlotDto` is closed and contains `revision`, `schemaVersion`, `compilerVersion`,
+`contentSha256`, `acceptedAt`, `renderModel`, and `hydratedRefs`. `hydratedRefs` is a closed object with
+stable-ordered `evidence` and `attentionItems`; each entry includes stable ID, current authoritative
+label/state and same-origin links. Each slot is independently hydrated against its own reference IDs.
+The source declaration is returned only under `accepted`; the runtime candidate never needs or
+exposes source to render.
+
+The database current query loads the accepted row, then selects `primary` by descending revision
+among supported/renderable rows at or below accepted, then selects `runtimeFallback` by descending
+revision strictly below primary. It unions reference IDs with a slot tag, batch-hydrates authority,
+and partitions results back into each slot. Thus `CURRENT` always has a candidate when any earlier
+supported revision exists; if the primary React subtree throws, the Web switches only its local
+dynamic-region presentation to `runtimeFallback`, labels the primary and fallback revisions and uses
+the fixed code `REPORT_RENDER_RUNTIME_FAILED`. `displayMode` is not mutated. With null candidate the
+dynamic region shows a safe empty state while the fixed authority region remains.
+
 ### 6.2 Experience Query Routes
 
 LP-03 adds projections rather than widening frozen LP-01/LP-02 DTOs:
@@ -279,14 +330,17 @@ LP-03 adds projections rather than widening frozen LP-01/LP-02 DTOs:
 
 | Category | Rule |
 | --- | --- |
-| `IDEA` | `DRAFT` or otherwise not promoted, without open clarification |
-| `NEEDS_CLARIFICATION` | Idea has open clarification requirement |
-| `AWAITING_EXECUTION` | linked project status `QUEUED` |
-| `IN_PROGRESS` | linked project status `IN_PROGRESS` |
-| `PAUSED` | linked project status `PAUSED` |
-| `COMPLETED` | linked project status `COMPLETED` |
+| `IDEA` | `projectId IS NULL AND intakeStatus = IDEA` |
+| `NEEDS_CLARIFICATION` | `projectId IS NULL AND intakeStatus = NEEDS_CLARIFICATION` |
+| `AWAITING_EXECUTION` | unique linked project exists and status is `QUEUED` |
+| `IN_PROGRESS` | unique linked project exists and status is `IN_PROGRESS` |
+| `PAUSED` | unique linked project exists and status is `PAUSED` |
+| `COMPLETED` | unique linked project exists and status is `COMPLETED` |
 
-Each Idea appears once. Server SQL/query composition owns the rule; React never recomputes it.
+The linked-project branch takes precedence for promoted Ideas, so stale/intake display fields cannot
+place them into an unpromoted category. The existing uniqueness relation guarantees at most one
+linked project; a violated invariant fails the query rather than duplicating a card. Each Idea appears
+once. Server SQL/query composition owns the rule; React never recomputes it.
 Experience DTOs carry the same IDs and authoritative version fields as existing DTOs. Full Evidence,
 attention, confirmation and history remain available through existing cursor-paginated routes.
 
@@ -384,6 +438,9 @@ Because no frontend existed at design start, the brand-new-project path is used 
   and uses no inline/eval exception. External report links get `noopener noreferrer`.
 - Logs contain request ID, route, status, report/project/revision IDs and stable error codes only.
   Bearers, cookies, database strings, report source and unsafe validation values are redacted/omitted.
+- Report auth tests prove a missing/invalid bearer produces no principal/write, a valid bearer attaches
+  the configured closed principal, invalid explicit principal configuration fails startup, and body
+  `generator` metadata cannot replace revision/audit actor fields.
 - Public Web uses virtual demo data only. The UI explains that proposer/executor are views, not
   authenticated identities.
 
@@ -422,10 +479,10 @@ Because no frontend existed at design start, the brand-new-project path is used 
 | --- | --- |
 | schema/contract | all seven blocks; exact bounds; unknown fields/types; `evd_`; generated type freshness; frozen LP-01/LP-02 OpenAPI |
 | reporting unit | canonical digest; blank/duplicate IDs; table alignment; finite metrics; Markdown AST allow/deny; HTTPS URL rules; bounded sorted details; compiler order |
-| database integration | migration preservation; immutable trigger; first/next revision; idempotent replay/conflict/contention; stale revision; reference ownership; complete/reopen; rollback after revision/audit failure |
-| API acceptance | auth/size/identity/readiness/envelopes; current/history/specific reads; experience categories; public read; frozen old routes |
-| component | seven render components; authority/dynamic separation; filters; loading/empty/error/stale states; confirmation failure/success; error-boundary fallback |
-| browser | two structurally different reports; proposer/executor URL flows; refresh/back/forward/deep link; paginated collections; keyboard focus; narrow viewport; scoped confirmation; render fallback |
+| database integration | migration preservation; immutable trigger; principal/audit field mapping; first/next revision; idempotent replay/conflict/contention; stale revision; reference ownership; complete/reopen; dual-slot selection/hydration; rollback after revision/audit failure |
+| API acceptance | auth/principal/config/size/identity/readiness/envelopes; closed accepted/primary/runtimeFallback DTO; current/history/specific reads; experience truth table; public read; frozen old routes |
+| component | seven render components; authority/dynamic separation; primary and nullable runtime fallback slots; filters; loading/empty/error/stale states; confirmation failure/success; error-boundary fallback |
+| browser | two structurally different reports; proposer/executor URL flows; refresh/back/forward/deep link; paginated collections; keyboard focus; narrow viewport; scoped confirmation; runtime fallback with and without candidate |
 | security | no raw HTML/script/dangerous link/executable DOM; no secret in URL, DOM, log or diagnostic; cross-project refs denied; CSP present |
 | management | LP-02 exact accepted-no-publish evidence; LP-03 Ready for Acceptance + objective evidence; LP-04 remains unconfirmed |
 
