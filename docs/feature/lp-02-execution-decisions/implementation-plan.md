@@ -46,6 +46,17 @@ Stop and return to planning if:
 The exact plan commit is carried by the lifecycle review envelope; this document does not hard-code a
 self-referential or stale approval SHA.
 
+### Cycle 1 Plan Review Remediation
+
+The immutable Cycle 1 review identified exactly three blocking/major gaps; this revision closes them
+without adding product scope:
+
+| Finding | Planned closure |
+| --- | --- |
+| `TPR-001` | Implement the five closed `ConfirmationPayloadSummary` Shapes, first-class intended-value columns, NFC/canonical JSON/domain-separated SHA/HMAC rules and per-bound-field stale tests from Design §10.2. |
+| `TPR-002` | Implement the operation/current-state create/approve/reject/expire matrix in Design §7.6, including confirmed-conclusion reuse and zero conclusion events for REOPEN. |
+| `TPR-003` | Implement the closed `CORRECT_RESPONSE` union, one-successor leaf chain, no-status-change rule and effective response projection in Design §7.4/§11.3. |
+
 ## 3. Planned Repository Changes
 
 ### 3.1 Contracts And OpenAPI
@@ -210,7 +221,7 @@ Exit gate:
 | --- | --- |
 | Behavior | Implement the three attention discriminators, append-only response/state/correction events, project collection queries and stable cursors. Extend project detail previews from the same query source. |
 | Files | attention domain/contract, DB service and queries, attention routes, project route/projection |
-| Tests | per-type required fields; OPEN/NEEDS_INFO/RESOLVED/CLOSED matrix; correction leaves originals; proposer/executor agree on IDs/status/version; cursor order and preview truncation; concurrent response conflict |
+| Tests | per-type required fields; exact OPEN/NEEDS_INFO/RESOLVED/CLOSED matrix; CORRECT_RESPONSE target-kind/replacement fixtures, current-leaf uniqueness and no-status-change proof; proposer/executor effective response equality; cursor order and preview truncation; concurrent correction/response conflict |
 | Docs | API/migration notes and feature verification draft |
 | Rollback | remove route registration; persisted append-only rows remain readable by LP-02 forward-fix |
 | Commit intent | `feat: add project attention and history` |
@@ -218,6 +229,7 @@ Exit gate:
 Exit gate:
 
 - blocker resolution, decision response and support response retain original context and all events;
+- response correction returns one effective response while preserving the original state effect;
 - both role views use one current item state;
 - no unbounded array is added to project detail.
 
@@ -225,9 +237,9 @@ Exit gate:
 
 | Item | Plan |
 | --- | --- |
-| Behavior | Add conclusion content/state events, human-control authentication, deterministic capability derivation, secure cookie handling, exact summary/digest binding, approve/reject, terminal operations and reopen. |
+| Behavior | Add conclusion content/state events, human-control authentication, five operation-specific payload Shapes, deterministic NFC/canonical digest and capability derivation, secure cookie handling, the exact operation/state matrix, approve/reject, terminal operations and reopen. |
 | Files | conclusion/confirmation domain+contracts, capability helper, DB confirmation service, config/logger/auth/cookie and routes |
-| Tests | conclusion revision/supersession; recommendation match; AI/control separation; token inequality config; cookie attributes; raw-secret absence; approve/reject/expire/replay/stale/payload-change; concurrent approval; complete/stop/transfer/reopen history; rollback at every write boundary |
+| Tests | conclusion revision/supersession; every row of the operation/state matrix; recommendation match; AI/control separation; token inequality config; cookie attributes; raw-secret absence; canonicalization fixtures; mutation/stale proof for every bound field class; approve/reject/expire/replay; concurrent pending/approval; complete/stop/transfer/reopen history; rollback at every write boundary |
 | Docs | security and failure sections in migration notes/README |
 | Rollback | no secret recovery is required because plaintext is never stored; pending opportunities may expire; no automatic data deletion |
 | Commit intent | `feat: add human-confirmed project conclusions` |
@@ -238,6 +250,8 @@ Exit gate:
 - AI bearer alone fails both confirmation creation and decision;
 - same decision key replays after consumption, while a new key cannot consume again;
 - rejection and expiry never make the project terminal;
+- DRAFT terminal approval confirms then transitions atomically; CONFIRMED terminal approval adds no
+  conclusion event; REOPEN never changes a conclusion;
 - reopen returns to `IN_PROGRESS` and preserves prior completion transition/time/conclusion.
 
 ### LP2-S5 — Compatibility, Acceptance Evidence And Management Projection
@@ -279,15 +293,20 @@ provides the final fail-closed boundary.
 | START/PAUSE/RESUME/CHANGE_PHASE | `project_transitions` | status/phase/next step/version | `PROJECT_TRANSITIONED` |
 | Create/correct progress | `progress_updates`, Evidence links | latest progress/next step/version | `PROJECT_PROGRESS_RECORDED` |
 | Create attention | `attention_items` | version only | `ATTENTION_ITEM_CREATED` |
-| Attention event | `attention_events`, item current pointer | version | `ATTENTION_ITEM_UPDATED` |
+| Attention state/response event | `attention_events`, item current pointer | version | `ATTENTION_ITEM_UPDATED` |
+| CORRECT_RESPONSE | correction event and effective-response leaf | status unchanged; version only | `ATTENTION_RESPONSE_CORRECTED` |
 | Create Evidence | `evidence_items` | version only | `EVIDENCE_RECORDED` |
 | Correct/retract Evidence | replacement and/or `evidence_events` | version only | `EVIDENCE_CORRECTED` |
 | Create conclusion | content + state event + Evidence links | active conclusion/version | `CONCLUSION_RECORDED` |
-| Create confirmation | pending confirmation + pending conclusion state | version; bind resulting version | `CONFIRMATION_REQUESTED` |
-| Reject confirmation | decision + conclusion DRAFT state | version | `CONFIRMATION_REJECTED` |
-| Approve conclusion | decision + CONFIRMED state | version | `CONCLUSION_CONFIRMED` |
-| Approve terminal | decision + conclusion state + transition | status/completion/version | operation-specific terminal event |
-| Approve reopen | decision + REOPEN transition | IN_PROGRESS/next step/clear current completion/version | `PROJECT_REOPENED` |
+| Create confirmation for DRAFT conclusion | pending confirmation + PENDING conclusion state | version; bind resulting version | `CONFIRMATION_REQUESTED` |
+| Create confirmation for CONFIRMED conclusion or REOPEN | pending confirmation; no conclusion event | version; bind resulting version | `CONFIRMATION_REQUESTED` |
+| Reject DRAFT-conclusion confirmation | decision + DRAFT conclusion state | version | `CONFIRMATION_REJECTED` |
+| Reject confirmed-conclusion or REOPEN confirmation | decision only; no conclusion event | version | `CONFIRMATION_REJECTED` |
+| Approve CONFIRM_CONCLUSION | decision + CONFIRMED state | version | `CONCLUSION_CONFIRMED` |
+| Approve terminal with DRAFT conclusion | decision + CONFIRMED state + transition | status/completion/version | operation-specific terminal event |
+| Approve terminal with CONFIRMED conclusion | decision + transition; no conclusion event | status/completion/version | operation-specific terminal event |
+| Approve reopen | decision + REOPEN transition; no conclusion event | IN_PROGRESS/next step/clear current completion/version | `PROJECT_REOPENED` |
+| Expired/stale decision attempt | deterministic rejection only | no project/conclusion business mutation | no audit event |
 
 Every row written by a command records or derives the same first-processing `requestId` and resulting
 project version. Replay returns the original request ID.
@@ -300,10 +319,10 @@ project version. Replay returns the original request ID.
 | LP2-AC-002 | lifecycle/phase unit matrix + API version-conflict integration |
 | LP2-AC-003 | Evidence-backed progress, replay/conflict and no status change |
 | LP2-AC-004 | LINK/ARTIFACT/METRIC/NOTE success; non-HTTPS/unknown/cross-project rollback |
-| LP2-AC-005 | all attention types, responses, resolve/close and two-view history |
+| LP2-AC-005 | all attention types, exact state matrix, response correction/effective projection and two-view history |
 | LP2-AC-006 | two immutable conclusion versions and non-terminal submit |
-| LP2-AC-007 | separate credentials, cookie capability, approve/reject/replay |
-| LP2-AC-008 | expiry, changed project/conclusion/payload and no partial write |
+| LP2-AC-007 | separate credentials, five canonical payload fixtures, cookie capability, approve/reject/replay |
+| LP2-AC-008 | expiry and mutation of every project/conclusion/operation-bound field with no partial write |
 | LP2-AC-009 | complete/stop/transfer recommendation match and confirmation links |
 | LP2-AC-010 | confirmed reopen with old completion/conclusion/history retained |
 | LP2-AC-011 | progress/response/Evidence correction and conclusion supersession |
@@ -347,8 +366,13 @@ Required negative checks are proportional and directly tied to accepted contract
 - human-control token equal to AI token causes startup failure;
 - missing/wrong/expired capability cookie on decision;
 - raw token/cookie not found in DB rows, response body, URL, log capture, error or audit;
+- trim/NFC/null/key-order/array-order/UTF-8/domain-separation canonicalization fixtures;
+- mutation of project version/status/phase, conclusion ID/content/state/recommendation/Evidence order,
+  completion summary, prior terminal transition/time, reopen reason and next step;
 - non-HTTPS/user-info LINK, invalid artifact ID and cross-project/retracted Evidence;
-- status/phase/recommendation/attention/conclusion state violations;
+- status/phase/recommendation/attention/conclusion operation-state matrix violations;
+- CORRECT_RESPONSE wrong target kind, non-leaf target, mismatched replacement and attempted status
+  rewrite;
 - same key/different digest and stale expected version;
 - concurrent same confirmation and same project writes;
 - injected SQL/audit/commit failures with full rollback.

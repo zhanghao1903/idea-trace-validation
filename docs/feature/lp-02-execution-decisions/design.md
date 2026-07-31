@@ -115,7 +115,8 @@ domain -> no framework, HTTP, cookie or database dependency
 | `ConclusionStatus` | `DRAFT`, `PENDING_CONFIRMATION`, `CONFIRMED`, `SUPERSEDED` |
 | `Recommendation` | `CONTINUE`, `ADJUST`, `STOP`, `TRANSFER` |
 | `ConfirmationOperation` | `CONFIRM_CONCLUSION`, `COMPLETE_PROJECT`, `STOP_PROJECT`, `TRANSFER_PROJECT`, `REOPEN_PROJECT` |
-| `ConfirmationDecision` | `PENDING`, `APPROVED`, `REJECTED`; `EXPIRED` is time-derived while pending |
+| `ConfirmationDecision` | persisted `PENDING`, `APPROVED`, `REJECTED` |
+| `ConfirmationUsability` | derived `ACTIVE`, `EXPIRED`, `STALE`, `CONSUMED` |
 
 `CHANGE_PHASE` 只允许 `IN_PROGRESS` 项目，目标必须不同，但可以向前或向后调整；原因和
 下一步必填。该选择允许验证过程中回到构建或规划，而不把“调整”误建为新的项目状态。
@@ -248,13 +249,49 @@ Every response or state change appends an `AttentionEvent`:
 | `resolution` | string or null | required when resolving blocker |
 | `selectedOption` / `decisionText` | string or null | decision resolution requires one |
 | `supportSummary` | string or null | support resolution requires |
-| `correctsEventId` | event ID or null | correction must target current leaf in same item |
+| `correctsEventId` | event ID or null | required only for `CORRECT_RESPONSE`; same-item current correction leaf |
+| `correctedKind` | non-correction `AttentionEventKind` or null | required only for `CORRECT_RESPONSE`; equals root event kind |
 | `declaredActor` / `recordedAt` | actor / instant | server time |
 | `resultingProjectVersion` | integer | server |
 
-`COMMENT` keeps status; `REQUEST_INFO` sets `NEEDS_INFO`; `PROVIDE_INFO` sets `OPEN`;
-`RESOLVE` sets `RESOLVED`; `CLOSE` accepts `OPEN|NEEDS_INFO|RESOLVED` and sets `CLOSED`.
-Original item fields and earlier events are never replaced.
+State transitions are exact:
+
+| Event kind | Allowed current status | Result status |
+| --- | --- | --- |
+| `COMMENT` | any | unchanged |
+| `REQUEST_INFO` | `OPEN`, `RESOLVED` | `NEEDS_INFO` |
+| `PROVIDE_INFO` | `NEEDS_INFO`, `RESOLVED` | `OPEN` |
+| `RESOLVE` | `OPEN`, `NEEDS_INFO` | `RESOLVED` |
+| `CLOSE` | `OPEN`, `NEEDS_INFO`, `RESOLVED` | `CLOSED` |
+| `CORRECT_RESPONSE` | any | unchanged |
+
+`CORRECT_RESPONSE` corrects only the human-readable response fields of a prior event; it never
+replays or reverses that event's `fromStatus -> toStatus`. The request must target the current
+correction leaf of a same-item root event. Its replacement discriminator equals the root kind and
+contains:
+
+| Corrected root kind | Replacement fields |
+| --- | --- |
+| `COMMENT`, `REQUEST_INFO`, `PROVIDE_INFO`, `CLOSE` | `message` |
+| `RESOLVE` on blocker | `message`, `resolution` |
+| `RESOLVE` on decision request | `message`, exactly one of `selectedOption` / `decisionText` |
+| `RESOLVE` on support request | `message`, `supportSummary` |
+
+A correction may target a prior `CORRECT_RESPONSE` leaf; `correctedKind` still names the original
+non-correction kind. A unique partial index on `corrects_event_id` permits one direct successor, so
+concurrent corrections produce one winner and one version conflict. `AttentionEventHistoryDto`
+groups:
+
+```text
+original: the non-correction AttentionEventDto
+corrections: ordered CORRECT_RESPONSE rows
+effectiveResponse: fields from the latest correction leaf, or original fields
+stateEffect: original fromStatus/toStatus
+```
+
+If the original state effect itself was wrong, the caller appends a normal state event
+(`REQUEST_INFO`, `PROVIDE_INFO`, `RESOLVE` or `CLOSE`) under the table above; correction cannot
+silently rewrite historical state. Original item fields and all earlier events remain visible.
 
 ### 7.5 `Evidence`
 
@@ -299,15 +336,40 @@ show the exact Evidence version originally cited.
 | `resultingProjectVersion` | integer | server |
 
 Content rows never change. `conclusion_state_events` appends one of the four statuses plus
-`confirmationId`, reason, actor, time and resulting project version:
+`confirmationId`, reason, actor, time and resulting project version. Creating a conclusion always
+adds `DRAFT`; creating a newer version also adds `SUPERSEDED` to the previous current conclusion.
+If that previous version had a pending confirmation, the project-version increment makes that
+confirmation stale.
 
-- create adds `DRAFT`;
-- creating a newer version also adds `SUPERSEDED` to the prior current version;
-- creating a confirmation opportunity adds `PENDING_CONFIRMATION`;
-- approval adds `CONFIRMED`;
-- rejection appends `DRAFT` and retains the rejected confirmation in history;
-- an expired pending opportunity is rendered as `DRAFT` with
-  `latestConfirmation.decision=EXPIRED`; the content row is unchanged.
+The operation-specific state matrix is authoritative:
+
+| Operation / current conclusion state | Confirmation creation | APPROVE | REJECT | Expired or stale while pending |
+| --- | --- | --- | --- | --- |
+| `CONFIRM_CONCLUSION` / `DRAFT` | append `PENDING_CONFIRMATION` | append `CONFIRMED`; project stays non-terminal | append `DRAFT` | effective status becomes `DRAFT`; no new state row |
+| `COMPLETE_PROJECT`, `STOP_PROJECT`, `TRANSFER_PROJECT` / `DRAFT` | append `PENDING_CONFIRMATION` | append `CONFIRMED` and terminal transition atomically | append `DRAFT`; no terminal transition | effective status becomes `DRAFT`; no new state row |
+| same terminal operations / `CONFIRMED` | create confirmation, **no conclusion event** | keep `CONFIRMED`; append only terminal transition | keep `CONFIRMED`; no conclusion event | keep `CONFIRMED`; no conclusion event |
+| `REOPEN_PROJECT` / no conclusion input | create confirmation, **no conclusion event** | append only REOPEN transition | no conclusion event | no conclusion event |
+
+`CONFIRM_CONCLUSION` rejects `CONFIRMED`, `PENDING_CONFIRMATION` and `SUPERSEDED`.
+Terminal operations reject `PENDING_CONFIRMATION` and `SUPERSEDED`, require the current
+`activeConclusionId`, and enforce the recommendation matrix in §6. REOPEN requires
+`status=COMPLETED` and the latest terminal transition; it never changes any conclusion state,
+including the conclusion referenced by the prior completion.
+
+At most one **usable** pending confirmation may exist per project. Usable means persisted
+`decision=PENDING`, not expired, and `expectedProjectVersion=current project.version`. Creation
+while one is usable returns `CONFIRMATION_ALREADY_PENDING`. Decided, expired or stale records remain
+history and do not prevent a new opportunity.
+
+The current conclusion projection reads the latest persisted state event, then resolves a latest
+`PENDING_CONFIRMATION` as:
+
+- `PENDING_CONFIRMATION` only while its confirmation is usable;
+- `DRAFT` when the linked pending confirmation is expired or stale;
+- `CONFIRMED`/`DRAFT` from the mandatory event written by approval/rejection.
+
+`SUPERSEDED` always wins for a non-current version. This computation has one implementation in the
+query layer and shared contract/integration fixtures.
 
 ### 7.7 `HumanConfirmation`
 
@@ -318,12 +380,14 @@ Content rows never change. `conclusion_state_events` appends one of the four sta
 | `operation` | `ConfirmationOperation` | human-control request |
 | `conclusionId` | conclusion ID or null | required except reopen |
 | `terminalTransitionId` | transition ID or null | reopen references latest terminal transition |
+| `completionSummary` | string or null | required for complete/stop/transfer; immutable after creation |
+| `reopenReason` / `nextStep` | string or null | required only for reopen; immutable after creation |
 | `payloadDigest` | lowercase SHA-256 | canonical immutable operation summary |
-| `payloadSummary` | bounded JSON | allowlisted IDs, operation, recommendation, summary, expected version; no secret/full body |
+| `payloadSummary` | `ConfirmationPayloadSummary` JSONB | exact discriminated Shape in §10.2; max 64 KiB |
 | `expectedProjectVersion` | integer | **resulting version of confirmation creation transaction** |
 | `capabilityHash` | SHA-256 | hash of derived cookie; raw capability never stored |
 | `expiresAt` | instant | creation + 30 minutes; compile-time constant |
-| `decision` | pending/approve/reject | pending initially; one conditional transition |
+| `decision` | `PENDING\|APPROVED\|REJECTED` | persisted values exactly match these public values |
 | `decidedBy` / `decidedAt` / `decisionNote` | nullable | decision route only; actor must declare HUMAN |
 | `decisionIdempotencyKey` | string or null | permits exact replay after consumption |
 | `resultingProjectVersion` | integer or null | decision success version |
@@ -333,6 +397,17 @@ The raw capability is derived with HMAC-SHA-256 from the configured human-contro
 confirmation ID, payload digest, expiry and confirmation-request idempotency key. Only its SHA-256
 hash is persisted. Replaying the same confirmation-creation request deterministically reissues the
 same cookie without storing plaintext.
+
+`HumanConfirmationSummaryDto` adds a derived `usability`:
+
+```text
+ACTIVE    -> PENDING, unexpired, expectedProjectVersion equals current project version
+EXPIRED   -> PENDING and expiresAt <= database clock
+STALE     -> PENDING, unexpired, but project version or recomputed payload differs
+CONSUMED  -> decision is APPROVED or REJECTED
+```
+
+`EXPIRED` and `STALE` are not persisted decision values and never masquerade as human decisions.
 
 ## 8. Persistence And Migration
 
@@ -455,14 +530,148 @@ sequenceDiagram
 
 ### 10.1 Access Separation
 
-Add required `HUMAN_CONTROL_TOKEN` (trimmed length >=32) to runtime configuration. It is independent
-from `AI_API_TOKEN`, compared in constant time, and accepted only by the confirmation-creation and
-summary routes. A process configured with equal AI/human token values fails startup.
+Add required `HUMAN_CONTROL_TOKEN` as unpadded base64url that decodes to exactly 32 bytes
+(`^[A-Za-z0-9_-]{43}$`). It is independent from `AI_API_TOKEN`, compared in constant time, and
+accepted only by the confirmation-creation and summary routes. A process configured with equal
+AI/human token text fails startup. Capability HMAC uses the decoded 32 bytes, not a re-encoded or
+locale-dependent string.
 
 The control token is a deployment capability, not a user identity. A declared `HUMAN` actor is still
 not authenticated as a particular natural person.
 
-### 10.2 Two-step Flow
+### 10.2 Exact Confirmation Payload And Digest
+
+`ConfirmationPayloadSummary` is a closed five-variant discriminated union. Every variant includes
+exactly the common fields plus all fields listed for that operation; implementations may not add or
+omit fields.
+
+Common fields:
+
+| Field | Type | Source |
+| --- | --- | --- |
+| `schemaVersion` | literal `1` | compile-time |
+| `operation` | `ConfirmationOperation` | validated creation request |
+| `projectId` | ProjectId | locked project |
+| `projectVersion` | integer | confirmation transaction's resulting project version |
+| `projectStatus` | `ProjectStatus` | locked project before confirmation creation |
+| `projectPhase` | `ProjectPhase` | locked project before confirmation creation |
+
+`ConclusionApprovalSnapshot`:
+
+| Field | Type | Source |
+| --- | --- | --- |
+| `id`, `sequence` | ConclusionId, integer | immutable conclusion row |
+| `statusAtRequest` | `DRAFT\|CONFIRMED` | effective state under §7.6 |
+| `evidenceSummary` | string | immutable conclusion row |
+| `evidenceIds` | ordered EvidenceId[] | `conclusion_evidence.position` |
+| `limitations`, `uncertainties` | ordered string[] | immutable conclusion row |
+| `recommendation`, `recommendationNote` | controlled enum, string | immutable conclusion row |
+| `supplementalNote` | string or null | immutable conclusion row |
+
+Operation Shapes:
+
+```text
+CONFIRM_CONCLUSION:
+  common
+  conclusion: ConclusionApprovalSnapshot (statusAtRequest=DRAFT)
+  targetConclusionStatus: "CONFIRMED"
+
+COMPLETE_PROJECT:
+  common
+  conclusion: ConclusionApprovalSnapshot (DRAFT or CONFIRMED)
+  targetConclusionStatus: "CONFIRMED"
+  completionSummary: string(1..2000)
+  targetProjectStatus: "COMPLETED"
+  completionKind: "COMPLETE"
+
+STOP_PROJECT:
+  common
+  conclusion: ConclusionApprovalSnapshot (DRAFT or CONFIRMED, recommendation=STOP)
+  targetConclusionStatus: "CONFIRMED"
+  completionSummary: string(1..2000)
+  targetProjectStatus: "COMPLETED"
+  completionKind: "STOP"
+
+TRANSFER_PROJECT:
+  common
+  conclusion: ConclusionApprovalSnapshot (DRAFT or CONFIRMED, recommendation=TRANSFER)
+  targetConclusionStatus: "CONFIRMED"
+  completionSummary: string(1..2000)
+  targetProjectStatus: "COMPLETED"
+  completionKind: "TRANSFER"
+
+REOPEN_PROJECT:
+  common (projectStatus="COMPLETED")
+  terminalTransition: {
+    id, kind: "COMPLETE"|"STOP"|"TRANSFER",
+    conclusionId, confirmationId, resultingProjectVersion, recordedAt
+  }
+  completedAt: RFC3339
+  reopenReason: string(1..2000)
+  nextStep: string(1..2000)
+  targetProjectStatus: "IN_PROGRESS"
+  targetProjectPhase: current projectPhase
+```
+
+`completionSummary`, `reopenReason`, `nextStep` and `terminalTransitionId` are stored in first-class
+`human_confirmations` columns and guarded against update. Conclusion data and the prior transition
+come from immutable tables. Current project status/phase/version come from the row locked at create
+or decide time. `payloadSummary` is a stored projection of those authorities, not the only copy of
+an intended business value.
+
+Canonicalization is identical in creation and decision:
+
+1. request strings are `String.trim()` then Unicode NFC normalized before business persistence;
+   internal whitespace and case are preserved;
+2. IDs/enums are validated ASCII and unchanged; RFC 3339 instants use database UTC serialized by
+   `Date.toISOString()` with milliseconds;
+3. null is explicit for nullable fields; no `undefined` or omitted union field reaches the summary;
+4. arrays preserve stored semantic order; duplicates were rejected by the request contract;
+5. object keys are sorted recursively by ASCII code-unit order (all authority keys are fixed ASCII);
+6. serialize with `JSON.stringify` without whitespace, encode the result as UTF-8.
+
+The payload digest is:
+
+```text
+SHA-256(
+  UTF8("idea-trace-validation\u0000lp02-confirmation-payload\u0000v1\u0000")
+  || UTF8(canonicalJson(payloadSummary))
+)
+```
+
+The lowercase 64-character hex value is persisted as `payload_digest`. Capability derivation uses
+a separate domain:
+
+```text
+rawCapability = base64url-no-padding(
+  HMAC-SHA-256(
+    base64urlDecode(HUMAN_CONTROL_TOKEN),
+    UTF8("idea-trace-validation\u0000lp02-confirmation-capability\u0000v1\u0000")
+    || UTF8(confirmationId) || 0x00
+    || UTF8(payloadDigest) || 0x00
+    || UTF8(expiresAt.toISOString()) || 0x00
+    || UTF8(confirmationRequestIdempotencyKey)
+  )
+)
+capabilityHash = SHA-256(UTF8(rawCapability))
+```
+
+At decision, the service locks confirmation and project, reloads the immutable conclusion or prior
+terminal transition, and rebuilds the complete Shape from first-class columns/current facts. It
+requires:
+
+- rebuilt canonical JSON byte-equals canonical JSON of stored `payload_summary`;
+- rebuilt digest equals stored `payload_digest`;
+- capability hash matches in constant time;
+- `project.version=expected_project_version`, usable pending state and recommendation rules.
+
+Any difference returns `CONFIRMATION_STALE` before decision, conclusion event or terminal transition
+is written. Tests mutate each bound class independently: project version/status/phase, conclusion
+ID/content/status/recommendation/Evidence ordering, completion summary, terminal transition,
+completed time, reopen reason and next step. Each must invalidate the opportunity or be impossible
+because an append-only/guard trigger rejects the mutation.
+
+### 10.3 Two-step Flow
 
 ```mermaid
 sequenceDiagram
@@ -486,10 +695,10 @@ sequenceDiagram
     alt "expired, consumed, digest/version changed"
         A-->>H: "deterministic 409; no business mutation"
     else "reject"
-        A->>P: "record rejection; conclusion back to DRAFT; version+audit"
+        A->>P: "record rejection; operation matrix event or none; version+audit"
         A-->>H: "200 rejected; project non-terminal"
     else "approve"
-        A->>P: "confirm conclusion; optional terminal transition"
+        A->>P: "operation matrix conclusion event or none; optional transition"
         A->>P: "consume confirmation; version+audit; commit"
         A-->>H: "200 approved"
     end
@@ -507,10 +716,10 @@ Raw control token and capability never enter body, URL, database, audit or logs.
 redacts `x-human-control-token`, `cookie`, `set-cookie`, `capabilityHash`, `payloadDigest` and all
 request bodies.
 
-Approval re-locks both confirmation and project, recomputes the canonical payload digest from
-persisted facts, checks the bound project version and uses a conditional pending-to-decision update.
-The same idempotency key may replay the stored result after consumption; any new key receives
-`CONFIRMATION_ALREADY_DECIDED`.
+Decision follows the matrix in §7.6, recomputes the §10.2 payload, checks the bound project version
+and uses a conditional `decision=PENDING` update. The same idempotency key may replay the stored
+result after consumption; any new key receives `CONFIRMATION_ALREADY_DECIDED`. Expiry and staleness
+write neither a decision nor a project/conclusion transition.
 
 ## 11. Public API Contract
 
@@ -605,15 +814,28 @@ SUPPORT_REQUEST -> supportNeeded, requestReason, impact, expectedResponderRole
 For `DECISION_REQUEST`, exactly one or both of non-empty `options` and `recommendation` may be
 present; an empty pair is invalid.
 
-Attention event body is `ProjectCommandBase` plus `kind`, `message`, optional
-`correctsEventId`, and:
+Attention event body is `ProjectCommandBase` plus a closed union:
 
 ```text
+COMMENT -> kind, message
+REQUEST_INFO -> kind, message
+PROVIDE_INFO -> kind, message
 RESOLVE BLOCKER -> resolution
 RESOLVE DECISION_REQUEST -> selectedOption or decisionText
 RESOLVE SUPPORT_REQUEST -> supportSummary
-COMMENT / REQUEST_INFO / PROVIDE_INFO / CLOSE -> no discriminator-only field
+CLOSE -> kind, message
+CORRECT_RESPONSE -> {
+  kind,
+  correctsEventId: required same-item current correction leaf,
+  correctedKind: root non-correction kind,
+  replacement: the exact response fields permitted for correctedKind in §7.4
+}
 ```
+
+Only `CORRECT_RESPONSE` accepts `correctsEventId`, `correctedKind` or `replacement`.
+Its server-produced `fromStatus` and `toStatus` both equal the item's current status. Its success
+data is `{project, attentionItem, event, effectiveResponse}`; other attention events return
+`effectiveResponse:null`.
 
 Evidence creation is `ProjectCommandBase` plus the common `title`, `summary`, `capturedAt` and:
 
@@ -685,8 +907,9 @@ progressUpdates, attentionItems, evidence, conclusions, history: relative string
 
 ```text
 id, projectId, operation, conclusionId|null, terminalTransitionId|null,
-payloadSummary, expectedProjectVersion, expiresAt,
-decision: PENDING|APPROVED|REJECTED|EXPIRED,
+payloadSummary: ConfirmationPayloadSummary, expectedProjectVersion, expiresAt,
+decision: PENDING|APPROVED|REJECTED,
+usability: ACTIVE|EXPIRED|STALE|CONSUMED,
 decidedBy: ActorDto|null, decidedAt:null|RFC3339, decisionNote:string|null,
 resultingProjectVersion:integer|null, createdAt
 ```
@@ -701,7 +924,7 @@ the new aggregate version:
 | transition | 200 | `{project, transition}` |
 | progress | 201 | `{project, progressUpdate}` |
 | attention create | 201 | `{project, attentionItem}` |
-| attention event | 201 | `{project, attentionItem, event}` |
+| attention event | 201 | `{project, attentionItem, event, effectiveResponse}`; last field non-null only for correction |
 | Evidence create | 201 | `{project, evidence}` |
 | Evidence correction | 201 | `{project, evidence, event}`; evidence is replacement or original |
 | conclusion | 201 | `{project, conclusion}` |
@@ -748,7 +971,7 @@ Both return the same `ProjectAuthorityDto`; detail returns the same
 | 409 | `PROJECT_STATE_CONFLICT`, `PHASE_TRANSITION_INVALID`, `ATTENTION_STATE_CONFLICT` | read current state and submit new intent |
 | 409 | `CROSS_PROJECT_REFERENCE`, `REFERENCE_NOT_ACTIVE` | use active records owned by this project |
 | 409 | `CONCLUSION_STATE_CONFLICT`, `RECOMMENDATION_MISMATCH` | revise conclusion/operation |
-| 409 | `CONFIRMATION_EXPIRED`, `CONFIRMATION_ALREADY_DECIDED`, `CONFIRMATION_STALE` | create a new confirmation from current facts |
+| 409 | `CONFIRMATION_ALREADY_PENDING`, `CONFIRMATION_EXPIRED`, `CONFIRMATION_ALREADY_DECIDED`, `CONFIRMATION_STALE` | resolve/use the active opportunity or create a new one from current facts |
 | 422 | `PROJECT_PRECONDITION_FAILED` | supply required reason/next step/content |
 
 `VERSION_CONFLICT.details.resourceId` widens from Idea-only to `IdeaId|ProjectId`; existing Idea
