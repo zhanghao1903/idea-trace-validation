@@ -11,6 +11,8 @@
 - Define the implementation-ready LP-02 technical design for project execution,
   append-only evidence/history, versioned conclusions, and scoped human
   confirmation.
+- Define the LP-03 technical design for immutable structured-report revisions,
+  safe generic rendering, and the proposer/executor Web experience.
 
 ### Added
 
