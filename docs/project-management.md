@@ -8,8 +8,8 @@
 
 | Plan ID | Plan | Depends on | Status | Blocker | Next step |
 | --- | --- | --- | --- | --- | --- |
-| LP-01 | [核心基础与 Idea 流程](./implementation-plans/v0-1/lp-01-core-idea-flow.md) | None | Ready for Acceptance | None | 完成 PR 审查并记录正式验收 |
-| LP-02 | [项目执行与决策闭环](./implementation-plans/v0-1/lp-02-execution-decisions.md) | LP-01 | Not Started | None | 为 LP-02 启动独立 Requirements 阶段 |
+| LP-01 | [核心基础与 Idea 流程](./implementation-plans/v0-1/lp-01-core-idea-flow.md) | None | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
+| LP-02 | [项目执行与决策闭环](./implementation-plans/v0-1/lp-02-execution-decisions.md) | LP-01 | Ready for Acceptance | None | 完成精确 head 代码审查、合并证明与正式验收 |
 | LP-03 | [结构化汇报与双角色体验](./implementation-plans/v0-1/lp-03-reporting-role-experience.md) | LP-02 | Not Started | None | 为 LP-03 启动独立 Requirements 阶段 |
 | LP-04 | [AI Skill 与可重复演示](./implementation-plans/v0-1/lp-04-ai-skill-demo.md) | LP-03 | Not Started | None | 为 LP-04 启动独立 Requirements 阶段 |
 | LP-05 | [部署与发布就绪](./implementation-plans/v0-1/lp-05-deployment-release.md) | LP-04 | Not Started | None | 为 LP-05 启动独立 Requirements 阶段 |
@@ -21,8 +21,25 @@
 
 当前阻塞：`None`。
 
-总体下一步：完成 LP-01 精确 head 代码审查和正式验收；通过后再单独启动 LP-02
-Requirements。
+总体下一步：完成 LP-02 精确 head 代码审查、合并证明和正式验收。LP-03 保持
+`Not Started`，只有 LP-02 被正式接受后才可启动其独立 Requirements 阶段。
+
+## 已接受依赖
+
+LP-01 已通过 Engineering Lifecycle 的 `ACCEPTED_NO_PUBLISH` 迁移正式关闭：
+
+- merge commit:
+  `b562a3c0ede8384afef2007b8057a1250650a39f`
+- acceptanceId:
+  `35d19b6c45c96c037c011b8c0f371ebfd454ff4b762492e70e6dc98e0ee9ef4a`
+- closureId:
+  `82e0fb86b20b1f82e04d6ec4aa53a094e8cc32ea8ad3a7dfed3d2258ccb5188d`
+- releaseTargets: `[]`
+- 发布产物：没有 tag、GitHub Release、package、部署或其他发布产物。
+
+LP-02 的客观实现证据见
+[LP-02 verification](./feature/lp-02-execution-decisions/verification.md)。这里的
+`Ready for Acceptance` 不表示代码审查通过、已合并、已发布或已正式验收。
 
 ## 主归属
 

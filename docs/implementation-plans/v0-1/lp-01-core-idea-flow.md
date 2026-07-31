@@ -61,9 +61,16 @@
 
 Acceptance record:
 
-- Result: `Ready for formal acceptance`
-- Accepted by: `None`
-- Accepted at (UTC): `None`
+- Result: `ACCEPTED_NO_PUBLISH`
+- Merge commit:
+  `b562a3c0ede8384afef2007b8057a1250650a39f`
+- Acceptance ID:
+  `35d19b6c45c96c037c011b8c0f371ebfd454ff4b762492e70e6dc98e0ee9ef4a`
+- Closure ID:
+  `82e0fb86b20b1f82e04d6ec4aa53a094e8cc32ea8ad3a7dfed3d2258ccb5188d`
+- Release targets: `[]`
+- Release artifacts: `None` — no tag, GitHub Release, package or deployment was
+  created.
 - Evidence:
   [LP-01 verification](../../feature/lp-01-core-idea-flow/verification.md)
 
@@ -75,12 +82,12 @@ Acceptance record:
 
 ## 9. Status
 
-`Ready for Acceptance`
+`Accepted`
 
-只有与本计划范围对应的实现、测试和文档证据完整后，才能改为
-`Ready for Acceptance`。
+Engineering Lifecycle 已用 `ACCEPTED_NO_PUBLISH` 记录正式接受并关闭本 feature；
+关闭不包含发布授权或发布产物。
 
 ## 10. Next step
 
-完成精确 PR head 代码审查；审查通过且合并后，由正式验收方记录接受结果。不得据此
-自动启动 LP-02。
+作为 LP-02 已满足的验收依赖继续保留完整关闭证据；不自动授权发布，也不自动改变
+LP-02 或后续计划状态。

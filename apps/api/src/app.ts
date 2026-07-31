@@ -1,4 +1,8 @@
-import type { IdeaService, Readiness } from "@idea/application";
+import type {
+  IdeaService,
+  ProjectExecutionService,
+  Readiness,
+} from "@idea/application";
 import { createIdFactory } from "@idea/application";
 import { ErrorEnvelopeSchema } from "@idea/contracts";
 import helmet from "@fastify/helmet";
@@ -11,24 +15,37 @@ import {
 import Fastify, { type FastifyInstance } from "fastify";
 
 import type { AppConfig } from "./config.js";
-import { errorEnvelope, validationError } from "./errors.js";
+import {
+  domainErrorResponse,
+  errorEnvelope,
+  validationError,
+} from "./errors.js";
 import { loggerOptions } from "./logger.js";
 import { trimJsonStrings } from "./normalize.js";
+import { attentionItemRoutes } from "./routes/attention-items.js";
 import { clarificationRoutes } from "./routes/clarifications.js";
+import { conclusionRoutes } from "./routes/conclusions.js";
+import { evidenceRoutes } from "./routes/evidence.js";
 import { healthRoutes } from "./routes/health.js";
+import { humanConfirmationRoutes } from "./routes/human-confirmations.js";
 import { ideaRoutes } from "./routes/ideas.js";
+import { progressUpdateRoutes } from "./routes/progress-updates.js";
+import { projectHistoryRoutes } from "./routes/project-history.js";
+import { projectTransitionRoutes } from "./routes/project-transitions.js";
 import { projectRoutes } from "./routes/projects.js";
 import { promotionRoutes } from "./routes/promotions.js";
 
 export interface AppDependencies {
   config: AppConfig;
   service: IdeaService;
+  executionService: ProjectExecutionService;
   readiness: Readiness;
 }
 
 export const buildApp = async ({
   config,
   service,
+  executionService,
   readiness,
 }: AppDependencies): Promise<FastifyInstance> => {
   const app = Fastify({
@@ -53,6 +70,7 @@ export const buildApp = async ({
         ? (error as {
             code?: string;
             message?: string;
+            details?: Readonly<Record<string, unknown>>;
             validation?: {
               instancePath: string;
               keyword: string;
@@ -93,6 +111,12 @@ export const buildApp = async ({
         ),
       );
     }
+    const domainError = domainErrorResponse(candidate);
+    if (domainError !== undefined) {
+      return reply
+        .code(domainError.status as 400)
+        .send(errorEnvelope(request.id, domainError.error));
+    }
     request.log.error({ errorCode: candidate.code }, "request failed");
     return reply.code(500).send(
       errorEnvelope(request.id, {
@@ -107,7 +131,7 @@ export const buildApp = async ({
   await app.register(helmet);
   await app.register(swagger, {
     openapi: {
-      info: { title: "Idea Trace Validation LP-01 API", version: "0.1.0" },
+      info: { title: "Idea Trace Validation LP-02 API", version: "0.2.0" },
       openapi: "3.1.0",
       components: {
         securitySchemes: {
@@ -115,6 +139,16 @@ export const buildApp = async ({
             type: "http",
             scheme: "bearer",
             bearerFormat: "opaque token",
+          },
+          humanControl: {
+            type: "apiKey",
+            in: "header",
+            name: "X-Human-Control-Token",
+          },
+          confirmationCapability: {
+            type: "apiKey",
+            in: "cookie",
+            name: "lp02_confirmation",
           },
         },
       },
@@ -155,6 +189,25 @@ export const buildApp = async ({
       await business.register(clarificationRoutes(service, config.aiApiToken));
       await business.register(promotionRoutes(service, config.aiApiToken));
       await business.register(projectRoutes(service));
+      await business.register(
+        projectTransitionRoutes(executionService, config.aiApiToken),
+      );
+      await business.register(
+        progressUpdateRoutes(executionService, config.aiApiToken),
+      );
+      await business.register(
+        attentionItemRoutes(executionService, config.aiApiToken),
+      );
+      await business.register(
+        evidenceRoutes(executionService, config.aiApiToken),
+      );
+      await business.register(
+        conclusionRoutes(executionService, config.aiApiToken),
+      );
+      await business.register(
+        humanConfirmationRoutes(executionService, config.humanControlToken),
+      );
+      await business.register(projectHistoryRoutes(executionService));
     },
     { prefix: "/api/v1" },
   );

@@ -24,6 +24,7 @@ jobs:
     env:
       AI_API_TOKEN: ci-only-token-with-at-least-32-characters
       DATABASE_URL: postgres://idea_validation:idea_validation@127.0.0.1:5432/idea_validation_test
+      HUMAN_CONTROL_TOKEN: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
       TEST_DATABASE_URL: postgres://idea_validation:idea_validation@127.0.0.1:5432/idea_validation_test
     steps:
       - uses: actions/checkout@v5

@@ -4,6 +4,7 @@ export interface AppConfig {
   port: number;
   databaseUrl: string;
   aiApiToken: string;
+  humanControlToken: string;
   logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
   dbPoolMax: number;
   dbConnectTimeoutMs: number;
@@ -58,6 +59,19 @@ export const loadConfig = (environment: NodeJS.ProcessEnv): AppConfig => {
   }
   const aiApiToken = required("AI_API_TOKEN", environment.AI_API_TOKEN);
   if (aiApiToken.length < 32) throw new ConfigError("AI_API_TOKEN");
+  const humanControlToken = required(
+    "HUMAN_CONTROL_TOKEN",
+    environment.HUMAN_CONTROL_TOKEN,
+  );
+  const decodedHumanControlToken = Buffer.from(humanControlToken, "base64url");
+  if (
+    !/^[A-Za-z0-9_-]{43}$/u.test(humanControlToken) ||
+    decodedHumanControlToken.length !== 32 ||
+    decodedHumanControlToken.toString("base64url") !== humanControlToken ||
+    humanControlToken === aiApiToken
+  ) {
+    throw new ConfigError("HUMAN_CONTROL_TOKEN");
+  }
   const host = (environment.HOST ?? "127.0.0.1").trim();
   if (host === "" || host.length > 253 || /[/\s]/u.test(host))
     throw new ConfigError("HOST");
@@ -73,6 +87,7 @@ export const loadConfig = (environment: NodeJS.ProcessEnv): AppConfig => {
     port: integer("PORT", environment.PORT, 3000, 1, 65_535),
     databaseUrl,
     aiApiToken,
+    humanControlToken,
     logLevel: enumValue(
       "LOG_LEVEL",
       environment.LOG_LEVEL,

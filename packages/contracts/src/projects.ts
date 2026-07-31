@@ -1,19 +1,31 @@
 import { Type } from "typebox";
 
 import {
+  AttentionIdSchema,
+  ConclusionIdSchema,
   DateTimeSchema,
+  EvidenceIdSchema,
   ErrorEnvelopeSchema,
   HypothesisIdSchema,
   IdeaIdSchema,
   PageMetaSchema,
   PageQuerySchema,
   ProjectIdSchema,
+  ProgressIdSchema,
   ReadMetaSchema,
   StatementIdSchema,
   ViewSchema,
   WriteMetaSchema,
 } from "./common.js";
 import { IdeaAuthorityDtoSchema } from "./ideas.js";
+import {
+  ProjectPhaseSchema,
+  ProjectStatusSchema,
+} from "./project-execution.js";
+import { ProgressUpdateDtoSchema } from "./progress.js";
+import { AttentionItemDtoSchema } from "./attention.js";
+import { EvidenceDtoSchema } from "./evidence.js";
+import { ConclusionDtoSchema, RecommendationSchema } from "./conclusions.js";
 
 const strict = { additionalProperties: false } as const;
 
@@ -22,8 +34,18 @@ export const ProjectAuthorityDtoSchema = Type.Object(
     id: ProjectIdSchema,
     ideaId: IdeaIdSchema,
     goal: Type.String(),
-    phase: Type.Literal("PLANNING"),
-    status: Type.Literal("QUEUED"),
+    phase: ProjectPhaseSchema,
+    status: ProjectStatusSchema,
+    currentNextStep: Type.Union([Type.String(), Type.Null()]),
+    latestProgressUpdateId: Type.Union([ProgressIdSchema, Type.Null()]),
+    activeConclusionId: Type.Union([ConclusionIdSchema, Type.Null()]),
+    completedAt: Type.Union([DateTimeSchema, Type.Null()]),
+    completionKind: Type.Union([
+      Type.Literal("COMPLETE"),
+      Type.Literal("STOP"),
+      Type.Literal("TRANSFER"),
+      Type.Null(),
+    ]),
     sourceIdeaVersion: Type.Integer({ minimum: 1 }),
     version: Type.Integer({ minimum: 1 }),
     createdAt: DateTimeSchema,
@@ -67,7 +89,14 @@ export const ProjectProposerFocusSchema = Type.Object(
       strict,
     ),
     projectOutcome: Type.Object(
-      { goal: Type.String(), status: Type.Literal("QUEUED") },
+      {
+        goal: Type.String(),
+        status: ProjectStatusSchema,
+        currentNextStep: Type.Union([Type.String(), Type.Null()]),
+        latestProgressSummary: Type.Union([Type.String(), Type.Null()]),
+        openAttentionCount: Type.Integer({ minimum: 0 }),
+        latestRecommendation: Type.Union([RecommendationSchema, Type.Null()]),
+      },
       strict,
     ),
   },
@@ -80,9 +109,14 @@ export const ProjectExecutorSummaryFocusSchema = Type.Object(
     execution: Type.Object(
       {
         goal: Type.String(),
-        phase: Type.Literal("PLANNING"),
-        status: Type.Literal("QUEUED"),
+        phase: ProjectPhaseSchema,
+        status: ProjectStatusSchema,
         version: Type.Integer({ minimum: 1 }),
+        currentNextStep: Type.Union([Type.String(), Type.Null()]),
+        latestProgressId: Type.Union([ProgressIdSchema, Type.Null()]),
+        openAttentionCount: Type.Integer({ minimum: 0 }),
+        evidenceCount: Type.Integer({ minimum: 0 }),
+        latestConclusionId: Type.Union([ConclusionIdSchema, Type.Null()]),
       },
       strict,
     ),
@@ -108,6 +142,18 @@ export const ProjectExecutorDetailFocusSchema = Type.Object(
   strict,
 );
 
+export const ProjectAllowedCommandSchema = Type.Union([
+  Type.Literal("START"),
+  Type.Literal("PAUSE"),
+  Type.Literal("RESUME"),
+  Type.Literal("CHANGE_PHASE"),
+  Type.Literal("CONFIRM_CONCLUSION"),
+  Type.Literal("COMPLETE_PROJECT"),
+  Type.Literal("STOP_PROJECT"),
+  Type.Literal("TRANSFER_PROJECT"),
+  Type.Literal("REOPEN_PROJECT"),
+]);
+
 export const ProjectSummaryDtoSchema = Type.Object(
   {
     authority: ProjectAuthorityDtoSchema,
@@ -127,6 +173,33 @@ export const ProjectDetailDtoSchema = Type.Object(
       maxItems: 20,
     }),
     sourceIdea: IdeaAuthorityDtoSchema,
+    execution: Type.Object(
+      {
+        currentNextStep: Type.Union([Type.String(), Type.Null()]),
+        latestProgress: Type.Union([ProgressUpdateDtoSchema, Type.Null()]),
+        openAttentionPreview: Type.Array(AttentionItemDtoSchema, {
+          maxItems: 10,
+        }),
+        openAttentionCount: Type.Integer({ minimum: 0 }),
+        evidencePreview: Type.Array(EvidenceDtoSchema, { maxItems: 10 }),
+        evidenceCount: Type.Integer({ minimum: 0 }),
+        latestConclusion: Type.Union([ConclusionDtoSchema, Type.Null()]),
+        allowedCommands: Type.Array(ProjectAllowedCommandSchema, {
+          uniqueItems: true,
+        }),
+        collectionPaths: Type.Object(
+          {
+            progressUpdates: Type.String(),
+            attentionItems: Type.String(),
+            evidence: Type.String(),
+            conclusions: Type.String(),
+            history: Type.String(),
+          },
+          strict,
+        ),
+      },
+      strict,
+    ),
     focus: Type.Union([
       ProjectProposerFocusSchema,
       ProjectExecutorDetailFocusSchema,
@@ -192,7 +265,12 @@ export type ProjectHypothesisDto = Type.Static<
   typeof ProjectHypothesisDtoSchema
 >;
 export type ProjectMutationDto = Type.Static<typeof ProjectMutationDtoSchema>;
+export type ProjectAllowedCommand = Type.Static<
+  typeof ProjectAllowedCommandSchema
+>;
 export type ProjectSummaryDto = Type.Static<typeof ProjectSummaryDtoSchema>;
 export type ProjectDetailDto = Type.Static<typeof ProjectDetailDtoSchema>;
 
+void AttentionIdSchema;
+void EvidenceIdSchema;
 void WriteMetaSchema;

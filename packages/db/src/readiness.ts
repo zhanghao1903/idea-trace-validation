@@ -1,7 +1,7 @@
 import type { Readiness, ReadinessState } from "@idea/application";
 import type { Pool, PoolClient } from "pg";
 
-import { EXPECTED_MIGRATION_ID, migrationChecksum } from "./migrate.js";
+import { expectedMigrationRows } from "./migrations.js";
 
 const PROBE_TIMEOUT_MS = 500;
 
@@ -41,27 +41,34 @@ export class PostgresReadiness implements Readiness {
       await client.query("BEGIN");
       await client.query(`SET LOCAL statement_timeout = ${PROBE_TIMEOUT_MS}`);
       await client.query("SELECT 1");
-      const migration = await client
+      const migrations = await client
         .query<{ id: string; checksum: string }>(
           `
             SELECT id, checksum
             FROM schema_migrations
-            ORDER BY applied_at DESC, id DESC
-            LIMIT 1
+            ORDER BY applied_at, id
           `,
         )
         .catch((error: unknown) => {
           if ((error as { code?: string }).code === "42P01") return undefined;
           throw error;
         });
-      if (migration === undefined || migration.rowCount !== 1) {
+      if (migrations === undefined) {
         await client.query("COMMIT");
         return { status: "NOT_READY", reason: "MIGRATION_MISSING", checkedAt };
       }
-      const expectedChecksum = await migrationChecksum();
+      const expected = await expectedMigrationRows();
+      if (Number(migrations.rowCount) < expected.length) {
+        await client.query("COMMIT");
+        return { status: "NOT_READY", reason: "MIGRATION_MISSING", checkedAt };
+      }
       if (
-        migration.rows[0]?.id !== EXPECTED_MIGRATION_ID ||
-        migration.rows[0]?.checksum !== expectedChecksum
+        migrations.rowCount !== expected.length ||
+        migrations.rows.some(
+          (row, index) =>
+            row.id !== expected[index]?.id ||
+            row.checksum !== expected[index]?.checksum,
+        )
       ) {
         await client.query("COMMIT");
         return { status: "NOT_READY", reason: "MIGRATION_MISMATCH", checkedAt };

@@ -1,4 +1,8 @@
-import type { IdeaService, Readiness } from "@idea/application";
+import type {
+  IdeaService,
+  ProjectExecutionService,
+  Readiness,
+} from "@idea/application";
 
 import { buildApp } from "../apps/api/src/app.js";
 
@@ -6,6 +10,13 @@ const unavailableService = new Proxy({} as IdeaService, {
   get() {
     return async () => {
       throw new Error("OPENAPI_SERVICE_MUST_NOT_BE_CALLED");
+    };
+  },
+});
+const unavailableExecutionService = new Proxy({} as ProjectExecutionService, {
+  get() {
+    return async () => {
+      throw new Error("OPENAPI_EXECUTION_SERVICE_MUST_NOT_BE_CALLED");
     };
   },
 });
@@ -29,12 +40,14 @@ export const generateOpenApi = async (): Promise<
       port: 3000,
       databaseUrl: "postgres://example.invalid/idea_validation",
       aiApiToken: "openapi-generation-token-at-least-32-characters",
+      humanControlToken: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
       logLevel: "silent",
       dbPoolMax: 1,
       dbConnectTimeoutMs: 100,
       shutdownGraceMs: 1_000,
     },
     service: unavailableService,
+    executionService: unavailableExecutionService,
     readiness: ready,
   });
   try {

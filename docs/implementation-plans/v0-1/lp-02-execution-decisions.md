@@ -49,13 +49,13 @@
 
 ## 7. Acceptance checklist
 
-- [ ] 进展包含摘要、完成工作、当前状态、下一步、证据和时间，且不隐式改变状态。
-- [ ] 阻塞解除后仍可读取背景、影响、原状态和解除说明。
-- [ ] 待确认问题及支持请求在响应或关闭后保留原描述和回应。
-- [ ] 验证结论同时记录证据、限制、不确定性和建议去向。
-- [ ] 完成、停止、移交和重开只在有效人类确认后生效。
-- [ ] token 过期、重复使用、摘要变化或版本冲突均失败且不产生部分写入。
-- [ ] 纠正、暂停、重开或撤销不静默删除历史。
+- [x] 进展包含摘要、完成工作、当前状态、下一步、证据和时间，且不隐式改变状态。
+- [x] 阻塞解除后仍可读取背景、影响、原状态和解除说明。
+- [x] 待确认问题及支持请求在响应或关闭后保留原描述和回应。
+- [x] 验证结论同时记录证据、限制、不确定性和建议去向。
+- [x] 完成、停止、移交和重开只在有效人类确认后生效。
+- [x] token 过期、重复使用、摘要变化或版本冲突均失败且不产生部分写入。
+- [x] 纠正、暂停、重开或撤销不静默删除历史。
 
 至少一个客观验收场景：创建阻塞、待确认问题和支持请求，分别解决后读取完整历史；
 提交带证据与限制的结论，经一次性人类确认完成项目，再填写原因确认重开，原完成结论
@@ -63,10 +63,11 @@
 
 Acceptance record:
 
-- Result: `None`
+- Result: `Ready for formal acceptance`
 - Accepted by: `None`
 - Accepted at (UTC): `None`
-- Evidence: `None`
+- Evidence:
+  [LP-02 verification](../../feature/lp-02-execution-decisions/verification.md)
 
 ## 8. Risks and blockers
 
@@ -76,12 +77,12 @@ Acceptance record:
 
 ## 9. Status
 
-`Not Started`
+`Ready for Acceptance`
 
-LP-01 未验收前，本计划可以准备非依赖设计，但不能进入
-`Ready for Acceptance`。
+客观实现、迁移、契约、集成、安全和闭环验收证据已完成；该状态不表示 Review
+批准、合并、发布或正式验收。
 
 ## 10. Next step
 
-为 LP-02 启动独立 Engineering Lifecycle Requirements 阶段，并以 LP-01 的实际
-验收结果重新确认 API 与数据迁移边界。
+提交精确 Git head 代码审查；审查通过后由外部 merge owner 合并，再由正式验收方
+记录接受结果。LP-03 继续保持 `Not Started`。

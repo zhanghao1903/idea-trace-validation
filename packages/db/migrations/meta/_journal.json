@@ -8,6 +8,13 @@
       "when": 1785408000000,
       "tag": "0001_lp01_core",
       "breakpoints": false
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785470280000,
+      "tag": "0002_lp02_execution_decisions",
+      "breakpoints": false
     }
   ]
 }

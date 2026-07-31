@@ -1,9 +1,9 @@
 # Idea Trace Validation
 
-LP-01 提供第一个可运行的纵向切片：登记 Idea、显式回答澄清问题、由提议者意图推进为唯一验证项目，并从 proposer 或 executor 视角读取同一份 PostgreSQL 权威数据。
+LP-01 与 LP-02 组成当前可运行纵向切片：登记和澄清 Idea、显式推进为唯一验证项目，随后记录执行转换、进展、三类关注事项、Evidence、版本化结论和受人类确认保护的完成、停止、移交与重开。proposer 与 executor 视图始终读取同一份 PostgreSQL 权威数据。
 
-当前范围只包含 API、共享契约、数据库迁移和自动化验证。项目执行、结构化汇报 Web、AI
-Skill、生产部署分别属于 LP-02～LP-05。
+当前范围只包含 API、共享契约、数据库迁移和自动化验证。结构化汇报 Web、AI
+Skill 和生产部署分别属于 LP-03～LP-05。
 
 ## 运行要求
 
@@ -28,9 +28,10 @@ npm run db:migrate
 npm run dev
 ```
 
-`DATABASE_URL` 和 `AI_API_TOKEN`
-是必填配置。token 去除首尾空白后至少 32 字符。完整字段、默认值和边界见
-[.env.example](./.env.example)。
+`DATABASE_URL`、`AI_API_TOKEN` 和 `HUMAN_CONTROL_TOKEN` 是必填配置。AI
+token 去除首尾空白后至少 32 字符；human-control
+token 必须是 32 字节 base64url（43 字符）且与 AI
+token 不同。完整字段、默认值和边界见 [.env.example](./.env.example)。
 
 配置合法后，API 会立即监听，不等待数据库：
 
@@ -41,7 +42,7 @@ npm run dev
 
 ## API
 
-写路由要求：
+普通 AI 写路由要求：
 
 ```text
 Authorization: Bearer <AI_API_TOKEN>
@@ -49,16 +50,30 @@ Idempotency-Key: <caller UUID or ULID>
 Content-Type: application/json
 ```
 
-| Method | Path                                                       | Access      |
-| ------ | ---------------------------------------------------------- | ----------- |
-| `POST` | `/api/v1/ideas`                                            | AI write    |
-| `POST` | `/api/v1/ideas/:ideaId/clarifications/:questionId/answers` | AI write    |
-| `POST` | `/api/v1/ideas/:ideaId/promotions`                         | AI write    |
-| `GET`  | `/api/v1/ideas`、`/api/v1/ideas/:ideaId`                   | Public read |
-| `GET`  | `/api/v1/projects`、`/api/v1/projects/:projectId`          | Public read |
+| Method | Path                                                                                          | Access                         |
+| ------ | --------------------------------------------------------------------------------------------- | ------------------------------ |
+| `POST` | `/api/v1/ideas`                                                                               | AI write                       |
+| `POST` | `/api/v1/ideas/:ideaId/clarifications/:questionId/answers`                                    | AI write                       |
+| `POST` | `/api/v1/ideas/:ideaId/promotions`                                                            | AI write                       |
+| `POST` | `/api/v1/projects/:projectId/transitions`                                                     | AI write                       |
+| `POST` | `/api/v1/projects/:projectId/progress-updates`                                                | AI write                       |
+| `POST` | `/api/v1/projects/:projectId/attention-items`                                                 | AI write                       |
+| `POST` | `/api/v1/projects/:projectId/attention-items/:itemId/events`                                  | AI write                       |
+| `POST` | `/api/v1/projects/:projectId/evidence`                                                        | AI write                       |
+| `POST` | `/api/v1/projects/:projectId/evidence/:evidenceId/corrections`                                | AI write                       |
+| `POST` | `/api/v1/projects/:projectId/conclusions`                                                     | AI write                       |
+| `POST` | `/api/v1/projects/:projectId/human-confirmations`                                             | Human control                  |
+| `POST` | `/api/v1/human-confirmations/:confirmationId/decisions`                                       | Scoped cookie                  |
+| `GET`  | `/api/v1/ideas`、`/api/v1/ideas/:ideaId`                                                      | Public read                    |
+| `GET`  | `/api/v1/projects`、`/api/v1/projects/:projectId`                                             | Public read                    |
+| `GET`  | `/api/v1/projects/:projectId/{progress-updates,attention-items,evidence,conclusions,history}` | Public read                    |
+| `GET`  | `/api/v1/human-confirmations/:confirmationId`                                                 | Human control or scoped cookie |
 
-完整请求、响应、稳定错误与 `proposer|executor` 投影以
-[OpenAPI artifact](./openapi/lp01.v1.json) 为准。
+人类确认创建使用 `X-Human-Control-Token`；成功后只通过
+`HttpOnly; Secure; SameSite=Strict`
+且绑定单一确认路径的 cookie 返回短期 capability。capability 原文不会进入响应正文或数据库。完整请求、响应、稳定错误与
+`proposer|executor` 投影以 [LP-02 OpenAPI](./openapi/lp02.v1.json) 为准；冻结的
+[LP-01 OpenAPI](./openapi/lp01.v1.json) 仍由漂移门禁保护。
 
 写入 token 只证明调用来源可以写入；body 中的 `actor`、`proposer` 和 `role`
 是声明归属，不是已认证用户身份。公开演示环境不得保存真实秘密、个人数据或商业机密。
@@ -74,7 +89,8 @@ npm run openapi:check
 npm run test:unit
 npm run test:contract
 TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:integration
-TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:acceptance
+TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:acceptance:lp01
+TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:acceptance:lp02
 ```
 
 `npm run verify`
@@ -83,10 +99,14 @@ TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/ide
 ## 数据与失败语义
 
 - 每个 Idea 是并发边界，澄清和推进使用 row lock 与 `expectedVersion`。
+- 每个 ValidationProject 是 LP-02 并发边界；每个成功命令只递增一次版本。
 - 每个 Idea 最多一个 `PLANNING/QUEUED` 项目。
 - 幂等键在固定 workspace 内全局唯一；相同意图重放原结果，不同意图返回冲突。
 - 确定性 404/409/422 会绑定幂等键；基础设施失败回滚整个事务，可用同一键重试。
 - 每个成功命令原子追加脱敏 audit event；数据库触发器拒绝更新或删除历史。
+- 进展、事项、Evidence 和结论不隐式改变项目状态；纠正、撤回、回应和取代均为追加式。
+- 高影响操作摘要绑定项目版本和结论/终态事实；过期、失效或已消费的确认不能生效。
 
-实现和客观证据见
-[LP-01 verification](./docs/feature/lp-01-core-idea-flow/verification.md)。
+升级与恢复边界见 [migration notes](./docs/migration-notes.md)。实现和客观证据见
+[LP-01 verification](./docs/feature/lp-01-core-idea-flow/verification.md) 与
+[LP-02 verification](./docs/feature/lp-02-execution-decisions/verification.md)。

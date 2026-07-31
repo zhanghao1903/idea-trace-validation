@@ -4,7 +4,7 @@
 - Branch: `codex/lp-02-execution-decisions`
 - Requirements: [requirements.md](./requirements.md)
 - Design: [design.md](./design.md)
-- Current phase: F2/F3 technical plan; implementation is not authorized until exact-plan Review PASS
+- Current phase: F4 implementation complete; awaiting exact-head Code Review
 
 ## 1. Scope
 

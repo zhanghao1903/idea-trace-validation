@@ -23,6 +23,14 @@
   explicit promotion commands with proposer/executor projections.
 - Add unit, contract, PostgreSQL integration, concurrency, security, and
   end-to-end LP-01 acceptance verification.
+- Add LP-02 project transitions, append-only progress, three attention-item
+  classes, Evidence metadata and correction histories.
+- Add immutable conclusion versions and separate human-control confirmation for
+  conclusion approval, completion, stop, transfer and reopen operations.
+- Add the additive LP-02 migration, current project execution projections,
+  stable historical reads and an independently generated LP-02 OpenAPI artifact.
+- Add transaction failpoint, confirmation security, operation-matrix and
+  end-to-end LP-02 acceptance verification.
 
 ### Changed
 
@@ -31,3 +39,11 @@
 - Reuse Fastify's request-scoped ID across LP-01 logs, responses, idempotency
   and audit, add post-mutation rollback evidence, and enforce the configured
   shutdown deadline for lingering requests or resources.
+- Widen the LP-01 project authority from `PLANNING / QUEUED / version=1` to the
+  bounded LP-02 phase and lifecycle state machines while preserving existing
+  objects and routes.
+- Require a distinct 32-byte base64url `HUMAN_CONTROL_TOKEN`; store only
+  confirmation capability hashes and return raw capabilities through scoped
+  secure cookies.
+- Keep the LP-01 OpenAPI artifact immutable by pinned digest and generate the
+  expanded current contract as `openapi/lp02.v1.json`.

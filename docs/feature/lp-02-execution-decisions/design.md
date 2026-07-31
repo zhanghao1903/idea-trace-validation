@@ -1,6 +1,6 @@
 # Technical Design: LP-02 项目执行与决策闭环
 
-- Status: Proposed — awaiting independent Technical Plan Review
+- Status: Approved for implementation by Technical Plan Review Cycle 2
 - FeatureId: `lp-02-execution-decisions-4e8a2c7d91b3`
 - Branch: `codex/lp-02-execution-decisions`
 - Requirements: [requirements.md](./requirements.md)
@@ -988,7 +988,9 @@ CROSS_PROJECT_REFERENCE -> {resourceType,resourceId,projectId,recovery:"USE_SAME
 REFERENCE_NOT_ACTIVE -> {resourceType,resourceId,recovery:"USE_ACTIVE_REPLACEMENT"}
 CONCLUSION_STATE_CONFLICT -> {conclusionId,currentStatus,recovery:"CREATE_OR_SELECT_CURRENT_CONCLUSION"}
 RECOMMENDATION_MISMATCH -> {operation,recommendation,allowedRecommendations,recovery:"REVISE_OPERATION_OR_CONCLUSION"}
-CONFIRMATION_* -> {confirmationId,recovery:"CREATE_NEW_CONFIRMATION_FROM_CURRENT_STATE"}
+CONFIRMATION_ALREADY_PENDING -> {confirmationId,recovery:"USE_ACTIVE_CONFIRMATION"}
+CONFIRMATION_EXPIRED | CONFIRMATION_ALREADY_DECIDED | CONFIRMATION_STALE ->
+  {confirmationId,recovery:"CREATE_NEW_CONFIRMATION_FROM_CURRENT_STATE"}
 PROJECT_PRECONDITION_FAILED -> {missing:string[],recovery:"FIX_REQUEST_AND_USE_NEW_KEY"}
 ```
 
