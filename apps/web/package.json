@@ -7,7 +7,8 @@
     "build": "tsc -b && vite build",
     "clean": "tsc -b --clean",
     "dev": "vite --host 127.0.0.1",
-    "typecheck": "tsc -b --pretty false"
+    "typecheck": "tsc -b --pretty false",
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json --pretty false"
   },
   "dependencies": {
     "@idea/contracts": "0.1.0",

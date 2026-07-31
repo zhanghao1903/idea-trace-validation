@@ -8,3 +8,5 @@ dist-types/
 node_modules/
 *.tsbuildinfo
 .idea-validation-test-db
+playwright-report/
+test-results/

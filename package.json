@@ -16,6 +16,7 @@
     "esbuild@0.18.20": true,
     "esbuild@0.25.12": true,
     "esbuild@0.28.1": true,
+    "fsevents@2.3.2": false,
     "fsevents@2.3.3": true
   },
   "scripts": {
@@ -25,10 +26,11 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "typecheck": "tsc -b --pretty false",
+    "typecheck": "tsc -b --pretty false && npm run typecheck:e2e --workspace @idea/web",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:contract": "vitest run --config vitest.contract.config.ts",
     "test:web:component": "vitest run --config vitest.web.config.ts",
+    "test:browser": "playwright test",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:acceptance": "tsx scripts/acceptance.ts",
     "test:acceptance:lp01": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp01.acceptance.test.ts",
@@ -43,9 +45,10 @@
     "db:migrate:test": "tsx packages/db/src/cli/migrate.ts --test",
     "test:db:up": "tsx scripts/test-db.ts up",
     "test:db:down": "tsx scripts/test-db.ts down",
-    "verify": "npm run format:check && npm run lint && npm run report-types:check && npm run typecheck && npm run build && npm run openapi:check && npm run test"
+    "verify": "npm run format:check && npm run lint && npm run report-types:check && npm run typecheck && npm run build && npm run openapi:check && npm run test && npm run test:browser"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@types/node": "24.13.3",
     "@types/pg": "8.20.0",
     "drizzle-kit": "0.31.10",

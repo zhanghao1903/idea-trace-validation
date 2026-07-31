@@ -33,5 +33,6 @@ jobs:
           cache: npm
           node-version-file: .nvmrc
       - run: npm ci
+      - run: npx playwright install --with-deps chromium
       - run: npm run db:migrate:test
       - run: npm run verify
