@@ -6,7 +6,12 @@ export interface Cursor {
 
 export type CursorEntity = "idea" | "project";
 export type HistoryCursorEntity =
-  "progress" | "attention" | "evidence" | "conclusion" | "projectHistory";
+  | "progress"
+  | "attention"
+  | "evidence"
+  | "conclusion"
+  | "report"
+  | "projectHistory";
 
 export interface HistoryCursor {
   v: 1;
@@ -50,6 +55,7 @@ const historyPattern: Record<HistoryCursorEntity, RegExp> = {
   attention: /^attn_[0-9A-HJKMNP-TV-Z]{26}$/,
   evidence: /^evd_[0-9A-HJKMNP-TV-Z]{26}$/,
   conclusion: /^conc_[0-9A-HJKMNP-TV-Z]{26}$/,
+  report: /^rpt_[0-9A-HJKMNP-TV-Z]{26}$/,
   projectHistory: /^(?:trn|evt)_[0-9A-HJKMNP-TV-Z]{26}$/,
 };
 

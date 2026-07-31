@@ -368,6 +368,27 @@ export const ProjectExecutionErrorSchema = Type.Object(
   strict,
 );
 
+export const ReportErrorSchema = Type.Object(
+  {
+    code: Type.Union([
+      Type.Literal("REPORT_IDENTITY_MISMATCH"),
+      Type.Literal("REPORT_SCHEMA_UNSUPPORTED"),
+      Type.Literal("REPORT_VALIDATION_FAILED"),
+      Type.Literal("REPORT_UNSAFE_CONTENT"),
+      Type.Literal("REPORT_REFERENCE_INVALID"),
+      Type.Literal("REPORT_REVISION_NOT_FOUND"),
+      Type.Literal("REPORT_REVISION_CONFLICT"),
+      Type.Literal("PROJECT_REPORT_FROZEN"),
+      Type.Literal("IDEMPOTENCY_KEY_REUSED"),
+      Type.Literal("REQUEST_TOO_LARGE"),
+    ]),
+    message: Type.String(),
+    retryable: Type.Boolean(),
+    details: Type.Record(Type.String(), Type.Unknown()),
+  },
+  strict,
+);
+
 export const InternalErrorSchema = Type.Object(
   {
     code: Type.Literal("INTERNAL_ERROR"),
@@ -389,6 +410,7 @@ export const ApiErrorSchema = Type.Union([
   PromotionPreconditionErrorSchema,
   HumanControlErrorSchema,
   ProjectExecutionErrorSchema,
+  ReportErrorSchema,
   ServiceNotReadyErrorSchema,
   InternalErrorSchema,
 ]);

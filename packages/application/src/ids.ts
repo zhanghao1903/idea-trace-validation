@@ -17,6 +17,7 @@ export const createIdFactory = () => ({
   evidence: () => `evd_${nextUlid()}`,
   conclusion: () => `conc_${nextUlid()}`,
   confirmation: () => `confirm_${nextUlid()}`,
+  report: () => `rpt_${nextUlid()}`,
   request: () => `req_${nextUlid()}`,
 });
 

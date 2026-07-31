@@ -680,6 +680,109 @@ export const humanConfirmations = pgTable(
   ],
 );
 
+export const projectReports = pgTable(
+  "project_reports",
+  {
+    id: varchar("id", { length: 30 }).primaryKey(),
+    workspaceId: varchar("workspace_id", { length: 64 })
+      .notNull()
+      .references(() => workspaces.id),
+    projectId: varchar("project_id", { length: 31 })
+      .notNull()
+      .references(() => validationProjects.id),
+    currentAcceptedRevision: integer("current_accepted_revision")
+      .notNull()
+      .default(0),
+    currentRenderableRevision: integer("current_renderable_revision"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("project_reports_workspace_project_unique").on(
+      table.workspaceId,
+      table.projectId,
+    ),
+    uniqueIndex("project_reports_authority_unique").on(
+      table.id,
+      table.projectId,
+      table.workspaceId,
+    ),
+  ],
+);
+
+export const reportRevisions = pgTable(
+  "report_revisions",
+  {
+    reportId: varchar("report_id", { length: 30 })
+      .notNull()
+      .references(() => projectReports.id),
+    revision: integer("revision").notNull(),
+    projectId: varchar("project_id", { length: 31 }).notNull(),
+    workspaceId: varchar("workspace_id", { length: 64 }).notNull(),
+    previousRevision: integer("previous_revision"),
+    schemaVersion: varchar("schema_version", { length: 32 }).notNull(),
+    contentSha256: char("content_sha256", { length: 64 }).notNull(),
+    sourceDocument: jsonb("source_document")
+      .$type<Readonly<Record<string, unknown>>>()
+      .notNull(),
+    renderModel: jsonb("render_model")
+      .$type<Readonly<Record<string, unknown>>>()
+      .notNull(),
+    renderStatus: varchar("render_status", { length: 24 }).notNull(),
+    compilerVersion: varchar("compiler_version", { length: 64 }).notNull(),
+    submittedByType: varchar("submitted_by_type", { length: 16 }).notNull(),
+    submittedByRole: varchar("submitted_by_role", { length: 16 }).notNull(),
+    submittedByDisplayName: varchar("submitted_by_display_name", {
+      length: 120,
+    }).notNull(),
+    submittedByClient: varchar("submitted_by_client", { length: 120 }),
+    submittedOnBehalfOfRole: varchar("submitted_on_behalf_of_role", {
+      length: 16,
+    }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.reportId, table.revision] }),
+    index("report_revisions_project_history_idx").on(
+      table.projectId,
+      table.revision,
+      table.reportId,
+    ),
+  ],
+);
+
+export const reportSubmissionKeys = pgTable(
+  "report_submission_keys",
+  {
+    workspaceId: varchar("workspace_id", { length: 64 })
+      .notNull()
+      .references(() => workspaces.id),
+    projectId: varchar("project_id", { length: 31 })
+      .notNull()
+      .references(() => validationProjects.id),
+    clientRequestId: varchar("client_request_id", { length: 128 }).notNull(),
+    contentSha256: char("content_sha256", { length: 64 }).notNull(),
+    state: varchar("state", { length: 16 }).notNull(),
+    responseStatus: smallint("response_status"),
+    responseBody: jsonb("response_body"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.workspaceId, table.projectId, table.clientRequestId],
+    }),
+  ],
+);
+
 export const idempotencyRecords = pgTable(
   "idempotency_records",
   {

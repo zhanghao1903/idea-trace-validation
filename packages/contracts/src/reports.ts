@@ -181,6 +181,7 @@ export const HydratedEvidenceRefSchema = Type.Object(
       Type.Literal("ARTIFACT"),
       Type.Literal("METRIC"),
       Type.Literal("NOTE"),
+      Type.Literal("UNAVAILABLE"),
     ]),
     title: Type.String(),
     summary: Type.String(),
@@ -304,6 +305,12 @@ export const ReportRevisionDtoSchema = Type.Object(
 );
 
 export type ReportDisplayMode = Type.Static<typeof ReportDisplayModeSchema>;
+export type HydratedEvidenceRefDto = Type.Static<
+  typeof HydratedEvidenceRefSchema
+>;
+export type HydratedAttentionRefDto = Type.Static<
+  typeof HydratedAttentionRefSchema
+>;
 export type SafeReportRenderModelDto = Type.Static<
   typeof SafeReportRenderModelSchema
 >;

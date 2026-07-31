@@ -18,6 +18,13 @@ export const MIGRATION_CATALOG: readonly MigrationDefinition[] = [
       import.meta.url,
     ),
   },
+  {
+    id: "0003_lp03_reporting_experience",
+    url: new URL(
+      "../migrations/0003_lp03_reporting_experience.sql",
+      import.meta.url,
+    ),
+  },
 ];
 
 export const readMigration = async (

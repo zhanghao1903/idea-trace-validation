@@ -1,5 +1,7 @@
 import type { StructuredReportV1 } from "@idea/contracts";
 
+export const REPORT_COMPILER_VERSION = "lp03-report-compiler/1" as const;
+
 export interface ReportValidationIssue {
   path: string;
   code: string;
