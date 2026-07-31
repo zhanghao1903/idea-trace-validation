@@ -28,10 +28,9 @@
 
 - Acceptance dependency: `None`
 - Planning inputs:
-  [requirements](../../feature/v0-1-project-plan/requirements.md),
-  [domain model](../../feature/v0-1-project-plan/domain-model.md),
-  [technical architecture](../../feature/v0-1-project-plan/technical-architecture.md),
-  [source implementation plan](../../feature/v0-1-project-plan/implementation-plan.md).
+  [confirmed requirements](../../feature/lp-01-core-idea-flow/requirements.md),
+  [technical design](../../feature/lp-01-core-idea-flow/design.md),
+  [reviewed implementation plan](../../feature/lp-01-core-idea-flow/implementation-plan.md).
 
 ## 5. Main deliverables
 
@@ -50,22 +49,23 @@
 
 ## 7. Acceptance checklist
 
-- [ ] 从干净环境安装依赖后，格式、类型、契约测试和构建可复现通过。
-- [ ] 不完整 Idea 分别保存已知信息、假设与澄清问题，不伪造缺失内容。
-- [ ] 没有显式推进动作时 Idea 持续停留在 Idea 池；推进后只创建一个关联项目。
-- [ ] 非法状态转换被拒绝，并返回当前状态与可理解的恢复路径。
-- [ ] 同一请求重放不产生重复记录；版本冲突不覆盖较新的事实。
-- [ ] proposer/executor 查询读取同一份权威数据，成功操作产生可追踪历史。
+- [x] 从干净环境安装依赖后，格式、类型、契约测试和构建可复现通过。
+- [x] 不完整 Idea 分别保存已知信息、假设与澄清问题，不伪造缺失内容。
+- [x] 没有显式推进动作时 Idea 持续停留在 Idea 池；推进后只创建一个关联项目。
+- [x] 非法状态转换被拒绝，并返回当前状态与可理解的恢复路径。
+- [x] 同一请求重放不产生重复记录；版本冲突不覆盖较新的事实。
+- [x] proposer/executor 查询读取同一份权威数据，成功操作产生可追踪历史。
 
 至少一个客观验收场景：对同一不完整 Idea 请求重放两次，系统只保留一个 Idea，
 仍处于待澄清状态；明确推进后生成唯一项目，随后发起非法转换得到确定性拒绝。
 
 Acceptance record:
 
-- Result: `None`
+- Result: `Ready for formal acceptance`
 - Accepted by: `None`
 - Accepted at (UTC): `None`
-- Evidence: `None`
+- Evidence:
+  [LP-01 verification](../../feature/lp-01-core-idea-flow/verification.md)
 
 ## 8. Risks and blockers
 
@@ -75,12 +75,12 @@ Acceptance record:
 
 ## 9. Status
 
-`Not Started`
+`Ready for Acceptance`
 
 只有与本计划范围对应的实现、测试和文档证据完整后，才能改为
 `Ready for Acceptance`。
 
 ## 10. Next step
 
-为 LP-01 启动独立 Engineering Lifecycle Requirements 阶段，重新确认实现时的
-仓库现状、依赖版本和可验收交付边界。
+完成精确 PR head 代码审查；审查通过且合并后，由正式验收方记录接受结果。不得据此
+自动启动 LP-02。

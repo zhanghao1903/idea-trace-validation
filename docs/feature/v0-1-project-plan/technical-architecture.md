@@ -304,7 +304,7 @@ POST /projects/:projectId/corrections
 - 结构化汇报使用独立的 `Ajv2020` 实例；不与 Fastify 默认 Schema 实例混用。
 - Ajv 开启 strict mode，并显式注册 `date-time` 等 formats。
 - OpenAPI 从路由 Schema 生成，CI 检查生成文件无未提交差异。
-- [structured-report.v1.schema.json](./schemas/structured-report.v1.schema.json)
+- [structured-report.v1.schema.json](../../../packages/contracts/schemas/structured-report.v1.schema.json)
   在实现初期移动到 `packages/contracts/schemas/`，文档链接同步更新，保证只有一个规范源。
 - TypeScript 类型从 Schema 推导或生成，不手写第二份不受检验的协议类型。
 

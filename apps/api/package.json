@@ -1,0 +1,25 @@
+{
+  "name": "@idea/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server.js",
+  "types": "./dist/server.d.ts",
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@fastify/helmet": "13.1.0",
+    "@fastify/swagger": "9.8.1",
+    "@fastify/type-provider-typebox": "6.1.0",
+    "@idea/application": "0.1.0",
+    "@idea/contracts": "0.1.0",
+    "@idea/db": "0.1.0",
+    "fastify": "5.11.0",
+    "pino": "10.3.1",
+    "typebox": "1.3.8"
+  }
+}

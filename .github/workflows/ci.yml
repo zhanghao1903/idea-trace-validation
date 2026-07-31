@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - codex/v0-1-project-plan
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.10-alpine
+        env:
+          POSTGRES_DB: idea_validation_test
+          POSTGRES_PASSWORD: idea_validation
+          POSTGRES_USER: idea_validation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U idea_validation -d idea_validation_test"
+          --health-interval 2s --health-timeout 2s --health-retries 20
+    env:
+      AI_API_TOKEN: ci-only-token-with-at-least-32-characters
+      DATABASE_URL: postgres://idea_validation:idea_validation@127.0.0.1:5432/idea_validation_test
+      TEST_DATABASE_URL: postgres://idea_validation:idea_validation@127.0.0.1:5432/idea_validation_test
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          cache: npm
+          node-version-file: .nvmrc
+      - run: npm ci
+      - run: npm run db:migrate:test
+      - run: npm run verify

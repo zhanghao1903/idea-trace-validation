@@ -4,7 +4,8 @@
 - Protocol version: `1.0`
 - Status: Proposed F2 Design
 - Requirements baseline: `aedb210b95cbbeabc69ce776ed6966b36677196b`
-- Machine-readable schema: [structured-report.v1.schema.json](./schemas/structured-report.v1.schema.json)
+- Machine-readable schema:
+  [structured-report.v1.schema.json](../../../packages/contracts/schemas/structured-report.v1.schema.json)
 - Updated: 2026-07-27
 
 ## 1. 协议目标

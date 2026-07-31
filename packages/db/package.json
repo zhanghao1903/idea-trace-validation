@@ -1,0 +1,25 @@
+{
+  "name": "@idea/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "tsc -b --clean"
+  },
+  "dependencies": {
+    "@idea/application": "0.1.0",
+    "@idea/contracts": "0.1.0",
+    "@idea/domain": "0.1.0",
+    "drizzle-orm": "0.45.2",
+    "pg": "8.22.0"
+  }
+}

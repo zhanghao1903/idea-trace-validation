@@ -31,7 +31,7 @@
 - LP-01/LP-02 必须已提供权威项目、事项、证据、结论和角色化查询。
 - Planning inputs:
   [structured report protocol](../../feature/v0-1-project-plan/structured-report-protocol.md),
-  [schema](../../feature/v0-1-project-plan/schemas/structured-report.v1.schema.json) 与
+  [schema](../../../packages/contracts/schemas/structured-report.v1.schema.json) 与
   [technical architecture](../../feature/v0-1-project-plan/technical-architecture.md).
 
 ## 5. Main deliverables
