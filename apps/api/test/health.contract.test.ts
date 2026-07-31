@@ -1,4 +1,5 @@
 import type {
+  ExperienceQueryService,
   IdeaService,
   ProjectExecutionService,
   Readiness,
@@ -18,6 +19,8 @@ const unavailableService = new Proxy({} as IdeaService, {
 const unavailableExecutionService =
   unavailableService as unknown as ProjectExecutionService;
 const unavailableReportService = unavailableService as unknown as ReportService;
+const unavailableExperienceService =
+  unavailableService as unknown as ExperienceQueryService;
 
 const config = {
   nodeEnv: "test" as const,
@@ -57,6 +60,7 @@ describe("listener and readiness contract", () => {
       service: unavailableService,
       executionService: unavailableExecutionService,
       reportService: unavailableReportService,
+      experienceService: unavailableExperienceService,
       readiness: notReady,
     });
     try {

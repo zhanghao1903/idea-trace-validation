@@ -1,4 +1,5 @@
 import type {
+  ExperienceQueryService,
   IdeaService,
   ProjectExecutionService,
   ReportService,
@@ -25,6 +26,13 @@ const unavailableReportService = new Proxy({} as ReportService, {
   get() {
     return async () => {
       throw new Error("OPENAPI_REPORT_SERVICE_MUST_NOT_BE_CALLED");
+    };
+  },
+});
+const unavailableExperienceService = new Proxy({} as ExperienceQueryService, {
+  get() {
+    return async () => {
+      throw new Error("OPENAPI_EXPERIENCE_SERVICE_MUST_NOT_BE_CALLED");
     };
   },
 });
@@ -59,6 +67,7 @@ export const generateOpenApi = async (): Promise<
     service: unavailableService,
     executionService: unavailableExecutionService,
     reportService: unavailableReportService,
+    experienceService: unavailableExperienceService,
     readiness: ready,
   });
   try {

@@ -210,6 +210,15 @@ export type ExecutorProjectGroup = Type.Static<
   typeof ExecutorProjectGroupSchema
 >;
 export type ExperienceView = Type.Static<typeof ExperienceViewSchema>;
+export type ExperienceProgressPreview = Type.Static<
+  typeof ExperienceProgressPreviewSchema
+>;
+export type ExperienceAttentionPreview = Type.Static<
+  typeof ExperienceAttentionPreviewSchema
+>;
+export type ExperienceConclusionPreview = Type.Static<
+  typeof ExperienceConclusionPreviewSchema
+>;
 export type ProposerIdeaCardDto = Type.Static<typeof ProposerIdeaCardDtoSchema>;
 export type ExecutorProjectCardDto = Type.Static<
   typeof ExecutorProjectCardDtoSchema

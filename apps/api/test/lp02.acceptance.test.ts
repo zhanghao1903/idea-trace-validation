@@ -2,6 +2,7 @@ import {
   createPool,
   migrate,
   PostgresIdeaService,
+  PostgresExperienceQueryService,
   PostgresProjectExecutionService,
   PostgresReadiness,
   PostgresReportService,
@@ -73,6 +74,7 @@ beforeAll(async () => {
     service: new PostgresIdeaService(pool),
     executionService: new PostgresProjectExecutionService(pool, humanToken),
     reportService: new PostgresReportService(pool),
+    experienceService: new PostgresExperienceQueryService(pool),
     readiness: new PostgresReadiness(pool),
   });
   await app.ready();

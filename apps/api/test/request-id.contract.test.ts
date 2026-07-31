@@ -1,4 +1,5 @@
 import type {
+  ExperienceQueryService,
   IdeaService,
   ProjectExecutionService,
   Readiness,
@@ -46,6 +47,8 @@ const listService = new Proxy({} as IdeaService, {
 const unavailableExecutionService =
   listService as unknown as ProjectExecutionService;
 const unavailableReportService = listService as unknown as ReportService;
+const unavailableExperienceService =
+  listService as unknown as ExperienceQueryService;
 
 describe("request identity contract", () => {
   it("uses one Fastify request ID for access logging and an initial read response", async () => {
@@ -54,6 +57,7 @@ describe("request identity contract", () => {
       service: listService,
       executionService: unavailableExecutionService,
       reportService: unavailableReportService,
+      experienceService: unavailableExperienceService,
       readiness: ready,
     });
     let incomingRequestId: string | undefined;
@@ -105,6 +109,7 @@ describe("request identity contract", () => {
       service: listService,
       executionService: missingExecutionService,
       reportService: unavailableReportService,
+      experienceService: unavailableExperienceService,
       readiness: ready,
     });
 

@@ -1,4 +1,5 @@
 import type {
+  ExperienceQueryService,
   IdeaService,
   ProjectExecutionService,
   ReportService,
@@ -27,6 +28,7 @@ import { attentionItemRoutes } from "./routes/attention-items.js";
 import { clarificationRoutes } from "./routes/clarifications.js";
 import { conclusionRoutes } from "./routes/conclusions.js";
 import { evidenceRoutes } from "./routes/evidence.js";
+import { experienceRoutes } from "./routes/experience.js";
 import { healthRoutes } from "./routes/health.js";
 import { humanConfirmationRoutes } from "./routes/human-confirmations.js";
 import { ideaRoutes } from "./routes/ideas.js";
@@ -42,6 +44,7 @@ export interface AppDependencies {
   service: IdeaService;
   executionService: ProjectExecutionService;
   reportService: ReportService;
+  experienceService: ExperienceQueryService;
   readiness: Readiness;
 }
 
@@ -50,6 +53,7 @@ export const buildApp = async ({
   service,
   executionService,
   reportService,
+  experienceService,
   readiness,
 }: AppDependencies): Promise<FastifyInstance> => {
   const app = Fastify({
@@ -274,6 +278,7 @@ export const buildApp = async ({
           onBehalfOfRole: null,
         }),
       );
+      await business.register(experienceRoutes(experienceService));
     },
     { prefix: "/api/v1" },
   );
