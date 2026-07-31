@@ -1,4 +1,9 @@
-import { createPool, PostgresIdeaService, PostgresReadiness } from "@idea/db";
+import {
+  createPool,
+  PostgresIdeaService,
+  PostgresProjectExecutionService,
+  PostgresReadiness,
+} from "@idea/db";
 
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
@@ -14,6 +19,10 @@ const readiness = new PostgresReadiness(pool);
 const app = await buildApp({
   config,
   service: new PostgresIdeaService(pool),
+  executionService: new PostgresProjectExecutionService(
+    pool,
+    config.humanControlToken,
+  ),
   readiness,
 });
 

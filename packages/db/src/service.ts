@@ -1,16 +1,21 @@
 import type {
   AnswerClarificationRequest,
   AnswerDto,
+  AttentionItemDto,
   AuditEventDto,
+  ConclusionDto,
   CreateIdeaRequest,
+  EvidenceDto,
   IdeaAuthorityDto,
   IdeaDetailDto,
   IdeaSummaryDto,
   ProjectAuthorityDto,
+  ProjectAllowedCommand,
   ProjectDetailDto,
   ProjectHypothesisDto,
   ProjectMutationDto,
   ProjectSummaryDto,
+  ProgressUpdateDto,
   PromoteIdeaRequest,
   QuestionDto,
   StatementDto,
@@ -98,8 +103,13 @@ interface ProjectRow {
   id: string;
   idea_id: string;
   goal: string;
-  phase: "PLANNING";
-  status: "QUEUED";
+  phase: "PLANNING" | "BUILDING" | "VALIDATING" | "CONCLUDING";
+  status: "QUEUED" | "IN_PROGRESS" | "PAUSED" | "COMPLETED";
+  current_next_step: string | null;
+  latest_progress_update_id: string | null;
+  active_conclusion_id: string | null;
+  completed_at: Date | null;
+  completion_kind: "COMPLETE" | "STOP" | "TRANSFER" | null;
   source_idea_version: number;
   version: number;
   created_at: Date;
@@ -141,6 +151,86 @@ interface IdempotencyRow {
   status: "IN_PROGRESS" | "SUCCEEDED" | "REJECTED";
   response_status: number | null;
   response_payload: unknown;
+}
+
+interface ExecutionActorRow {
+  actor_type: "HUMAN" | "AI";
+  actor_role: "PROPOSER" | "EXECUTOR" | "MAINTAINER";
+  actor_display_name: string;
+  actor_client: string | null;
+  on_behalf_of_role: "PROPOSER" | "EXECUTOR" | "MAINTAINER" | null;
+}
+
+interface ProgressProjectionRow extends ExecutionActorRow {
+  id: string;
+  project_id: string;
+  sequence: number;
+  summary: string;
+  completed_work: string[];
+  next_step: string;
+  project_status_at_submission: ProjectRow["status"];
+  phase_at_submission: ProjectRow["phase"];
+  evidence_ids: string[];
+  occurred_at: Date;
+  submitted_at: Date;
+  corrects_progress_id: string | null;
+  resulting_project_version: number;
+}
+
+interface AttentionProjectionRow extends ExecutionActorRow {
+  id: string;
+  project_id: string;
+  type: "BLOCKER" | "DECISION_REQUEST" | "SUPPORT_REQUEST";
+  title: string;
+  status: "OPEN" | "NEEDS_INFO" | "RESOLVED" | "CLOSED";
+  background: string | null;
+  impact: string | null;
+  options: string[];
+  recommendation: string | null;
+  decision_impact: string | null;
+  waiting_for_role: "PROPOSER" | "EXECUTOR" | "MAINTAINER" | null;
+  support_needed: string | null;
+  request_reason: string | null;
+  expected_responder_role: "PROPOSER" | "EXECUTOR" | "MAINTAINER" | null;
+  created_at: Date;
+  updated_at: Date;
+  resolved_at: Date | null;
+  resulting_project_version: number;
+}
+
+interface EvidenceProjectionRow extends ExecutionActorRow {
+  id: string;
+  project_id: string;
+  kind: "LINK" | "ARTIFACT" | "METRIC" | "NOTE";
+  title: string;
+  summary: string;
+  locator: string | null;
+  metric_name: string | null;
+  metric_value: string | null;
+  metric_unit: string | null;
+  captured_at: Date;
+  recorded_at: Date;
+  state: "ACTIVE" | "RETRACTED";
+  replaces_evidence_id: string | null;
+  resulting_project_version: number;
+}
+
+interface ConclusionProjectionRow extends ExecutionActorRow {
+  id: string;
+  project_id: string;
+  sequence: number;
+  evidence_summary: string;
+  evidence_ids: string[];
+  limitations: string[];
+  uncertainties: string[];
+  recommendation: "CONTINUE" | "ADJUST" | "STOP" | "TRANSFER";
+  recommendation_note: string;
+  supplemental_note: string | null;
+  supersedes_conclusion_id: string | null;
+  effective_status:
+    "DRAFT" | "PENDING_CONFIRMATION" | "CONFIRMED" | "SUPERSEDED";
+  submitted_at: Date;
+  resulting_project_version: number;
 }
 
 const ids = createIdFactory();
@@ -211,10 +301,131 @@ const projectAuthority = (row: ProjectRow): ProjectAuthorityDto => ({
   goal: row.goal,
   phase: row.phase,
   status: row.status,
+  currentNextStep: row.current_next_step,
+  latestProgressUpdateId: row.latest_progress_update_id,
+  activeConclusionId: row.active_conclusion_id,
+  completedAt: row.completed_at === null ? null : toIso(row.completed_at),
+  completionKind: row.completion_kind,
   sourceIdeaVersion: row.source_idea_version,
   version: row.version,
   createdAt: toIso(row.created_at),
   updatedAt: toIso(row.updated_at),
+});
+
+const allowedProjectCommands = (
+  project: ProjectRow,
+  conclusion: ConclusionDto | null,
+): ProjectAllowedCommand[] => {
+  if (project.status === "COMPLETED") return ["REOPEN_PROJECT"];
+  const commands: ProjectAllowedCommand[] =
+    project.status === "QUEUED"
+      ? ["START", "PAUSE"]
+      : project.status === "IN_PROGRESS"
+        ? ["PAUSE", "CHANGE_PHASE"]
+        : ["RESUME"];
+  if (conclusion === null) return commands;
+  if (conclusion.status === "DRAFT") commands.push("CONFIRM_CONCLUSION");
+  if (!["DRAFT", "CONFIRMED"].includes(conclusion.status)) return commands;
+  if (
+    conclusion.recommendation === "CONTINUE" ||
+    conclusion.recommendation === "ADJUST"
+  ) {
+    commands.push("COMPLETE_PROJECT");
+  } else if (conclusion.recommendation === "STOP") {
+    commands.push("STOP_PROJECT");
+  } else {
+    commands.push("TRANSFER_PROJECT");
+  }
+  return commands;
+};
+
+const executionActorDto = (row: ExecutionActorRow) => ({
+  actorType: row.actor_type,
+  role: row.actor_role,
+  displayName: row.actor_display_name,
+  client: row.actor_client,
+  onBehalfOfRole: row.on_behalf_of_role,
+});
+
+const progressProjectionDto = (
+  row: ProgressProjectionRow,
+): ProgressUpdateDto => ({
+  id: row.id,
+  projectId: row.project_id,
+  sequence: row.sequence,
+  summary: row.summary,
+  completedWork: row.completed_work,
+  nextStep: row.next_step,
+  projectStatusAtSubmission: row.project_status_at_submission,
+  phaseAtSubmission: row.phase_at_submission,
+  evidenceIds: row.evidence_ids,
+  occurredAt: toIso(row.occurred_at),
+  submittedAt: toIso(row.submitted_at),
+  submittedBy: executionActorDto(row),
+  correctsProgressId: row.corrects_progress_id,
+  resultingProjectVersion: row.resulting_project_version,
+});
+
+const attentionProjectionDto = (
+  row: AttentionProjectionRow,
+): AttentionItemDto => ({
+  id: row.id,
+  projectId: row.project_id,
+  type: row.type,
+  title: row.title,
+  status: row.status,
+  background: row.background,
+  impact: row.impact,
+  options: row.options,
+  recommendation: row.recommendation,
+  decisionImpact: row.decision_impact,
+  waitingForRole: row.waiting_for_role,
+  supportNeeded: row.support_needed,
+  requestReason: row.request_reason,
+  expectedResponderRole: row.expected_responder_role,
+  createdBy: executionActorDto(row),
+  createdAt: toIso(row.created_at),
+  updatedAt: toIso(row.updated_at),
+  resolvedAt: row.resolved_at === null ? null : toIso(row.resolved_at),
+  resultingProjectVersion: row.resulting_project_version,
+});
+
+const evidenceProjectionDto = (row: EvidenceProjectionRow): EvidenceDto => ({
+  id: row.id,
+  projectId: row.project_id,
+  kind: row.kind,
+  title: row.title,
+  summary: row.summary,
+  locator: row.locator,
+  metricName: row.metric_name,
+  metricValue: row.metric_value,
+  metricUnit: row.metric_unit,
+  capturedAt: toIso(row.captured_at),
+  recordedAt: toIso(row.recorded_at),
+  recordedBy: executionActorDto(row),
+  state: row.state,
+  replacesEvidenceId: row.replaces_evidence_id,
+  resultingProjectVersion: row.resulting_project_version,
+});
+
+const conclusionProjectionDto = (
+  row: ConclusionProjectionRow,
+): ConclusionDto => ({
+  id: row.id,
+  projectId: row.project_id,
+  sequence: row.sequence,
+  evidenceSummary: row.evidence_summary,
+  evidenceIds: row.evidence_ids,
+  limitations: row.limitations,
+  uncertainties: row.uncertainties,
+  recommendation: row.recommendation,
+  recommendationNote: row.recommendation_note,
+  supplementalNote: row.supplemental_note,
+  supersedesConclusionId: row.supersedes_conclusion_id,
+  status: row.effective_status,
+  submittedBy: executionActorDto(row),
+  submittedAt: toIso(row.submitted_at),
+  resultingProjectVersion: row.resulting_project_version,
 });
 
 const hypothesisDto = (row: HypothesisRow): ProjectHypothesisDto => ({
@@ -1155,6 +1366,10 @@ export class PostgresIdeaService implements IdeaService {
       const hypotheses = hypothesesResult.rows.map(hypothesisDto);
       const authority = projectAuthority(project);
       const sourceIdea = ideaAuthority(idea);
+      const executionProjection = await this.getExecutionDetailProjection(
+        client,
+        project,
+      );
       const proposerFocus = {
         view: "proposer" as const,
         sourceIdea: {
@@ -1163,12 +1378,41 @@ export class PostgresIdeaService implements IdeaService {
           proposer: sourceIdea.proposer,
           desiredOutcome: project.goal,
         },
-        projectOutcome: { goal: project.goal, status: "QUEUED" as const },
+        projectOutcome: {
+          goal: project.goal,
+          status: project.status,
+          currentNextStep: project.current_next_step,
+          latestProgressSummary:
+            executionProjection.latestProgress?.summary ?? null,
+          openAttentionCount: executionProjection.openAttentionCount,
+          latestRecommendation:
+            executionProjection.latestConclusion?.recommendation ?? null,
+        },
       };
       return {
         authority,
         hypotheses,
         sourceIdea,
+        execution: {
+          currentNextStep: project.current_next_step,
+          latestProgress: executionProjection.latestProgress,
+          openAttentionPreview: executionProjection.openAttentionPreview,
+          openAttentionCount: executionProjection.openAttentionCount,
+          evidencePreview: executionProjection.evidencePreview,
+          evidenceCount: executionProjection.evidenceCount,
+          latestConclusion: executionProjection.latestConclusion,
+          allowedCommands: allowedProjectCommands(
+            project,
+            executionProjection.latestConclusion,
+          ),
+          collectionPaths: {
+            progressUpdates: `/api/v1/projects/${project.id}/progress-updates`,
+            attentionItems: `/api/v1/projects/${project.id}/attention-items`,
+            evidence: `/api/v1/projects/${project.id}/evidence`,
+            conclusions: `/api/v1/projects/${project.id}/conclusions`,
+            history: `/api/v1/projects/${project.id}/history`,
+          },
+        },
         focus:
           view === "proposer"
             ? proposerFocus
@@ -1179,6 +1423,11 @@ export class PostgresIdeaService implements IdeaService {
                   phase: project.phase,
                   status: project.status,
                   version: project.version,
+                  currentNextStep: project.current_next_step,
+                  latestProgressId: project.latest_progress_update_id,
+                  openAttentionCount: executionProjection.openAttentionCount,
+                  evidenceCount: executionProjection.evidenceCount,
+                  latestConclusionId: project.active_conclusion_id,
                 },
                 hypotheses,
                 sourceIdea: { id: idea.id, version: idea.version },
@@ -1452,6 +1701,7 @@ export class PostgresIdeaService implements IdeaService {
     const idea = ideaResult.rows[0];
     if (idea === undefined) throw new Error("PROJECT_IDEA_INVARIANT");
     const authority = projectAuthority(project);
+    const execution = await this.getExecutionSummaryProjection(client, project);
     if (view === "proposer") {
       return {
         authority,
@@ -1463,7 +1713,14 @@ export class PostgresIdeaService implements IdeaService {
             proposer: ideaAuthority(idea).proposer,
             desiredOutcome: project.goal,
           },
-          projectOutcome: { goal: project.goal, status: "QUEUED" },
+          projectOutcome: {
+            goal: project.goal,
+            status: project.status,
+            currentNextStep: project.current_next_step,
+            latestProgressSummary: execution.latestProgressSummary,
+            openAttentionCount: execution.openAttentionCount,
+            latestRecommendation: execution.latestRecommendation,
+          },
         },
       };
     }
@@ -1480,10 +1737,160 @@ export class PostgresIdeaService implements IdeaService {
           phase: project.phase,
           status: project.status,
           version: project.version,
+          currentNextStep: project.current_next_step,
+          latestProgressId: project.latest_progress_update_id,
+          openAttentionCount: execution.openAttentionCount,
+          evidenceCount: execution.evidenceCount,
+          latestConclusionId: project.active_conclusion_id,
         },
         hypothesisCount: countResult.rows[0]?.count ?? 0,
         sourceIdea: { id: idea.id, version: idea.version },
       },
+    };
+  }
+
+  private async getExecutionSummaryProjection(
+    client: PoolClient,
+    project: ProjectRow,
+  ): Promise<{
+    latestProgressSummary: string | null;
+    openAttentionCount: number;
+    evidenceCount: number;
+    latestRecommendation: "CONTINUE" | "ADJUST" | "STOP" | "TRANSFER" | null;
+  }> {
+    const result = await client.query<{
+      latest_progress_summary: string | null;
+      open_attention_count: number;
+      evidence_count: number;
+      latest_recommendation: "CONTINUE" | "ADJUST" | "STOP" | "TRANSFER" | null;
+    }>(
+      `
+        SELECT
+          (
+            SELECT summary FROM progress_updates
+            WHERE id=$2 AND project_id=$1
+          ) AS latest_progress_summary,
+          (
+            SELECT count(*)::int FROM attention_items
+            WHERE project_id=$1 AND status IN ('OPEN','NEEDS_INFO')
+          ) AS open_attention_count,
+          (
+            SELECT count(*)::int FROM evidence_items e
+            WHERE e.project_id=$1
+              AND NOT EXISTS (
+                SELECT 1 FROM evidence_events event WHERE event.evidence_id=e.id
+              )
+          ) AS evidence_count,
+          (
+            SELECT recommendation FROM validation_conclusions
+            WHERE id=$3 AND project_id=$1
+          ) AS latest_recommendation
+      `,
+      [
+        project.id,
+        project.latest_progress_update_id,
+        project.active_conclusion_id,
+      ],
+    );
+    const row = result.rows[0];
+    return {
+      latestProgressSummary: row?.latest_progress_summary ?? null,
+      openAttentionCount: row?.open_attention_count ?? 0,
+      evidenceCount: row?.evidence_count ?? 0,
+      latestRecommendation: row?.latest_recommendation ?? null,
+    };
+  }
+
+  private async getExecutionDetailProjection(
+    client: PoolClient,
+    project: ProjectRow,
+  ): Promise<{
+    latestProgress: ProgressUpdateDto | null;
+    openAttentionPreview: AttentionItemDto[];
+    openAttentionCount: number;
+    evidencePreview: EvidenceDto[];
+    evidenceCount: number;
+    latestConclusion: ConclusionDto | null;
+  }> {
+    const progress = await client.query<ProgressProjectionRow>(
+      `
+        SELECT p.*,
+          coalesce(
+            (SELECT jsonb_agg(link.evidence_id ORDER BY link.position)
+             FROM progress_update_evidence link
+             WHERE link.progress_update_id=p.id),
+            '[]'::jsonb
+          ) AS evidence_ids
+        FROM progress_updates p
+        WHERE p.id=$1 AND p.project_id=$2
+      `,
+      [project.latest_progress_update_id, project.id],
+    );
+    const attention = await client.query<AttentionProjectionRow>(
+      `
+        SELECT * FROM attention_items
+        WHERE project_id=$1 AND status IN ('OPEN','NEEDS_INFO')
+        ORDER BY updated_at DESC,id DESC
+        LIMIT 10
+      `,
+      [project.id],
+    );
+    const evidence = await client.query<EvidenceProjectionRow>(
+      `
+        SELECT e.*,'ACTIVE'::text AS state
+        FROM evidence_items e
+        WHERE e.project_id=$1
+          AND NOT EXISTS (
+            SELECT 1 FROM evidence_events event WHERE event.evidence_id=e.id
+          )
+        ORDER BY e.resulting_project_version DESC,e.id DESC
+        LIMIT 10
+      `,
+      [project.id],
+    );
+    const conclusion = await client.query<ConclusionProjectionRow>(
+      `
+        SELECT c.*,
+          coalesce(
+            (SELECT jsonb_agg(link.evidence_id ORDER BY link.position)
+             FROM conclusion_evidence link WHERE link.conclusion_id=c.id),
+            '[]'::jsonb
+          ) AS evidence_ids,
+          CASE
+            WHEN last_state.status='PENDING_CONFIRMATION'
+              AND (confirmation.id IS NULL
+                OR confirmation.decision <> 'PENDING'
+                OR confirmation.expires_at <= clock_timestamp()
+                OR confirmation.expected_project_version <> project.version)
+              THEN 'DRAFT'
+            ELSE coalesce(last_state.status,'DRAFT')
+          END AS effective_status
+        FROM validation_conclusions c
+        JOIN validation_projects project ON project.id=c.project_id
+        LEFT JOIN LATERAL (
+          SELECT status,confirmation_id FROM conclusion_state_events
+          WHERE conclusion_id=c.id ORDER BY recorded_at DESC,id DESC LIMIT 1
+        ) last_state ON true
+        LEFT JOIN human_confirmations confirmation
+          ON confirmation.id=last_state.confirmation_id
+        WHERE c.id=$1 AND c.project_id=$2
+      `,
+      [project.active_conclusion_id, project.id],
+    );
+    const counts = await this.getExecutionSummaryProjection(client, project);
+    return {
+      latestProgress:
+        progress.rows[0] === undefined
+          ? null
+          : progressProjectionDto(progress.rows[0]),
+      openAttentionPreview: attention.rows.map(attentionProjectionDto),
+      openAttentionCount: counts.openAttentionCount,
+      evidencePreview: evidence.rows.map(evidenceProjectionDto),
+      evidenceCount: counts.evidenceCount,
+      latestConclusion:
+        conclusion.rows[0] === undefined
+          ? null
+          : conclusionProjectionDto(conclusion.rows[0]),
     };
   }
 }

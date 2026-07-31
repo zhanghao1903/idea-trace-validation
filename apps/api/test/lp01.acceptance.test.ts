@@ -2,6 +2,7 @@ import {
   createPool,
   migrate,
   PostgresIdeaService,
+  PostgresProjectExecutionService,
   PostgresReadiness,
 } from "@idea/db";
 import type { FastifyInstance } from "fastify";
@@ -13,6 +14,7 @@ const databaseUrl =
   process.env.TEST_DATABASE_URL ??
   "postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test";
 const token = "acceptance-token-that-is-at-least-thirty-two-characters";
+const humanToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 const pool = createPool({ databaseUrl, max: 8, connectTimeoutMs: 2_000 });
 let app: FastifyInstance;
 const observedRequests: { id: string; method: string; url: string }[] = [];
@@ -44,12 +46,14 @@ beforeAll(async () => {
       port: 3000,
       databaseUrl,
       aiApiToken: token,
+      humanControlToken: humanToken,
       logLevel: "silent",
       dbPoolMax: 8,
       dbConnectTimeoutMs: 2_000,
       shutdownGraceMs: 1_000,
     },
     service: new PostgresIdeaService(pool),
+    executionService: new PostgresProjectExecutionService(pool, humanToken),
     readiness: new PostgresReadiness(pool),
   });
   app.addHook("onRequest", async (request) => {

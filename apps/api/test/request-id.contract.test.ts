@@ -1,4 +1,8 @@
-import type { IdeaService, Readiness } from "@idea/application";
+import type {
+  IdeaService,
+  ProjectExecutionService,
+  Readiness,
+} from "@idea/application";
 import { describe, expect, it } from "vitest";
 
 import { buildApp } from "../src/app.js";
@@ -10,6 +14,7 @@ const config = {
   port: 3000,
   databaseUrl: "postgres://example.invalid/idea_validation",
   aiApiToken: "test-token-that-is-at-least-thirty-two-characters",
+  humanControlToken: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   logLevel: "silent" as const,
   dbPoolMax: 1,
   dbConnectTimeoutMs: 100,
@@ -35,12 +40,15 @@ const listService = new Proxy({} as IdeaService, {
     };
   },
 });
+const unavailableExecutionService =
+  listService as unknown as ProjectExecutionService;
 
 describe("request identity contract", () => {
   it("uses one Fastify request ID for access logging and an initial read response", async () => {
     const app = await buildApp({
       config,
       service: listService,
+      executionService: unavailableExecutionService,
       readiness: ready,
     });
     let incomingRequestId: string | undefined;
@@ -62,6 +70,55 @@ describe("request identity contract", () => {
           url: "/api/v1/ideas",
         }),
       ).toMatchObject({ requestId: incomingRequestId });
+    } finally {
+      await app.close();
+    }
+  });
+
+  it("maps read-side project domain failures to the typed 404 envelope", async () => {
+    const missingExecutionService = new Proxy({} as ProjectExecutionService, {
+      get(_target, property) {
+        if (property === "listProjectHistory") {
+          return async () => {
+            throw Object.assign(new Error("PROJECT was not found."), {
+              code: "PROJECT_NOT_FOUND",
+              details: {
+                resourceType: "PROJECT",
+                resourceId: "proj_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+                recovery: "VERIFY_ID_AND_REFETCH",
+              },
+            });
+          };
+        }
+        return async () => {
+          throw new Error(`UNEXPECTED_SERVICE_CALL:${String(property)}`);
+        };
+      },
+    });
+    const app = await buildApp({
+      config,
+      service: listService,
+      executionService: missingExecutionService,
+      readiness: ready,
+    });
+
+    try {
+      const response = await app.inject(
+        "/api/v1/projects/proj_01ARZ3NDEKTSV4RRFFQ69G5FAV/history",
+      );
+      expect(response.statusCode, response.body).toBe(404);
+      expect(response.json()).toMatchObject({
+        ok: false,
+        error: {
+          code: "PROJECT_NOT_FOUND",
+          retryable: false,
+          details: {
+            resourceType: "PROJECT",
+            resourceId: "proj_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+            recovery: "VERIFY_ID_AND_REFETCH",
+          },
+        },
+      });
     } finally {
       await app.close();
     }

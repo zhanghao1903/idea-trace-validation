@@ -10,10 +10,18 @@ describe("logging privacy boundary", () => {
       paths: expect.arrayContaining([
         "req.headers.authorization",
         "req.headers.cookie",
+        "req.headers.x-human-control-token",
         "res.headers.set-cookie",
+        "request.headers.authorization",
+        "request.headers.cookie",
+        "request.headers.x-human-control-token",
         "body",
         "databaseUrl",
+        "DATABASE_URL",
         "AI_API_TOKEN",
+        "HUMAN_CONTROL_TOKEN",
+        "*.payloadDigest",
+        "*.capabilityHash",
         "*.requestDigest",
       ]),
     });

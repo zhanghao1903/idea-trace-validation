@@ -10,6 +10,13 @@ export const createIdFactory = () => ({
   answer: () => `ans_${nextUlid()}`,
   hypothesis: () => `hyp_${nextUlid()}`,
   event: () => `evt_${nextUlid()}`,
+  transition: () => `trn_${nextUlid()}`,
+  progress: () => `prog_${nextUlid()}`,
+  attention: () => `attn_${nextUlid()}`,
+  attentionEvent: () => `atnevt_${nextUlid()}`,
+  evidence: () => `evd_${nextUlid()}`,
+  conclusion: () => `conc_${nextUlid()}`,
+  confirmation: () => `confirm_${nextUlid()}`,
   request: () => `req_${nextUlid()}`,
 });
 

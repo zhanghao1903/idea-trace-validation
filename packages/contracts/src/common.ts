@@ -1,4 +1,4 @@
-import { Type } from "typebox";
+import { Type, type TSchema } from "typebox";
 
 export const ULID_PATTERN = "[0-9A-HJKMNP-TV-Z]{26}";
 export const REQUEST_ID_PATTERN = `^req_${ULID_PATTERN}$`;
@@ -9,6 +9,14 @@ export const QUESTION_ID_PATTERN = `^ques_${ULID_PATTERN}$`;
 export const ANSWER_ID_PATTERN = `^ans_${ULID_PATTERN}$`;
 export const HYPOTHESIS_ID_PATTERN = `^hyp_${ULID_PATTERN}$`;
 export const EVENT_ID_PATTERN = `^evt_${ULID_PATTERN}$`;
+export const TRANSITION_ID_PATTERN = `^trn_${ULID_PATTERN}$`;
+export const PROGRESS_ID_PATTERN = `^prog_${ULID_PATTERN}$`;
+export const ATTENTION_ID_PATTERN = `^attn_${ULID_PATTERN}$`;
+export const ATTENTION_EVENT_ID_PATTERN = `^atnevt_${ULID_PATTERN}$`;
+export const EVIDENCE_ID_PATTERN = `^evd_${ULID_PATTERN}$`;
+export const CONCLUSION_ID_PATTERN = `^conc_${ULID_PATTERN}$`;
+export const CONFIRMATION_ID_PATTERN = `^confirm_${ULID_PATTERN}$`;
+export const ARTIFACT_ID_PATTERN = `^artifact_${ULID_PATTERN}$`;
 export const RFC3339_PATTERN =
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$";
 
@@ -71,7 +79,28 @@ export const HypothesisIdSchema = Type.String({
   pattern: HYPOTHESIS_ID_PATTERN,
 });
 export const EventIdSchema = Type.String({ pattern: EVENT_ID_PATTERN });
+export const TransitionIdSchema = Type.String({
+  pattern: TRANSITION_ID_PATTERN,
+});
+export const ProgressIdSchema = Type.String({ pattern: PROGRESS_ID_PATTERN });
+export const AttentionIdSchema = Type.String({ pattern: ATTENTION_ID_PATTERN });
+export const AttentionEventIdSchema = Type.String({
+  pattern: ATTENTION_EVENT_ID_PATTERN,
+});
+export const EvidenceIdSchema = Type.String({ pattern: EVIDENCE_ID_PATTERN });
+export const ConclusionIdSchema = Type.String({
+  pattern: CONCLUSION_ID_PATTERN,
+});
+export const ConfirmationIdSchema = Type.String({
+  pattern: CONFIRMATION_ID_PATTERN,
+});
+export const ArtifactIdSchema = Type.String({ pattern: ARTIFACT_ID_PATTERN });
 export const DateTimeSchema = Type.String({ pattern: RFC3339_PATTERN });
+export const IdempotencyKeySchema = Type.String({
+  minLength: 1,
+  maxLength: 128,
+  pattern: "^[A-Za-z0-9._~:+/-]+$",
+});
 
 export const ViewSchema = Type.Union([
   Type.Literal("proposer"),
@@ -180,7 +209,7 @@ export const VersionConflictErrorSchema = Type.Object(
     retryable: Type.Literal(false),
     details: Type.Object(
       {
-        resourceId: IdeaIdSchema,
+        resourceId: Type.Union([IdeaIdSchema, ProjectIdSchema]),
         expectedVersion: Type.Integer({ minimum: 1 }),
         currentVersion: Type.Integer({ minimum: 1 }),
         recovery: Type.Literal("REFETCH_AND_RETRY_WITH_NEW_KEY"),
@@ -289,6 +318,54 @@ export const ServiceNotReadyErrorSchema = Type.Object(
   strict,
 );
 
+export const HumanControlErrorSchema = Type.Object(
+  {
+    code: Type.Union([
+      Type.Literal("HUMAN_CONTROL_REQUIRED"),
+      Type.Literal("CONFIRMATION_CAPABILITY_REQUIRED"),
+    ]),
+    message: Type.String(),
+    retryable: Type.Literal(false),
+    details: Type.Object(
+      {
+        recovery: Type.Union([
+          Type.Literal("PROVIDE_VALID_HUMAN_CONTROL_CREDENTIAL"),
+          Type.Literal("USE_SCOPED_CONFIRMATION_COOKIE"),
+        ]),
+      },
+      strict,
+    ),
+  },
+  strict,
+);
+
+export const ProjectExecutionErrorSchema = Type.Object(
+  {
+    code: Type.Union([
+      Type.Literal("ATTENTION_ITEM_NOT_FOUND"),
+      Type.Literal("EVIDENCE_NOT_FOUND"),
+      Type.Literal("CONCLUSION_NOT_FOUND"),
+      Type.Literal("CONFIRMATION_NOT_FOUND"),
+      Type.Literal("PROJECT_STATE_CONFLICT"),
+      Type.Literal("PHASE_TRANSITION_INVALID"),
+      Type.Literal("ATTENTION_STATE_CONFLICT"),
+      Type.Literal("CROSS_PROJECT_REFERENCE"),
+      Type.Literal("REFERENCE_NOT_ACTIVE"),
+      Type.Literal("CONCLUSION_STATE_CONFLICT"),
+      Type.Literal("RECOMMENDATION_MISMATCH"),
+      Type.Literal("CONFIRMATION_ALREADY_PENDING"),
+      Type.Literal("CONFIRMATION_EXPIRED"),
+      Type.Literal("CONFIRMATION_ALREADY_DECIDED"),
+      Type.Literal("CONFIRMATION_STALE"),
+      Type.Literal("PROJECT_PRECONDITION_FAILED"),
+    ]),
+    message: Type.String(),
+    retryable: Type.Literal(false),
+    details: Type.Record(Type.String(), Type.Unknown()),
+  },
+  strict,
+);
+
 export const InternalErrorSchema = Type.Object(
   {
     code: Type.Literal("INTERNAL_ERROR"),
@@ -308,6 +385,8 @@ export const ApiErrorSchema = Type.Union([
   IdempotencyInProgressErrorSchema,
   AlreadyPromotedErrorSchema,
   PromotionPreconditionErrorSchema,
+  HumanControlErrorSchema,
+  ProjectExecutionErrorSchema,
   ServiceNotReadyErrorSchema,
   InternalErrorSchema,
 ]);
@@ -321,14 +400,10 @@ export const ErrorEnvelopeSchema = Type.Object(
   strict,
 );
 
-export const writeSuccess = <T extends ReturnType<typeof Type.Object>>(
-  data: T,
-) =>
+export const writeSuccess = <T extends TSchema>(data: T) =>
   Type.Object({ ok: Type.Literal(true), data, meta: WriteMetaSchema }, strict);
 
-export const readSuccess = <T extends ReturnType<typeof Type.Object>>(
-  data: T,
-) =>
+export const readSuccess = <T extends TSchema>(data: T) =>
   Type.Object({ ok: Type.Literal(true), data, meta: ReadMetaSchema }, strict);
 
 export type ActorInput = Type.Static<typeof ActorInputSchema>;

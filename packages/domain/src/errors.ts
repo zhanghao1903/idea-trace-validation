@@ -6,6 +6,22 @@ export type DomainErrorCode =
   | "ALREADY_PROMOTED"
   | "IDEA_ALREADY_PROMOTED"
   | "PROMOTION_PRECONDITION_FAILED"
+  | "ATTENTION_ITEM_NOT_FOUND"
+  | "EVIDENCE_NOT_FOUND"
+  | "CONCLUSION_NOT_FOUND"
+  | "CONFIRMATION_NOT_FOUND"
+  | "PROJECT_STATE_CONFLICT"
+  | "PHASE_TRANSITION_INVALID"
+  | "ATTENTION_STATE_CONFLICT"
+  | "CROSS_PROJECT_REFERENCE"
+  | "REFERENCE_NOT_ACTIVE"
+  | "CONCLUSION_STATE_CONFLICT"
+  | "RECOMMENDATION_MISMATCH"
+  | "CONFIRMATION_ALREADY_PENDING"
+  | "CONFIRMATION_EXPIRED"
+  | "CONFIRMATION_ALREADY_DECIDED"
+  | "CONFIRMATION_STALE"
+  | "PROJECT_PRECONDITION_FAILED"
   | "VALIDATION_FAILED";
 
 export class DomainError extends Error {
@@ -31,7 +47,7 @@ export const versionConflict = (
 ) =>
   new DomainError(
     "VERSION_CONFLICT",
-    "Idea changed since the supplied version.",
+    "Resource changed since the supplied version.",
     {
       resourceId,
       expectedVersion,

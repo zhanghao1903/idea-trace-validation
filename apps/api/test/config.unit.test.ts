@@ -5,6 +5,7 @@ import { ConfigError, loadConfig } from "../src/config.js";
 const valid = {
   DATABASE_URL: "postgres://user:password@127.0.0.1:5432/idea_validation",
   AI_API_TOKEN: "a-token-that-is-at-least-thirty-two-characters",
+  HUMAN_CONTROL_TOKEN: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 };
 
 describe("runtime configuration", () => {
@@ -31,6 +32,27 @@ describe("runtime configuration", () => {
   it("reports only the invalid field name", () => {
     expect(() => loadConfig({ ...valid, PORT: "70000" })).toThrowError(
       "Invalid or missing configuration field: PORT",
+    );
+  });
+
+  it("requires a distinct 32-byte base64url human-control token", () => {
+    expect(() =>
+      loadConfig({ ...valid, HUMAN_CONTROL_TOKEN: valid.AI_API_TOKEN }),
+    ).toThrowError(
+      "Invalid or missing configuration field: HUMAN_CONTROL_TOKEN",
+    );
+    expect(() =>
+      loadConfig({ ...valid, HUMAN_CONTROL_TOKEN: "too-short" }),
+    ).toThrowError(
+      "Invalid or missing configuration field: HUMAN_CONTROL_TOKEN",
+    );
+    expect(() =>
+      loadConfig({
+        ...valid,
+        HUMAN_CONTROL_TOKEN: `${valid.HUMAN_CONTROL_TOKEN.slice(0, -1)}B`,
+      }),
+    ).toThrowError(
+      "Invalid or missing configuration field: HUMAN_CONTROL_TOKEN",
     );
   });
 });
