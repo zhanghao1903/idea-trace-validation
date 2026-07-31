@@ -2,6 +2,7 @@ import type {
   IdeaService,
   ProjectExecutionService,
   Readiness,
+  ReportService,
 } from "@idea/application";
 import { describe, expect, it } from "vitest";
 
@@ -16,6 +17,7 @@ const unavailableService = new Proxy({} as IdeaService, {
 });
 const unavailableExecutionService =
   unavailableService as unknown as ProjectExecutionService;
+const unavailableReportService = unavailableService as unknown as ReportService;
 
 const config = {
   nodeEnv: "test" as const,
@@ -23,6 +25,8 @@ const config = {
   port: 3000,
   databaseUrl: "postgres://example.invalid/idea_validation",
   aiApiToken: "test-token-that-is-at-least-thirty-two-characters",
+  aiWriteDisplayName: "LP-03 report writer",
+  aiWriteClient: null,
   humanControlToken: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   logLevel: "silent" as const,
   dbPoolMax: 1,
@@ -52,6 +56,7 @@ describe("listener and readiness contract", () => {
       config,
       service: unavailableService,
       executionService: unavailableExecutionService,
+      reportService: unavailableReportService,
       readiness: notReady,
     });
     try {

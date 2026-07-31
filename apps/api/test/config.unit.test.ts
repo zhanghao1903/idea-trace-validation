@@ -14,10 +14,33 @@ describe("runtime configuration", () => {
       nodeEnv: "development",
       host: "127.0.0.1",
       port: 3000,
+      aiWriteDisplayName: "LP-03 report writer",
+      aiWriteClient: null,
       dbPoolMax: 10,
       dbConnectTimeoutMs: 2_000,
       shutdownGraceMs: 10_000,
     });
+  });
+
+  it("validates and trims the credential-bound report principal labels", () => {
+    expect(
+      loadConfig({
+        ...valid,
+        AI_WRITE_DISPLAY_NAME: "  Report Agent  ",
+        AI_WRITE_CLIENT: "  codex-client  ",
+      }),
+    ).toMatchObject({
+      aiWriteDisplayName: "Report Agent",
+      aiWriteClient: "codex-client",
+    });
+    expect(() =>
+      loadConfig({ ...valid, AI_WRITE_DISPLAY_NAME: "   " }),
+    ).toThrowError(
+      "Invalid or missing configuration field: AI_WRITE_DISPLAY_NAME",
+    );
+    expect(() =>
+      loadConfig({ ...valid, AI_WRITE_CLIENT: "x".repeat(121) }),
+    ).toThrowError("Invalid or missing configuration field: AI_WRITE_CLIENT");
   });
 
   it("does not accept AI_WRITE_TOKEN as an alias", () => {

@@ -10,9 +10,17 @@ import type {
 import type { ReportWriteContext } from "../report-write-context.js";
 import type { Page, WriteResult } from "./idea-service.js";
 
+type DeepReadonly<T> = T extends (...args: never[]) => unknown
+  ? T
+  : T extends readonly (infer Item)[]
+    ? readonly DeepReadonly<Item>[]
+    : T extends object
+      ? { readonly [Key in keyof T]: DeepReadonly<T[Key]> }
+      : T;
+
 export interface ValidatedReportSubmission {
   readonly document: StructuredReportV1;
-  readonly renderModel: SafeReportRenderModelDto;
+  readonly renderModel: DeepReadonly<SafeReportRenderModelDto>;
   readonly contentSha256: string;
 }
 

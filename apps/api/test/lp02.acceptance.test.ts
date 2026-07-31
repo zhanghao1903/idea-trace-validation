@@ -4,6 +4,7 @@ import {
   PostgresIdeaService,
   PostgresProjectExecutionService,
   PostgresReadiness,
+  PostgresReportService,
 } from "@idea/db";
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -61,6 +62,8 @@ beforeAll(async () => {
       port: 3000,
       databaseUrl,
       aiApiToken: aiToken,
+      aiWriteDisplayName: "LP-03 report writer",
+      aiWriteClient: null,
       humanControlToken: humanToken,
       logLevel: "silent",
       dbPoolMax: 8,
@@ -69,6 +72,7 @@ beforeAll(async () => {
     },
     service: new PostgresIdeaService(pool),
     executionService: new PostgresProjectExecutionService(pool, humanToken),
+    reportService: new PostgresReportService(pool),
     readiness: new PostgresReadiness(pool),
   });
   await app.ready();

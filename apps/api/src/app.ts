@@ -1,6 +1,7 @@
 import type {
   IdeaService,
   ProjectExecutionService,
+  ReportService,
   Readiness,
 } from "@idea/application";
 import { createIdFactory } from "@idea/application";
@@ -33,12 +34,14 @@ import { progressUpdateRoutes } from "./routes/progress-updates.js";
 import { projectHistoryRoutes } from "./routes/project-history.js";
 import { projectTransitionRoutes } from "./routes/project-transitions.js";
 import { projectRoutes } from "./routes/projects.js";
+import { reportRoutes } from "./routes/reports.js";
 import { promotionRoutes } from "./routes/promotions.js";
 
 export interface AppDependencies {
   config: AppConfig;
   service: IdeaService;
   executionService: ProjectExecutionService;
+  reportService: ReportService;
   readiness: Readiness;
 }
 
@@ -46,6 +49,7 @@ export const buildApp = async ({
   config,
   service,
   executionService,
+  reportService,
   readiness,
 }: AppDependencies): Promise<FastifyInstance> => {
   const app = Fastify({
@@ -63,6 +67,7 @@ export const buildApp = async ({
   })
     .withTypeProvider<TypeBoxTypeProvider>()
     .setValidatorCompiler(TypeBoxValidatorCompiler);
+  app.decorateRequest("writePrincipal", null);
 
   app.setErrorHandler(async (error, request, reply) => {
     const candidate =
@@ -78,6 +83,53 @@ export const buildApp = async ({
             }[];
           })
         : {};
+    const reportRequest = (request.routeOptions.url ?? "").includes(
+      "/projects/:projectId/reports",
+    );
+    if (candidate.code === "FST_ERR_CTP_BODY_TOO_LARGE" && reportRequest) {
+      return reply.code(413).send(
+        errorEnvelope(request.id, {
+          code: "REQUEST_TOO_LARGE",
+          message: "The report body exceeds 262144 bytes.",
+          retryable: false,
+          details: { maxBytes: 262_144, recovery: "REDUCE_REPORT_SIZE" },
+        }),
+      );
+    }
+    if (
+      reportRequest &&
+      (candidate.validation !== undefined ||
+        candidate.code === "FST_ERR_CTP_INVALID_JSON_BODY")
+    ) {
+      const unsupported =
+        typeof request.body === "object" &&
+        request.body !== null &&
+        "schemaVersion" in request.body &&
+        request.body.schemaVersion !== "1.0";
+      return reply.code(400).send(
+        errorEnvelope(request.id, {
+          code: unsupported
+            ? "REPORT_SCHEMA_UNSUPPORTED"
+            : "REPORT_VALIDATION_FAILED",
+          message: "The structured report request is invalid.",
+          retryable: false,
+          details: {
+            issues: candidate.validation?.slice(0, 50).map((issue) => ({
+              path: issue.instancePath || "/",
+              code: `SCHEMA_${issue.keyword.toUpperCase()}`,
+              message: issue.message ?? "is invalid",
+            })) ?? [
+              {
+                path: "/",
+                code: "JSON_PARSE_INVALID",
+                message: "Request body must be valid JSON.",
+              },
+            ],
+            recovery: "FIX_REPORT_AND_RETRY",
+          },
+        }),
+      );
+    }
     if (
       candidate.validation !== undefined ||
       candidate.code === "FST_ERR_CTP_BODY_TOO_LARGE"
@@ -131,7 +183,7 @@ export const buildApp = async ({
   await app.register(helmet);
   await app.register(swagger, {
     openapi: {
-      info: { title: "Idea Trace Validation LP-02 API", version: "0.2.0" },
+      info: { title: "Idea Trace Validation LP-03 API", version: "0.3.0" },
       openapi: "3.1.0",
       components: {
         securitySchemes: {
@@ -169,7 +221,12 @@ export const buildApp = async ({
   await app.register(
     async (business) => {
       business.addHook("preValidation", async (request) => {
-        if (request.body !== undefined)
+        const preserveReportWhitespace =
+          request.method === "POST" &&
+          (request.routeOptions.url ?? "").endsWith(
+            "/projects/:projectId/reports",
+          );
+        if (request.body !== undefined && !preserveReportWhitespace)
           request.body = trimJsonStrings(request.body);
       });
       business.addHook("preHandler", async (request, reply) => {
@@ -208,6 +265,15 @@ export const buildApp = async ({
         humanConfirmationRoutes(executionService, config.humanControlToken),
       );
       await business.register(projectHistoryRoutes(executionService));
+      await business.register(
+        reportRoutes(reportService, config.aiApiToken, {
+          actorType: "AI",
+          role: "EXECUTOR",
+          displayName: config.aiWriteDisplayName,
+          client: config.aiWriteClient,
+          onBehalfOfRole: null,
+        }),
+      );
     },
     { prefix: "/api/v1" },
   );

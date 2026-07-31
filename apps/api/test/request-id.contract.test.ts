@@ -2,6 +2,7 @@ import type {
   IdeaService,
   ProjectExecutionService,
   Readiness,
+  ReportService,
 } from "@idea/application";
 import { describe, expect, it } from "vitest";
 
@@ -14,6 +15,8 @@ const config = {
   port: 3000,
   databaseUrl: "postgres://example.invalid/idea_validation",
   aiApiToken: "test-token-that-is-at-least-thirty-two-characters",
+  aiWriteDisplayName: "LP-03 report writer",
+  aiWriteClient: null,
   humanControlToken: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
   logLevel: "silent" as const,
   dbPoolMax: 1,
@@ -42,6 +45,7 @@ const listService = new Proxy({} as IdeaService, {
 });
 const unavailableExecutionService =
   listService as unknown as ProjectExecutionService;
+const unavailableReportService = listService as unknown as ReportService;
 
 describe("request identity contract", () => {
   it("uses one Fastify request ID for access logging and an initial read response", async () => {
@@ -49,6 +53,7 @@ describe("request identity contract", () => {
       config,
       service: listService,
       executionService: unavailableExecutionService,
+      reportService: unavailableReportService,
       readiness: ready,
     });
     let incomingRequestId: string | undefined;
@@ -99,6 +104,7 @@ describe("request identity contract", () => {
       config,
       service: listService,
       executionService: missingExecutionService,
+      reportService: unavailableReportService,
       readiness: ready,
     });
 

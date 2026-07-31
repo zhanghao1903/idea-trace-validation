@@ -15,8 +15,36 @@ import {
 
 const strict = { additionalProperties: false } as const;
 
+const dereferenceReportSchema = (
+  value: unknown,
+  definitions: Readonly<Record<string, unknown>>,
+): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((entry) => dereferenceReportSchema(entry, definitions));
+  }
+  if (value === null || typeof value !== "object") return value;
+  const record = value as Readonly<Record<string, unknown>>;
+  if (typeof record.$ref === "string" && record.$ref.startsWith("#/$defs/")) {
+    const definition = definitions[record.$ref.slice("#/$defs/".length)];
+    if (definition === undefined) throw new Error("REPORT_SCHEMA_REF_MISSING");
+    return dereferenceReportSchema(definition, definitions);
+  }
+  return Object.fromEntries(
+    Object.entries(record)
+      .filter(([key]) => !["$id", "$schema", "$defs"].includes(key))
+      .map(([key, entry]) => [
+        key,
+        dereferenceReportSchema(entry, definitions),
+      ]),
+  );
+};
+
+const structuredReportV1TransportSchema = dereferenceReportSchema(
+  structuredReportV1Schema,
+  structuredReportV1Schema.$defs,
+) as TSchema;
 export const StructuredReportV1Schema = Type.Unsafe<StructuredReportV1>(
-  structuredReportV1Schema as unknown as TSchema,
+  structuredReportV1TransportSchema,
 );
 
 export const ReportDisplayModeSchema = Type.Union([
@@ -31,64 +59,48 @@ export const ReportCompatibilityCodeSchema = Type.Union([
   Type.Literal("REPORT_RENDER_UNAVAILABLE"),
 ]);
 
-export const SafeInlineTokenSchema = Type.Cyclic(
-  {
-    token: Type.Union([
-      Type.Object({ type: Type.Literal("text"), value: Type.String() }, strict),
-      Type.Object(
-        {
-          type: Type.Literal("strong"),
-          children: Type.Array(Type.Ref("token")),
-        },
-        strict,
-      ),
-      Type.Object(
-        {
-          type: Type.Literal("emphasis"),
-          children: Type.Array(Type.Ref("token")),
-        },
-        strict,
-      ),
-      Type.Object(
-        { type: Type.Literal("inline_code"), value: Type.String() },
-        strict,
-      ),
-      Type.Object(
-        {
-          type: Type.Literal("link"),
-          href: Type.String({ pattern: "^https://" }),
-          children: Type.Array(Type.Ref("token")),
-        },
-        strict,
-      ),
-      Type.Object({ type: Type.Literal("break") }, strict),
-    ]),
-  },
-  "token",
-);
+export const SafeInlineTokenSchema = Type.Union([
+  Type.Object({ type: Type.Literal("text"), value: Type.String() }, strict),
+  Type.Object(
+    { type: Type.Literal("strong"), children: Type.Array(Type.Unknown()) },
+    strict,
+  ),
+  Type.Object(
+    { type: Type.Literal("emphasis"), children: Type.Array(Type.Unknown()) },
+    strict,
+  ),
+  Type.Object(
+    { type: Type.Literal("inline_code"), value: Type.String() },
+    strict,
+  ),
+  Type.Object(
+    {
+      type: Type.Literal("link"),
+      href: Type.String({ pattern: "^https://" }),
+      children: Type.Array(Type.Unknown()),
+    },
+    strict,
+  ),
+  Type.Object({ type: Type.Literal("break") }, strict),
+]);
 
-export const SafeMarkdownBlockSchema = Type.Cyclic(
-  {
-    block: Type.Union([
-      Type.Object(
-        {
-          type: Type.Literal("paragraph"),
-          children: Type.Array(SafeInlineTokenSchema),
-        },
-        strict,
-      ),
-      Type.Object(
-        {
-          type: Type.Literal("list"),
-          ordered: Type.Boolean(),
-          items: Type.Array(Type.Array(Type.Ref("block"))),
-        },
-        strict,
-      ),
-    ]),
-  },
-  "block",
-);
+export const SafeMarkdownBlockSchema = Type.Union([
+  Type.Object(
+    {
+      type: Type.Literal("paragraph"),
+      children: Type.Array(SafeInlineTokenSchema),
+    },
+    strict,
+  ),
+  Type.Object(
+    {
+      type: Type.Literal("list"),
+      ordered: Type.Boolean(),
+      items: Type.Array(Type.Array(Type.Unknown())),
+    },
+    strict,
+  ),
+]);
 
 const ReportRecordSchema = Type.Record(Type.String(), Type.Unknown());
 export const SafeReportBlockSchema = Type.Union([

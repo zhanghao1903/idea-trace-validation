@@ -4,6 +4,8 @@ export interface AppConfig {
   port: number;
   databaseUrl: string;
   aiApiToken: string;
+  aiWriteDisplayName: string;
+  aiWriteClient: string | null;
   humanControlToken: string;
   logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
   dbPoolMax: number;
@@ -48,6 +50,19 @@ const required = (field: string, value: string | undefined): string => {
   return value.trim();
 };
 
+const boundedDisplay = (
+  field: string,
+  value: string | undefined,
+  fallback: string | null,
+): string | null => {
+  if (value === undefined) return fallback;
+  const candidate = value.trim();
+  if (candidate.length < 1 || candidate.length > 120) {
+    throw new ConfigError(field);
+  }
+  return candidate;
+};
+
 export const loadConfig = (environment: NodeJS.ProcessEnv): AppConfig => {
   const databaseUrl = required("DATABASE_URL", environment.DATABASE_URL);
   try {
@@ -87,6 +102,17 @@ export const loadConfig = (environment: NodeJS.ProcessEnv): AppConfig => {
     port: integer("PORT", environment.PORT, 3000, 1, 65_535),
     databaseUrl,
     aiApiToken,
+    aiWriteDisplayName:
+      boundedDisplay(
+        "AI_WRITE_DISPLAY_NAME",
+        environment.AI_WRITE_DISPLAY_NAME,
+        "LP-03 report writer",
+      ) ?? "LP-03 report writer",
+    aiWriteClient: boundedDisplay(
+      "AI_WRITE_CLIENT",
+      environment.AI_WRITE_CLIENT,
+      null,
+    ),
     humanControlToken,
     logLevel: enumValue(
       "LOG_LEVEL",

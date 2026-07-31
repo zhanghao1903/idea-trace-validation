@@ -37,12 +37,17 @@ export type ReportFailurePoint =
   "AFTER_REVISION_INSERT" | "AFTER_POINTER_UPDATE" | "AFTER_AUDIT_INSERT";
 
 export class ReportServiceError extends Error {
+  readonly code: ApiError["code"];
+  readonly details: Readonly<Record<string, unknown>>;
+
   constructor(
     readonly status: number,
     readonly error: ApiError,
   ) {
     super(error.message);
     this.name = "ReportServiceError";
+    this.code = error.code;
+    this.details = error.details;
   }
 }
 
