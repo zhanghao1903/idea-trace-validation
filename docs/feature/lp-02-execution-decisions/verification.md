@@ -19,6 +19,7 @@
 | Human confirmation | Five closed payload variants, trim/NFC canonical digest, HMAC capability, expiry, stale facts, rejection, replay and single consumption pass |
 | Access/security | AI and human-control credentials are distinct; decisions require scoped secure cookies; raw tokens/capabilities are absent from response bodies, persisted payloads and audit summaries |
 | Transaction safety | Injected failures after Evidence/project/audit writes and after confirmation/conclusion/transition/project/audit writes roll back every row; same-key recovery creates one result |
+| Idempotency contention | A database-backed transition route holds the same key beyond the two-second lock timeout, receives retryable `409 IDEMPOTENCY_IN_PROGRESS`, then succeeds after owner rollback and replays one result |
 | Projections/history | proposer and executor share one authority object; bounded execution previews and stable project history use the same PostgreSQL records |
 | OpenAPI | Frozen LP-01 digest and generated LP-02 current-contract drift checks pass |
 | Management | LP-01 exact `ACCEPTED_NO_PUBLISH` closure, LP-02 readiness evidence and LP-03 `Not Started` are asserted by contract test |
@@ -46,7 +47,7 @@ At the recorded implementation snapshot:
 - unit: 8 files, 23 tests passed;
 - contract: 6 files, 15 tests passed;
 - integration: 2 files, 19 tests passed;
-- acceptance: 2 files, 3 tests passed;
+- acceptance: 2 files, 4 tests passed;
 - migration: `0002_lp02_execution_decisions: already applied`;
 - format, lint, typecheck, build and OpenAPI drift: passed.
 

@@ -3117,10 +3117,27 @@ export class PostgresProjectExecutionService implements ProjectExecutionService 
       }
     } catch (error) {
       await client.query("ROLLBACK").catch(() => undefined);
+      if ((error as { code?: string }).code === "55P03") {
+        return this.inProgress(context.requestId);
+      }
       throw error;
     } finally {
       client.release();
     }
+  }
+
+  private inProgress<T>(requestId: string): WriteResult<T> {
+    return {
+      ok: false,
+      status: 409,
+      error: {
+        code: "IDEMPOTENCY_IN_PROGRESS",
+        message: "The original request is still in progress.",
+        retryable: true,
+        details: { retryAfterMs: 250, recovery: "RETRY_SAME_KEY" },
+      },
+      requestId,
+    };
   }
 
   private page<Row, Dto>(

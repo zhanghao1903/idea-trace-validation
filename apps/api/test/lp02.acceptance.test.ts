@@ -79,6 +79,130 @@ afterAll(async () => {
   await pool.end();
 });
 
+describe("LP2-AC-003/012 idempotency recovery", () => {
+  it("maps held same-key contention to 409 and recovers after rollback", async () => {
+    const create = await app.inject({
+      method: "POST",
+      url: "/api/v1/ideas",
+      headers: aiHeaders("lp02-contention-create"),
+      payload: {
+        intentSummary: "Verify LP-02 same-key contention recovery",
+        proposer: humanActor,
+        desiredOutcome: "Preserve the inherited idempotency protocol",
+        facts: [
+          { text: "A project command may overlap an unknown result retry" },
+        ],
+        hypotheses: [{ text: "The stable 409 response permits safe recovery" }],
+        clarificationQuestions: [],
+        actor: aiActor,
+        reason: "Create the contention regression Idea",
+      },
+    });
+    expect(create.statusCode, create.body).toBe(201);
+    const ideaId = create.json().data.idea.id as string;
+    const promote = await app.inject({
+      method: "POST",
+      url: `/api/v1/ideas/${ideaId}/promotions`,
+      headers: aiHeaders("lp02-contention-promote"),
+      payload: {
+        expectedVersion: 1,
+        explicitIntent: "PROMOTE",
+        actor: humanActor,
+        reason: "Create the contention regression project",
+      },
+    });
+    expect(promote.statusCode, promote.body).toBe(201);
+    const projectId = promote.json().data.project.authority.id as string;
+    const key = "lp02-contention-transition";
+    const payload = {
+      expectedVersion: 1,
+      transition: "START",
+      nextStep: "Verify recovery after the owner rolls back",
+      actor: aiActor,
+      reason: "Exercise the inherited same-key protocol",
+    };
+    const blocker = await pool.connect();
+    try {
+      await blocker.query("BEGIN");
+      await blocker.query(
+        `
+          INSERT INTO idempotency_records (
+            workspace_id,idempotency_key,operation,route_template,
+            request_digest,first_request_id,status
+          ) VALUES (
+            'workspace_default',$1,'PROJECT_TRANSITION',
+            '/api/v1/projects/:projectId/transitions',$2,
+            'req_01ARZ3NDEKTSV4RRFFQ69G5FC0','IN_PROGRESS'
+          )
+        `,
+        [key, "0".repeat(64)],
+      );
+      const startedAt = Date.now();
+      const competing = await app.inject({
+        method: "POST",
+        url: `/api/v1/projects/${projectId}/transitions`,
+        headers: aiHeaders(key),
+        payload,
+      });
+      expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1_900);
+      expect(competing.statusCode, competing.body).toBe(409);
+      expect(competing.json()).toMatchObject({
+        ok: false,
+        error: {
+          code: "IDEMPOTENCY_IN_PROGRESS",
+          retryable: true,
+          details: { retryAfterMs: 250, recovery: "RETRY_SAME_KEY" },
+        },
+      });
+      await blocker.query("ROLLBACK");
+
+      const recovered = await app.inject({
+        method: "POST",
+        url: `/api/v1/projects/${projectId}/transitions`,
+        headers: aiHeaders(key),
+        payload,
+      });
+      expect(recovered.statusCode, recovered.body).toBe(200);
+      expect(recovered.json()).toMatchObject({
+        ok: true,
+        data: { project: { id: projectId, status: "IN_PROGRESS", version: 2 } },
+        meta: { idempotentReplay: false },
+      });
+      const replay = await app.inject({
+        method: "POST",
+        url: `/api/v1/projects/${projectId}/transitions`,
+        headers: aiHeaders(key),
+        payload,
+      });
+      expect(replay.statusCode, replay.body).toBe(200);
+      expect(replay.json().data).toEqual(recovered.json().data);
+      expect(replay.json().meta).toEqual({
+        requestId: recovered.json().meta.requestId,
+        idempotentReplay: true,
+      });
+      expect(
+        (
+          await pool.query(
+            `
+              SELECT
+                (SELECT count(*)::int FROM project_transitions
+                  WHERE project_id=$1) AS transitions,
+                (SELECT count(*)::int FROM audit_events
+                  WHERE aggregate_id=$1 AND idempotency_key=$2) AS audits,
+                (SELECT count(*)::int FROM idempotency_records
+                  WHERE idempotency_key=$2) AS idempotency
+            `,
+            [projectId, key],
+          )
+        ).rows[0],
+      ).toEqual({ transitions: 1, audits: 1, idempotency: 1 });
+    } finally {
+      await blocker.query("ROLLBACK").catch(() => undefined);
+      blocker.release();
+    }
+  });
+});
+
 describe("LP2-AC-016 objective API scenario", () => {
   it("executes, records three attention classes, completes by human confirmation, and reopens", async () => {
     const create = await app.inject({
