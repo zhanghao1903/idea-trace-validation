@@ -8,6 +8,9 @@
   can be accepted independently, with one concise project-management index.
 - Define the implementation-ready LP-01 technical design for the core Idea
   create, clarify, promote, and read flow.
+- Define the implementation-ready LP-02 technical design for project execution,
+  append-only evidence/history, versioned conclusions, and scoped human
+  confirmation.
 
 ### Added
 
