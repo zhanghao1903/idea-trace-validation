@@ -1,0 +1,528 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 4,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/4",
+    "title": "LP-02: project execution and decision loop",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "b562a3c0ede8384afef2007b8057a1250650a39f",
+    "head_ref": "codex/lp-02-execution-decisions",
+    "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+    "reviewed_at": "2026-07-31T10:50:29Z",
+    "reviewer": "OpenAI Codex Engineering Review / PR Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "cycle-one immutable report integrity and previous finding identity",
+      "complete 478e46b24c0636b1a476afc5ddbf327275a9ac72..2c8a6d4b34cdc73da3109f2f3df70c516111a018 remediation delta",
+      "complete b562a3c0ede8384afef2007b8057a1250650a39f..2c8a6d4b34cdc73da3109f2f3df70c516111a018 full PR reconciliation across 77 paths",
+      "LP-02 transaction ownership, lock-timeout mapping, rollback, recovery, replay and side-effect cardinality",
+      "exact-head local static, contract, unit, integration, LP-01/LP-02 acceptance, objective acceptance and GitHub CI evidence"
+    ],
+    "excluded_scope": [
+      "production traffic, real secrets, deployment supervisor behavior and release execution",
+      "generated OpenAPI and package-lock content were consistency-checked rather than manually reviewed line by line",
+      "exhaustive third-party dependency source audit"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "cycle 1 report branch codex/review-records/lp-02-execution-decisions-4e8a2c7d91b3/code-1-478e46b24c06 @ a533eff4fd6c682060842d05463e3d1f049ccdf3",
+      "result_path": "docs/feature/lp-02-execution-decisions/pr-review-idea-trace-validation-4-478e46b24c06-cycle-1.json",
+      "result_sha256": "fc992fd7488bbd3df468a65b0d88657d873eaa26be722a739b7565af3eccb87f",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 4,
+      "reviewed_at": "2026-07-31T10:05:30Z",
+      "base_sha": "b562a3c0ede8384afef2007b8057a1250650a39f",
+      "head_sha": "478e46b24c0636b1a476afc5ddbf327275a9ac72",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": [
+        "PRR-001"
+      ],
+      "blocking_finding_ids": [
+        "PRR-001"
+      ]
+    },
+    "delta_review": {
+      "previous_base_sha": "b562a3c0ede8384afef2007b8057a1250650a39f",
+      "previous_head_sha": "478e46b24c0636b1a476afc5ddbf327275a9ac72",
+      "current_base_sha": "b562a3c0ede8384afef2007b8057a1250650a39f",
+      "current_head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+      "triggers": [
+        "HEAD_CHANGED",
+        "EVIDENCE_CHANGED"
+      ],
+      "commit_range": "478e46b24c0636b1a476afc5ddbf327275a9ac72..2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+      "commits_reviewed": [
+        "2c8a6d4b34cdc73da3109f2f3df70c516111a018"
+      ],
+      "changed_files": [
+        "apps/api/test/lp02.acceptance.test.ts",
+        "docs/feature/lp-02-execution-decisions/verification.md",
+        "packages/db/src/project-execution-service.ts"
+      ],
+      "reviewed_files": [
+        "apps/api/test/lp02.acceptance.test.ts",
+        "docs/feature/lp-02-execution-decisions/verification.md",
+        "packages/db/src/project-execution-service.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "One remediation commit restores the inherited lock-timeout response mapping, adds a discriminating database-backed recovery regression, and updates the verification ledger.",
+      "evidence": "The exact delta is 143 insertions and one deletion across three classified files; the complete current PR remains 77 reconciled paths and five commits."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "Current head rolls back and maps PostgreSQL 55P03 to retryable 409, while a real held-key test proves timeout response, owner rollback recovery, terminal replay, and exactly one transition, audit and idempotency row."
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "LP-02 idempotent mutation lock-timeout and recovery protocol",
+        "risk_triggers": [
+          "mutation-recovery",
+          "data-integrity",
+          "concurrency",
+          "public-contract",
+          "test-adequacy"
+        ],
+        "reason": "The delta changes the error classification shared by every LP-02 write and therefore must preserve rollback, safe retry and stable response semantics.",
+        "affected_paths": [
+          "packages/db/src/project-execution-service.ts",
+          "apps/api/test/lp02.acceptance.test.ts"
+        ],
+        "checks": [
+          "Compare the new mapping with the accepted LP-01 transaction implementation",
+          "Run the held same-key timeout, rollback, recovery, replay and side-effect cardinality test on real PostgreSQL",
+          "Run full integration and LP-01/LP-02 acceptance suites",
+          "Independently reproduce a different-key project-row timeout to bound residual diagnostic imprecision"
+        ],
+        "finding_ids": [
+          "PRR-001",
+          "PRR-002"
+        ],
+        "result": "PASS"
+      },
+      {
+        "surface": "Verification ledger accuracy",
+        "risk_triggers": [
+          "test-adequacy",
+          "other"
+        ],
+        "reason": "The evidence document must match the current exact-head suite counts and newly covered contention behavior.",
+        "affected_paths": [
+          "docs/feature/lp-02-execution-decisions/verification.md"
+        ],
+        "checks": [
+          "Reconcile documented contention claim with the new test",
+          "Re-run objective acceptance and exact-head CI"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "GRANTED",
+      "independent_pass": {
+        "status": "PASS",
+        "reviewer": "fresh-context independent mutation/retry auditor",
+        "summary": "No S0-S2 issue found. The auditor verified rollback-before-mapping, transaction atomicity, held-key recovery and all relevant suites; it independently identified only PRR-002's low diagnostic-precision concern."
+      }
+    }
+  },
+  "decision": {
+    "status": "APPROVE",
+    "mergeable": true,
+    "rationale": "PRR-001 is resolved on the exact current head with discriminating real-PostgreSQL evidence, all delta changes and the full PR are reconciled, required local and GitHub checks pass, and the fresh-context pass found no blocking issue. PRR-002 is a low-severity diagnostic-precision concern with safe rollback and retry behavior, so it does not block approval.",
+    "blocking_finding_ids": []
+  },
+  "summary": "Cycle two restores the inherited LP-02 idempotency-contention contract and proves safe recovery, terminal replay and single side effects. The exact head passes all reviewed local suites and GitHub ci / verify and is MERGEABLE/CLEAN. One non-blocking S3 note remains: the broad 55P03 catch can label unrelated row-lock contention as idempotency-in-progress even though rollback and retry remain safe.",
+  "change_map": [
+    {
+      "area": "Mutation recovery",
+      "change": "Maps PostgreSQL 55P03 after rollback to the stable retryable in-progress result.",
+      "external_behavior": "Overlapping LP-02 writes no longer escape as generic HTTP 500.",
+      "risk": "High",
+      "validation": "Real held-key API regression, full integration/acceptance and independent audit pass."
+    },
+    {
+      "area": "Regression evidence",
+      "change": "Adds same-key timeout, owner rollback, recovery, replay and row-cardinality assertions.",
+      "external_behavior": "The inherited caller recovery protocol is now objectively guarded.",
+      "risk": "Medium",
+      "validation": "LP-02 acceptance 2/2 and end-to-end acceptance 4/4 pass."
+    },
+    {
+      "area": "Verification ledger",
+      "change": "Records the new contention test and updated acceptance count.",
+      "external_behavior": "Repository evidence reflects the current exact head.",
+      "risk": "Low",
+      "validation": "Documentation claim reconciled with executed suites and GitHub CI."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "concurrency",
+      "title": "LP-02 same-key lock contention now returns the stable retryable conflict",
+      "location": {
+        "path": "packages/db/src/project-execution-service.ts",
+        "line_start": 3118,
+        "line_end": 3140,
+        "symbol": "PostgresProjectExecutionService.runWrite / inProgress",
+        "side": "RIGHT",
+        "commit_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018"
+      },
+      "observation": "The outer transaction catch now rolls back and converts PostgreSQL 55P03 into the inherited 409 IDEMPOTENCY_IN_PROGRESS result.",
+      "trigger": "An overlapping LP-02 request waits on the same uncommitted idempotency key beyond the two-second lock timeout.",
+      "impact": "Clients receive the deterministic retry-same-key signal rather than a generic 500, and the aborted attempt leaves no partial business or idempotency write.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "The current helper performs rollback before mapping 55P03 and matches the accepted LP-01 inProgress envelope.",
+          "reference": "packages/db/src/project-execution-service.ts:3118-3140; packages/db/src/service.ts:1574-1596"
+        },
+        {
+          "kind": "test",
+          "description": "The database-backed route regression proves 409, rollback recovery, exact replay and one transition/audit/idempotency row.",
+          "reference": "apps/api/test/lp02.acceptance.test.ts:82-203"
+        },
+        {
+          "kind": "spec",
+          "description": "The behavior satisfies inherited idempotency, atomic mutation and recovery requirements.",
+          "reference": "docs/feature/lp-02-execution-decisions/requirements.md:109-140"
+        }
+      ],
+      "remediation": "Completed at the exact reviewed head.",
+      "verification": "Preserve the real held-key regression and all unit, contract, integration, LP-01/LP-02 acceptance and exact-head CI gates.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "concurrency:lp02-runwrite:unmapped-55p03-lock-timeout"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S3",
+      "blocking": false,
+      "confidence": "High",
+      "category": "observability",
+      "title": "Broad 55P03 mapping can imprecisely label unrelated row-lock contention",
+      "location": {
+        "path": "packages/db/src/project-execution-service.ts",
+        "line_start": 3118,
+        "line_end": 3122,
+        "symbol": "PostgresProjectExecutionService.runWrite",
+        "side": "RIGHT",
+        "commit_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018"
+      },
+      "observation": "Because SET LOCAL lock_timeout applies to the whole transaction, the outer catch maps any 55P03—including a different-key project-row lock timeout—to IDEMPOTENCY_IN_PROGRESS.",
+      "trigger": "A command owns a distinct idempotency key but waits more than two seconds on a project row held by another transaction.",
+      "impact": "The response message attributes contention to the original same-key request even when the blocked resource is a project row. Rollback occurs first, no side effect or key survives, and retrying the same key remains safe.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "The 55P03 predicate is outside the ownership insert and covers all work(client) queries under the transaction-wide lock timeout.",
+          "reference": "packages/db/src/project-execution-service.ts:2989-3125"
+        },
+        {
+          "kind": "reproduction",
+          "description": "A fresh-context rollback-only reproduction held validation_projects FOR UPDATE; the competing different-key request returned 409 after about 2020 ms with zero persisted idempotency rows.",
+          "reference": "independent exact-head mutation/retry audit"
+        },
+        {
+          "kind": "analysis",
+          "description": "After the blocker clears, same-key retry can safely execute or return the normal version conflict because the timed-out transaction was rolled back.",
+          "reference": null
+        }
+      ],
+      "remediation": "Optionally narrow the 55P03-to-idempotency mapping to ownership acquisition or distinguish lock sources while preserving rollback and safe retry.",
+      "verification": "A different-key held-project-row regression should retain zero partial writes and return the intentionally chosen contention classification after the lock clears.",
+      "status": "open",
+      "origin": "DELTA_INTRODUCED",
+      "fingerprint": "observability:lp02-runwrite:broad-55p03-contention-classification"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Restore the stable 55P03 to 409 mapping and add a held-key recovery regression.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "No new secret or trust-boundary behavior is introduced by this remediation.",
+      "mitigation": "Retain existing capability, cookie and logger tests.",
+      "owner": "LP-02 API owner"
+    },
+    {
+      "category": "data-integrity",
+      "level": "Low",
+      "description": "Rollback precedes timeout classification and database-backed tests prove one durable result after recovery.",
+      "mitigation": "Keep transaction and failpoint suites required.",
+      "owner": "LP-02 persistence owner"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Low",
+      "description": "Same-key recovery is fixed; broad 55P03 classification has only diagnostic imprecision under different-key row contention.",
+      "mitigation": "Track PRR-002 as a non-blocking refinement and preserve safe same-key retry.",
+      "owner": "LP-02 persistence owner"
+    },
+    {
+      "category": "api-compatibility",
+      "level": "Low",
+      "description": "The inherited 409 envelope is restored without changing typed success contracts.",
+      "mitigation": "Keep contract, OpenAPI and LP-01 compatibility checks green.",
+      "owner": "LP-02 API owner"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "Low",
+      "description": "The two-second lock wait remains bounded and the remediation adds no steady-state query.",
+      "mitigation": "Observe contention rates before tuning lock policy.",
+      "owner": "Future operations owner"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "The code change is additive and rollback is available through a compensating commit.",
+      "mitigation": "External merge owner follows exact-head squash policy.",
+      "owner": "External merge owner"
+    }
+  ],
+  "validation": {
+    "overall_status": "PASSED",
+    "reviewer_runs": [
+      {
+        "command": "verify previous cycle-one JSON bytes from immutable review commit",
+        "environment": "Git and SHA-256; isolated exact-head review worktree",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Previous result bytes match fc992fd7488bbd3df468a65b0d88657d873eaa26be722a739b7565af3eccb87f at a533eff4fd6c682060842d05463e3d1f049ccdf3.",
+        "required_for_approval": true,
+        "evidence_ref": "a533eff4fd6c682060842d05463e3d1f049ccdf3"
+      },
+      {
+        "command": "git diff --check for remediation and full PR; classify both ranges",
+        "environment": "Git; isolated exact-head review worktree",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors; all three delta paths and all 77 full-PR paths were reconciled.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm ci --engine-strict=false",
+        "environment": "macOS; Node.js 24.14.0; npm 11.12.1; exact head",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 238 locked packages; exact declared npm authority remains GitHub CI.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "prettier --check .; eslint .; tsc -b --pretty false",
+        "environment": "macOS; bundled Node.js 24.14.0; exact head",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Formatting, lint, typecheck and workspace build passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx scripts/check-openapi.ts",
+        "environment": "macOS; bundled Node.js 24.14.0; exact head",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "LP-01 immutable digest and LP-02 generated OpenAPI are current.",
+        "required_for_approval": true,
+        "evidence_ref": "openapi/lp02.v1.json"
+      },
+      {
+        "command": "vitest run --config vitest.contract.config.ts",
+        "environment": "macOS; bundled Node.js 24.14.0; exact head",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Six files and fifteen contract tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "vitest run --config vitest.unit.config.ts",
+        "environment": "macOS with localhost permission; bundled Node.js 24.14.0; exact head",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Eight files and twenty-three unit tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx packages/db/src/cli/migrate.ts --test",
+        "environment": "isolated PostgreSQL database idea_validation_review_lp02_code2; exact head",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Migration 0002_lp02_execution_decisions applied successfully.",
+        "required_for_approval": true,
+        "evidence_ref": "packages/db/migrations/0002_lp02_execution_decisions.sql"
+      },
+      {
+        "command": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp02.acceptance.test.ts",
+        "environment": "isolated PostgreSQL database; bundled Node.js 24.14.0; exact head",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Two LP-02 acceptance tests passed, including held-key timeout, recovery, replay and one-result cardinality.",
+        "required_for_approval": true,
+        "evidence_ref": "apps/api/test/lp02.acceptance.test.ts:82-203"
+      },
+      {
+        "command": "vitest run --config vitest.integration.config.ts",
+        "environment": "isolated PostgreSQL database; bundled Node.js 24.14.0; exact head",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Two files and nineteen integration tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp01.acceptance.test.ts",
+        "environment": "isolated PostgreSQL database; bundled Node.js 24.14.0; exact head",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Two LP-01 compatibility acceptance tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx scripts/acceptance.ts",
+        "environment": "isolated PostgreSQL database; bundled Node.js 24.14.0; exact head",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Two files and four objective acceptance tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": "docs/feature/lp-02-execution-decisions/verification.md"
+      },
+      {
+        "command": "fresh-context independent audit of remediation delta and affected mutation/retry paths",
+        "environment": "separate read-only reviewer; exact commits and local PostgreSQL",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No S0-S2 issue; PRR-001 resolved and only non-blocking PRR-002 identified.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "refresh live PR identity, exact head/base, draft state, mergeability and checks",
+        "environment": "GitHub CLI",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "PR is open, non-draft, MERGEABLE/CLEAN at the routed exact head and base.",
+        "required_for_approval": true,
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/pull/4"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-07-31T10:50:29Z",
+        "head_sha": "2c8a6d4b34cdc73da3109f2f3df70c516111a018",
+        "status": "PASS",
+        "summary": "Exact-head GitHub Actions verify completed successfully; PR is MERGEABLE/CLEAN.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30623679187/job/91133852630"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Production traffic, real-secret and deployment supervisor observation",
+        "reason": "Production and release execution are outside LP-02 review authority."
+      },
+      {
+        "check": "Exhaustive third-party dependency source audit",
+        "reason": "Lock integrity and install boundaries were checked; dependency internals are outside proportional scope."
+      }
+    ]
+  },
+  "limitations": [
+    "Reviewer-local npm was 11.12.1 rather than the declared 11.16.0; exact configured-runtime authority comes from the exact-head GitHub ci / verify success.",
+    "Generated OpenAPI and package-lock content were source-consistency and boundary checked rather than manually reviewed line by line.",
+    "Production traffic, real secrets, deployment supervisor behavior and exhaustive dependency internals were unavailable or outside LP-02 authority."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #4 still points to the exact routed base and current head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Compare the accepted request, fetched remote refs and refreshed GitHub PR metadata.",
+      "evidence": "PR #4 reports base b562a3c0ede8384afef2007b8057a1250650a39f and head 2c8a6d4b34cdc73da3109f2f3df70c516111a018.",
+      "impact_if_false": "The approval would bind the wrong snapshot."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed green GitHub check belongs to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect statusCheckRollup together with headRefOid immediately before decision.",
+      "evidence": "ci / verify completed successfully while headRefOid remained 2c8a6d4b34cdc73da3109f2f3df70c516111a018.",
+      "impact_if_false": "The platform check could not support approval."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "Database-backed verification used isolated non-production data and left no review database behind.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Create a dedicated local test database, run migrations/tests, then drop it.",
+      "evidence": "All database tests used idea_validation_review_lp02_code2 and the database was dropped after completion.",
+      "impact_if_false": "Tests could affect or depend on data outside review scope."
+    },
+    {
+      "id": "ASM-004",
+      "statement": "The broader different-key 55P03 classification is recovery-safe despite imprecise wording.",
+      "decision_critical": false,
+      "status": "VERIFIED",
+      "method": "Inspect rollback ordering and independently reproduce a held project-row lock.",
+      "evidence": "Rollback completes before response mapping, the timed-out key leaves zero rows, and same-key retry remains valid.",
+      "impact_if_false": "PRR-002 would need escalation to a blocking reliability defect."
+    }
+  ],
+  "non_blocking_recommendations": [
+    {
+      "id": "NOTE-001",
+      "category": "observability",
+      "recommendation": "Consider scoping 55P03 classification to idempotency ownership acquisition or distinguishing lock sources.",
+      "value": "Improves operator/client diagnostics without changing the safe rollback-and-retry contract."
+    }
+  ]
+}
