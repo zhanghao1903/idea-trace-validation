@@ -54,6 +54,7 @@ applicable:
 | `npm run test:acceptance:lp03` | PASS; 6/6 |
 | `npm run test:web:component` | PASS; 8 report/role/confirmation component cases plus static-hosting unit coverage in the unit suite |
 | `npm run test:browser` | PASS; 7/7 Chromium scenarios |
+| `npm audit --omit=dev` | REVIEWED; reports [GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2) through `react-router-dom` 7.18.2, but the advisory explicitly affects only unstable RSC APIs and this SPA imports no RSC/server-action API |
 
 ## Security and recovery evidence
 
@@ -69,6 +70,12 @@ applicable:
   independently hydrated runtime fallback; null fallback produces a safe empty state.
 - Playwright traces, screenshots and video are disabled so capability-bearing runs do not create
   secret-bearing artifacts.
+
+The React Router advisory is tracked as non-applicable to this implementation, not silently ignored:
+the app uses browser routing only, has no React Server Components or Server Actions, and exposes all
+writes through the existing explicit API/capability boundaries. The patched line is React Router
+8.3.0, a major-version change outside the exact approved dependency plan; adopting it requires a
+separate compatibility review rather than `npm audit fix --force`.
 
 ## Compatibility and delivery disposition
 
