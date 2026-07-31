@@ -11,6 +11,7 @@ export interface AppConfig {
   dbPoolMax: number;
   dbConnectTimeoutMs: number;
   shutdownGraceMs: number;
+  webDistDir?: string | null;
 }
 
 export class ConfigError extends Error {
@@ -135,5 +136,9 @@ export const loadConfig = (environment: NodeJS.ProcessEnv): AppConfig => {
       1_000,
       30_000,
     ),
+    webDistDir:
+      environment.WEB_DIST_DIR === undefined
+        ? null
+        : required("WEB_DIST_DIR", environment.WEB_DIST_DIR),
   };
 };

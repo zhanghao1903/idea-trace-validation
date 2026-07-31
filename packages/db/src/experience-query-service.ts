@@ -77,7 +77,7 @@ const collectionPaths = (projectId: string) => ({
   attentionItems: `/api/v1/projects/${projectId}/attention-items`,
   evidence: `/api/v1/projects/${projectId}/evidence`,
   conclusions: `/api/v1/projects/${projectId}/conclusions`,
-  confirmations: `/api/v1/projects/${projectId}/human-confirmations`,
+  confirmations: `/api/v1/projects/${projectId}/history`,
   history: `/api/v1/projects/${projectId}/history`,
 });
 
@@ -120,7 +120,7 @@ const previewsByProjectSql = `
     SELECT jsonb_agg(jsonb_build_object(
       'id',item.id,'type',item.type,'title',item.title,'status',item.status,
       'waitingForRole',item.waiting_for_role,
-      'detailPath','/api/v1/projects/' || project.id || '/attention-items?focus=' || item.id
+      'detailPath','/api/v1/projects/' || project.id || '/attention-items'
     ) ORDER BY item.updated_at DESC,item.id DESC) AS items
     FROM attention_items item
     WHERE item.project_id=project.id AND item.status IN ('OPEN','NEEDS_INFO')

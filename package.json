@@ -19,7 +19,7 @@
     "fsevents@2.3.3": true
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && npm run build --workspace @idea/web",
     "clean": "tsc -b --clean",
     "dev": "npm run dev --workspace @idea/api",
     "format": "prettier --write .",
@@ -28,12 +28,13 @@
     "typecheck": "tsc -b --pretty false",
     "test:unit": "vitest run --config vitest.unit.config.ts",
     "test:contract": "vitest run --config vitest.contract.config.ts",
+    "test:web:component": "vitest run --config vitest.web.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:acceptance": "tsx scripts/acceptance.ts",
     "test:acceptance:lp01": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp01.acceptance.test.ts",
     "test:acceptance:lp02": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp02.acceptance.test.ts",
     "test:acceptance:lp03": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp03-*.acceptance.test.ts",
-    "test": "npm run test:unit && npm run test:contract && npm run test:integration && npm run test:acceptance",
+    "test": "npm run test:unit && npm run test:contract && npm run test:integration && npm run test:web:component && npm run test:acceptance",
     "report-types:generate": "tsx scripts/generate-report-types.ts",
     "report-types:check": "tsx scripts/check-report-types.ts",
     "openapi:generate": "tsx scripts/generate-openapi.ts",

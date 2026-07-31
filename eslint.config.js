@@ -4,6 +4,7 @@ export default tseslint.config(
   {
     ignores: [
       "**/dist/**",
+      "**/dist-types/**",
       "**/coverage/**",
       "**/node_modules/**",
       "openapi/lp01.v1.json",

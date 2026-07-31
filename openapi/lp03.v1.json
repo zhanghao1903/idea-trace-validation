@@ -132364,10 +132364,6 @@
                                           },
                                           {
                                             "type": "string",
-                                            "enum": ["PAUSE"]
-                                          },
-                                          {
-                                            "type": "string",
                                             "enum": ["STOP"]
                                           },
                                           {
@@ -138001,10 +137997,6 @@
                                           },
                                           {
                                             "type": "string",
-                                            "enum": ["PAUSE"]
-                                          },
-                                          {
-                                            "type": "string",
                                             "enum": ["STOP"]
                                           },
                                           {
@@ -143623,7 +143615,6 @@
                                   "anyOf": [
                                     { "type": "string", "enum": ["CONTINUE"] },
                                     { "type": "string", "enum": ["ADJUST"] },
-                                    { "type": "string", "enum": ["PAUSE"] },
                                     { "type": "string", "enum": ["STOP"] },
                                     { "type": "string", "enum": ["TRANSFER"] }
                                   ]

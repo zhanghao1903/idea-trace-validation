@@ -8,6 +8,7 @@ import type {
 import { createIdFactory } from "@idea/application";
 import { ErrorEnvelopeSchema } from "@idea/contracts";
 import helmet from "@fastify/helmet";
+import staticPlugin from "@fastify/static";
 import swagger from "@fastify/swagger";
 import {
   Type,
@@ -184,7 +185,22 @@ export const buildApp = async ({
     );
   });
 
-  await app.register(helmet);
+  await app.register(helmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        connectSrc: ["'self'"],
+        imgSrc: ["'self'", "data:"],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'none'"],
+      },
+    },
+  });
   await app.register(swagger, {
     openapi: {
       info: { title: "Idea Trace Validation LP-03 API", version: "0.3.0" },
@@ -283,6 +299,38 @@ export const buildApp = async ({
     { prefix: "/api/v1" },
   );
 
+  if (config.webDistDir !== null && config.webDistDir !== undefined) {
+    const root = path.resolve(config.webDistDir);
+    if (!existsSync(path.join(root, "index.html"))) {
+      throw new Error("WEB_DIST_INDEX_MISSING");
+    }
+    await app.register(staticPlugin, {
+      root,
+      prefix: "/",
+      index: false,
+      maxAge: "1y",
+      immutable: true,
+    });
+    const shell = async (
+      _request: unknown,
+      reply: {
+        header(name: string, value: string): unknown;
+        sendFile(file: string, options: { cacheControl: boolean }): unknown;
+      },
+    ) => {
+      reply.header("cache-control", "no-cache");
+      return reply.sendFile("index.html", { cacheControl: false });
+    };
+    app.get("/", shell);
+    app.get("/proposer", shell);
+    app.get("/executor", shell);
+    app.get("/proposer/projects/:projectId", shell);
+    app.get("/executor/projects/:projectId", shell);
+    app.get("/confirmations/:confirmationId", shell);
+  }
+
   void ErrorEnvelopeSchema;
   return app;
 };
+import { existsSync } from "node:fs";
+import path from "node:path";

@@ -10,6 +10,7 @@ import {
   ProgressIdSchema,
 } from "./common.js";
 import { IntakeStatusSchema } from "./ideas.js";
+import { RecommendationSchema } from "./conclusions.js";
 import {
   ProjectPhaseSchema,
   ProjectStatusSchema,
@@ -73,13 +74,7 @@ export const ExperienceConclusionPreviewSchema = Type.Object(
   {
     id: ConclusionIdSchema,
     summary: Type.String(),
-    recommendation: Type.Union([
-      Type.Literal("CONTINUE"),
-      Type.Literal("ADJUST"),
-      Type.Literal("PAUSE"),
-      Type.Literal("STOP"),
-      Type.Literal("TRANSFER"),
-    ]),
+    recommendation: RecommendationSchema,
     confirmedAt: DateTimeSchema,
   },
   strict,

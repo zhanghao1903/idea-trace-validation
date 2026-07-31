@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@fastify/helmet": "13.1.0",
+    "@fastify/static": "10.1.2",
     "@fastify/swagger": "9.8.1",
     "@fastify/type-provider-typebox": "6.1.0",
     "@idea/application": "0.1.0",
