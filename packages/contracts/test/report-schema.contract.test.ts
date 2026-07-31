@@ -46,4 +46,67 @@ describe("structured report canonical schema", () => {
     );
     expect(validate({ schemaVersion: "1.0" })).toBe(false);
   });
+
+  it("accepts the implemented evd_ prefix and rejects the obsolete evi_ prefix", () => {
+    const withEvidence = {
+      ...validReport,
+      sections: [
+        {
+          id: "evidence",
+          title: "Evidence",
+          blocks: [
+            {
+              id: "evidence_refs",
+              type: "evidence_refs",
+              evidenceIds: ["evd_01ARZ3NDEKTSV4RRFFQ69G5FAV"],
+            },
+          ],
+        },
+      ],
+    };
+    expect(validate(withEvidence), JSON.stringify(validate.errors)).toBe(true);
+    expect(
+      validate({
+        ...withEvidence,
+        sections: [
+          {
+            ...withEvidence.sections[0],
+            blocks: [
+              {
+                ...withEvidence.sections[0]!.blocks[0],
+                evidenceIds: ["evi_01ARZ3NDEKTSV4RRFFQ69G5FAV"],
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("enforces the collection bounds for every fixed block family", () => {
+    const cases = [
+      { type: "metrics", field: "items", value: [] },
+      { type: "list", field: "items", value: [], ordered: false },
+      { type: "table", field: "columns", value: [], rows: [] },
+      { type: "timeline", field: "items", value: [] },
+      { type: "evidence_refs", field: "evidenceIds", value: [] },
+      { type: "action_refs", field: "attentionItemIds", value: [] },
+    ];
+    for (const sample of cases) {
+      const { field, value, ...block } = sample;
+      expect(
+        validate({
+          ...validReport,
+          sections: [
+            {
+              id: "bounds",
+              title: "Bounds",
+              blocks: [{ id: "bounded_block", ...block, [field]: value }],
+            },
+          ],
+        }),
+        `${sample.type} unexpectedly passed`,
+      ).toBe(false);
+    }
+  });
 });
