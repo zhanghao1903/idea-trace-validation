@@ -295,17 +295,21 @@ The current response is one closed `ReportCurrentDto`:
 | `projectId` | project ID, non-null | requested authority project in every variant |
 | `reportId` | report ID or null | null only in `EMPTY`, before a report aggregate exists |
 | `displayMode` | `EMPTY\|CURRENT\|FALLBACK\|UNSUPPORTED` | server protocol/compiler compatibility decision |
-| `accepted` | `AcceptedReportDto \| null` | latest accepted revision, source declaration, digest/schema/acceptedAt and credential-principal snapshot; null only for `EMPTY` |
+| `accepted` | `AcceptedReportDto \| null` | latest accepted revision; null only for `EMPTY` |
 | `primary` | `ReportRenderSlotDto \| null` | accepted slot for `CURRENT`; greatest supported/renderable revision <= accepted for `FALLBACK`; null for `EMPTY/UNSUPPORTED` |
 | `runtimeFallback` | `ReportRenderSlotDto \| null` | greatest supported/renderable revision strictly below `primary.revision`; null when primary is null or no earlier candidate exists |
 | `compatibilityCode` | bounded enum or null | why accepted differs from primary, never a runtime exception/body |
 
+`AcceptedReportDto` is closed and contains `revision`, nullable `previousRevision`, `schemaVersion`,
+`contentSha256`, `sourceDocument`, `submittedBy` (the five-field ActorDto snapshot), and `acceptedAt`.
 `ReportRenderSlotDto` is closed and contains `revision`, `schemaVersion`, `compilerVersion`,
 `contentSha256`, `acceptedAt`, `renderModel`, and `hydratedRefs`. `hydratedRefs` is a closed object with
-stable-ordered `evidence` and `attentionItems`; each entry includes stable ID, current authoritative
-label/state and same-origin links. Each slot is independently hydrated against its own reference IDs.
-The source declaration is returned only under `accepted`; the runtime candidate never needs or
-exposes source to render.
+stable-ordered `evidence` and `attentionItems`. Hydrated Evidence entries contain `id`, `kind`, `title`,
+`summary`, current `state`, `detailPath` and `historyPath`; Attention entries contain `id`, `type`,
+`title`, current `status`, nullable `waitingForRole`, `detailPath` and `historyPath`. Paths are
+same-origin relative paths. Each slot is independently hydrated against its own reference IDs. The
+source declaration is returned only under `accepted`; the runtime candidate never needs or exposes
+source to render.
 
 The database current query loads the accepted row, then selects `primary` by descending revision
 among supported/renderable rows at or below accepted, then selects `runtimeFallback` by descending
