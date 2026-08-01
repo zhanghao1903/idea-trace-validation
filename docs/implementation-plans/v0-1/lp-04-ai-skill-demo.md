@@ -28,7 +28,9 @@
 ## 4. Dependencies
 
 - Acceptance dependency: `LP-03`
-- LP-01 至 LP-03 必须已提供可用的真实 API、确认流、结构化汇报和双角色 Web。
+- LP-03 已在 merge `818671c504c8b8b8cd41f8ebc096f341ece6b18f` 上通过
+  `ACCEPTED_NO_PUBLISH` 验收关闭，release targets 为 `[]`。
+- LP-01 至 LP-03 已提供可用的真实 API、确认流、结构化汇报和双角色 Web。
 - Planning input:
   [source implementation plan](../../feature/v0-1-project-plan/implementation-plan.md).
 
@@ -49,12 +51,12 @@
 
 ## 7. Acceptance checklist
 
-- [ ] Codex 或 Claude 可按 Skill 将自然语言 Idea 创建为唯一且可读取的权威记录。
-- [ ] Skill 对字段不足、API 失败、网络未知和确认拒绝给出明确恢复路径。
-- [ ] 网络未知时复用原 request ID，不重复创建业务对象。
-- [ ] Skill 不保存独立状态、不绕过人类确认且不泄露 token。
-- [ ] 演示数据覆盖 Idea 池、执行中、阻塞、待确认、支持、动态汇报和完成项目。
-- [ ] 人工脚本可重复展示从 Idea 创建到结论归档的核心故事。
+- [ ] Codex 与 Claude 各自按 Skill 调用真实 API，并留下可公开重读的代表性客户端证据。
+- [x] Skill 对字段不足、API 失败、网络未知和确认拒绝给出明确恢复路径。
+- [x] 网络未知时复用原 request ID，不重复创建业务对象；真实 HTTP 跨进程 oracle 已通过。
+- [x] Skill 不保存独立状态、不绕过人类确认且不泄露 token。
+- [x] 演示数据覆盖 Idea 池、执行中、阻塞、待确认、支持、动态汇报和完成项目。
+- [x] 独立人工 facilitator 可重复展示从 Idea 创建到结论归档的核心故事。
 
 至少一个客观验收场景：在干净演示环境中按 Skill 从一段自然语言创建 Idea，经真实
 API 推进和汇报，并在模拟网络未知后用同一 request ID 重试；最终只有一条权威记录，
@@ -71,15 +73,19 @@ Acceptance record:
 
 - Risk: Skill 与 API 漂移；示例和自动化演示必须使用当前契约，不加隐藏参数。
 - Risk: 演示脚本只覆盖顺利路径；至少保留网络未知、输入不足和确认拒绝恢复场景。
-- Blocker: `None`
+- Blocker: AC-015 仍缺实际 Codex 与 Claude 双客户端 PASS。Codex CLI 普通沙箱不能访问
+  回环 API，无沙箱运行需要用户明确授权；当前没有可用 Claude CLI/已认证会话。
 
 ## 9. Status
 
-`Not Started`
+`In Progress`
 
-LP-03 未验收前，可以准备文案结构，但不能把 mock 或静态页面演示当作真实闭环证据。
+Skill、确定性 demo、跨进程未知结果恢复、真实 HTTP、人类边界和真实数据双角色浏览器故事
+已实现并通过比例化门禁。实际客户端未完成，不能把自动化或静态检查写成兼容性 PASS，
+也不能更新为 `Ready for Acceptance`。
 
 ## 10. Next step
 
-为 LP-04 启动独立 Engineering Lifecycle Requirements 阶段，并选择当时可用的
-Codex/Claude 客户端和演示环境作为可复现验收输入。
+取得受控 Codex 回环执行授权并提供已认证 Claude 客户端入口；两项客户端证据通过后，
+执行完整 exact-head 验证矩阵、更新本计划为 `Ready for Acceptance` 并准备 Engineering
+Review PR。LP-05 保持 `Not Started` 且需求未确认。

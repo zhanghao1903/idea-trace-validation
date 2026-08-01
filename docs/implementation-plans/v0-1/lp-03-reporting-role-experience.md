@@ -65,9 +65,11 @@
 
 Acceptance record:
 
-- Result: `Ready for formal acceptance`
-- Accepted by: `None`
-- Accepted at (UTC): `None`
+- Result: `ACCEPTED_NO_PUBLISH`
+- Merge commit: `818671c504c8b8b8cd41f8ebc096f341ece6b18f`
+- Acceptance ID: `7f8aeac9327278dc08bd84d2f229ebc9f6b166a109e4a7c83a0001a49bf7ce8b`
+- Closure ID: `25fd479b6c7663d41920bc50935c5bd1fd5efb7f2d4a3e14252015a889e360f8`
+- Release targets: `[]`
 - Evidence:
   [LP-03 verification](../../feature/lp-03-reporting-role-experience/verification.md)
 
@@ -79,12 +81,13 @@ Acceptance record:
 
 ## 9. Status
 
-`Ready for Acceptance`
+`Accepted`
 
-结构化汇报、不可变 persistence、API、权威体验投影、Web 与比例化自动化证据已完成。
-该状态不表示 Review 批准、已合并、已发布或已正式验收。
+结构化汇报、不可变 persistence、API、权威体验投影、Web 与比例化自动化证据已在精确
+merge commit 上通过 acceptance-only/no-publish 验收关闭。没有 tag、Release、package、
+部署或其他发布产物。
 
 ## 10. Next step
 
-提交精确 Git head 代码审查；审查通过后由外部 merge owner 合并，再由正式验收方决定
-是否对精确 merge commit 执行 acceptance-only/no-publish。LP-04 保持 `Not Started`。
+保留不可变验收和无发布记录。LP-04 已进入独立实现阶段；LP-03 不授予 LP-04 合并、验收或
+发布权限。
