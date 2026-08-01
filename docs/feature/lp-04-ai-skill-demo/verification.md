@@ -8,13 +8,13 @@
 - Approved composite digest:
   `24d41fd9b5a5f10e07daa9c2a941f0fe411833663ba9ccb7d1ecc3035cb76f6b`
 - Exact Skill commit: `55fefc83f02ada8a0310bacc7402faf72642d726`
-- Evidence status: in progress on 2026-08-01 (Asia/Shanghai)
+- Evidence status: ready for Engineering Review on 2026-08-02 (Asia/Shanghai)
 
 ## Exact-head and status boundary
 
-This record distinguishes implemented automation from external-client acceptance. The immutable
-`CodeReviewRequest` and PR checks will bind final commands to the exact PR head. Until both actual
-Codex and Claude records pass, LP-04 is not `Ready for Acceptance`; this file is not formal
+This record distinguishes implemented automation from external-client acceptance. Both actual
+client records now pass independent evidence verification. The immutable `CodeReviewRequest` and
+PR checks still bind the final commands to the exact PR head. `Ready for Acceptance` is not formal
 acceptance, merge approval or publication authority.
 
 ## Delivered behavior
@@ -57,9 +57,8 @@ acceptance, merge approval or publication authority.
 | `npm run verify` | PASS; ordered gate now includes Skill and LP-04 browser verification |
 | `git diff --check` | PASS |
 
-These results were captured on the documentation worktree before the documentation commit. They will
-be rerun on the exact final PR head after both mandatory client records are available; they do not
-override the failed client gate below.
+These results were captured on the implementation worktree and will be rerun without file changes on
+the exact final PR head. The PR check and immutable review request will bind that final head.
 
 ## Recovery and security evidence
 
@@ -77,15 +76,18 @@ override the failed client gate below.
 
 ## Actual client gate
 
-| Client | Current result | Required evidence |
+| Client | Current result | Immutable evidence |
 | --- | --- | --- |
-| Codex | NOT PASSED | Actual client run, exact Skill commit/version, unknown-result replay, request/resource IDs, ignored raw transcript digest and live re-read |
-| Claude | NOT PASSED; no executable or authenticated session is currently available | Actual client run for ready-Idea promotion, execution fact, report submit/correction and stop before human boundary |
+| Codex | PASS | [`codex-client-proof.json`](./evidence/codex-client-proof.json): actual `codex-cli 0.146.0-alpha.9.2` run, exact Skill tree, unknown-result replay, request/resource IDs, ignored transcript digest and live public re-read |
+| Claude | PASS | [`claude-client-proof.json`](./evidence/claude-client-proof.json): actual Claude Desktop/Claude Code local session, ready-Idea promotion, one execution fact, invalid/corrected report flow, both role views and stop before human confirmation |
 
-An attempted nested Codex CLI run under `workspace-write` could not access the loopback API. No
-business write or PASS record was produced. Running that subprocess with an unrestricted sandbox
-requires explicit user authorization; direct scripted HTTP or static output is not accepted as a
-substitute. Claude is likewise not represented by a fabricated record.
+Main independently re-read every referenced Idea/project/report through the loopback public API and
+verified the exact Skill tree at commit `55fefc83f02ada8a0310bacc7402faf72642d726` is byte-identical
+to the current tree. The Claude project database projection contains exactly one AI/EXECUTOR progress
+update, exactly one accepted report revision, and zero human confirmations. Its invalid report did
+not create a submission-key or revision row. Both raw transcripts and the authorized minimal Claude
+workspace passed exact-token, live bearer, AWS key and private-key scans; neither transcript is
+committed.
 
 ## Delivery disposition
 
@@ -94,5 +96,6 @@ LP-03 is durably accepted without publication at merge
 `7f8aeac9327278dc08bd84d2f229ebc9f6b166a109e4a7c83a0001a49bf7ce8`, closure
 `25fd479b6c7663d41920bc50935c5bd1fd5efb7f2d4a3e14252015a889e360f8`, with release targets `[]`.
 
-LP-04 remains `In Progress`. Its acceptance record is `None`; no PR is ready for Engineering Review
-until both mandatory client proofs and the exact-head full verification matrix pass.
+LP-04 is `Ready for Acceptance`. Its acceptance record is still `None`; no merge, tag, GitHub Release,
+package, deployment or other publication has been performed. Engineering Review must approve the
+exact PR head before any separately authorized merge and later acceptance-only/no-publish closure.

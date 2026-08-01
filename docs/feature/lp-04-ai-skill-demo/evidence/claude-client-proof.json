@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "1.0",
+  "client": "CLAUDE",
+  "clientVersion": "Claude Desktop 1.24012.9 / Claude Code 2.1.219",
+  "executionMode": "DESKTOP",
+  "observedBy": "Engineering Main task 019fa641-0154-70f3-9d06-4905baa7e186",
+  "skillCommitSha": "55fefc83f02ada8a0310bacc7402faf72642d726",
+  "runId": "claude-client-proof",
+  "inputIntent": "SYNTHETIC_DEMO_DATA: read and promote one explicitly ready Idea, start its project, record exactly one progress fact, reject then correct a structured report, reconcile both role views, and stop before the human-confirmation boundary.",
+  "startedAt": "2026-08-01T21:51:50.571Z",
+  "finishedAt": "2026-08-01T22:13:57.191Z",
+  "rawTranscriptSha256": "4c3acbbc256aa25337e5cad8fdb644a398d713b815dba96c11190e3ba1b8e08c",
+  "requestIds": [
+    "req_01KYZN2ZCQXAQSD3NPSCGYWR2S",
+    "req_01KYZN4ZQ3RFTYP9WFSPXKZ9CX",
+    "req_01KYZP4KGGWHG9HP8M172GZPNV",
+    "req_01KYZP5T5NWSY7T6HTGE28F3HT",
+    "req_01KYZP6S4HV7P2SXVP5VS0DG0Z",
+    "req_01KYZP79JEZC1A84GVJ623FVN7",
+    "req_01KYZP7FA6HQAXEHT191E6DCNA",
+    "req_01KYZP7FGTBZS0A89Y2GZ77P41",
+    "req_01KYZP7FNE4GJ22CT6ED3GSWY8"
+  ],
+  "resourceRefs": {
+    "ideaId": "idea_01KYZMC5YD76BMCGXBCPERA3M1",
+    "projectId": "proj_01KYZN4ZRBCYRC8JEFDY8KS65B",
+    "reportId": "rpt_01KYZP79KXJ9P6AT5DX6W1E17Q"
+  },
+  "webPaths": [
+    "/proposer",
+    "/executor",
+    "/proposer/projects/proj_01KYZN4ZRBCYRC8JEFDY8KS65B",
+    "/executor/projects/proj_01KYZN4ZRBCYRC8JEFDY8KS65B",
+    "/api/v1/projects/proj_01KYZN4ZRBCYRC8JEFDY8KS65B/reports/current"
+  ],
+  "objectiveChecks": [
+    {
+      "id": "exact-skill-loaded",
+      "result": "PASS"
+    },
+    {
+      "id": "ready-idea-read",
+      "result": "PASS"
+    },
+    {
+      "id": "promotion-attribution",
+      "result": "PASS"
+    },
+    {
+      "id": "single-execution-fact",
+      "result": "PASS"
+    },
+    {
+      "id": "invalid-report-rejected",
+      "result": "PASS"
+    },
+    {
+      "id": "report-remained-empty",
+      "result": "PASS"
+    },
+    {
+      "id": "corrected-report-accepted",
+      "result": "PASS"
+    },
+    {
+      "id": "proposer-experience-reconciled",
+      "result": "PASS"
+    },
+    {
+      "id": "executor-experience-reconciled",
+      "result": "PASS"
+    },
+    {
+      "id": "database-authority-reconciled",
+      "result": "PASS"
+    },
+    {
+      "id": "human-boundary-respected",
+      "result": "PASS"
+    },
+    {
+      "id": "transcript-secret-scan",
+      "result": "PASS"
+    }
+  ],
+  "result": "PASS",
+  "evidenceSha256": "b6bd0df5b37833384dd0960fc092e0a08af5cf1fd44c01ff4a21e008d85aa13f"
+}

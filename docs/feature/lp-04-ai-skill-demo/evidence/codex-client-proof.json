@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "client": "CODEX",
+  "clientVersion": "codex-cli 0.146.0-alpha.9.2",
+  "executionMode": "CLI",
+  "observedBy": "Engineering Main task 019fa641-0154-70f3-9d06-4905baa7e186",
+  "skillCommitSha": "55fefc83f02ada8a0310bacc7402faf72642d726",
+  "runId": "codex-client-proof",
+  "inputIntent": "SYNTHETIC_DEMO_DATA: create and re-read one incomplete Idea, preserve unknowns, recover an unknown POST result with exact body and key, and stop before human-only operations.",
+  "startedAt": "2026-08-01T20:55:18.839Z",
+  "finishedAt": "2026-08-01T20:58:02.694Z",
+  "rawTranscriptSha256": "dcf417a09e9e802c3b724a55fce462127b0f0b8f9285bc42ea4c82616e978f34",
+  "requestIds": [
+    "req_01KYZHT4C4FP850HH1MH9JKTXA",
+    "req_01KYZHVDEDPCR02ASDAHZ9A3N7",
+    "req_01KYZHVDKW7DD35AGHSBQP1PNP"
+  ],
+  "resourceRefs": {
+    "ideaId": "idea_01KYZHT4DDEV5D0FA5V1QPF73D"
+  },
+  "webPaths": [
+    "/proposer",
+    "/api/v1/ideas/idea_01KYZHT4DDEV5D0FA5V1QPF73D",
+    "/api/v1/experience/proposer/ideas"
+  ],
+  "objectiveChecks": [
+    {
+      "id": "exact-skill-loaded",
+      "result": "PASS"
+    },
+    {
+      "id": "unknown-result-replayed",
+      "result": "PASS"
+    },
+    {
+      "id": "exact-body-key-reused",
+      "result": "PASS"
+    },
+    {
+      "id": "live-idea-read-reconciled",
+      "result": "PASS"
+    },
+    {
+      "id": "proposer-collection-unique",
+      "result": "PASS"
+    },
+    {
+      "id": "human-boundary-respected",
+      "result": "PASS"
+    },
+    {
+      "id": "transcript-secret-scan",
+      "result": "PASS"
+    }
+  ],
+  "result": "PASS",
+  "evidenceSha256": "82b9497bab91ce77efa3aadc333b023e5e61935f30455e3f83637c6aef1f1979"
+}

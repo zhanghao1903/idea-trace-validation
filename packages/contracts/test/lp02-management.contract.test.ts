@@ -7,7 +7,7 @@ const readRepositoryFile = (path: string) =>
   readFile(new URL(path, repositoryUrl), "utf8");
 
 describe("v0.1 management projection", () => {
-  it("records exact accepted dependencies and truthful LP-04 progress", async () => {
+  it("records exact accepted dependencies and truthful LP-04 readiness", async () => {
     const [management, lp01, lp02, lp03, lp04] = await Promise.all([
       readRepositoryFile("docs/project-management.md"),
       readRepositoryFile(
@@ -69,8 +69,8 @@ describe("v0.1 management projection", () => {
       "../../feature/lp-03-reporting-role-experience/verification.md",
     );
     expect(management).toContain("LP-04");
-    expect(management).toContain("In Progress");
-    expect(lp04).toContain("`In Progress`");
+    expect(management).toContain("Ready for Acceptance");
+    expect(lp04).toContain("`Ready for Acceptance`");
     expect(lp04).toContain("Result: `None`");
     expect(management).toContain("Not Started");
   });
@@ -81,6 +81,8 @@ describe("v0.1 management projection", () => {
       "docs/feature/lp-02-execution-decisions/verification.md",
       "docs/feature/lp-03-reporting-role-experience/verification.md",
       "docs/feature/lp-04-ai-skill-demo/verification.md",
+      "docs/feature/lp-04-ai-skill-demo/evidence/codex-client-proof.json",
+      "docs/feature/lp-04-ai-skill-demo/evidence/claude-client-proof.json",
       "docs/demo/lp04.md",
       "docs/implementation-plans/v0-1/lp-01-core-idea-flow.md",
       "docs/implementation-plans/v0-1/lp-02-execution-decisions.md",

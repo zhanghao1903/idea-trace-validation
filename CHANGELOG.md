@@ -58,6 +58,9 @@
   environments; human-control material remains outside AI inputs and evidence.
 - Add cross-process unknown-result recovery, exact body/key replay, public
   uniqueness reconciliation and real-data proposer/executor Chromium coverage.
+- Add independently verified Codex CLI and Claude Desktop/Claude Code Skill
+  execution records, bound to exact transcript digests and publicly readable
+  synthetic API resources without committing credentials or raw transcripts.
 
 ### Changed
 

@@ -51,7 +51,7 @@
 
 ## 7. Acceptance checklist
 
-- [ ] Codex 与 Claude 各自按 Skill 调用真实 API，并留下可公开重读的代表性客户端证据。
+- [x] Codex 与 Claude 各自按 Skill 调用真实 API，并留下可公开重读的代表性客户端证据。
 - [x] Skill 对字段不足、API 失败、网络未知和确认拒绝给出明确恢复路径。
 - [x] 网络未知时复用原 request ID，不重复创建业务对象；真实 HTTP 跨进程 oracle 已通过。
 - [x] Skill 不保存独立状态、不绕过人类确认且不泄露 token。
@@ -73,19 +73,18 @@ Acceptance record:
 
 - Risk: Skill 与 API 漂移；示例和自动化演示必须使用当前契约，不加隐藏参数。
 - Risk: 演示脚本只覆盖顺利路径；至少保留网络未知、输入不足和确认拒绝恢复场景。
-- Blocker: AC-015 仍缺实际 Codex 与 Claude 双客户端 PASS。Codex CLI 普通沙箱不能访问
-  回环 API，无沙箱运行需要用户明确授权；当前没有可用 Claude CLI/已认证会话。
+- Blocker: `None`。实际 Codex CLI 与 Claude Desktop/Claude Code 客户端均已完成独立运行，
+  且其合成资源、转录摘要、秘密扫描和人类确认边界已由 Main 复核。
 
 ## 9. Status
 
-`In Progress`
+`Ready for Acceptance`
 
 Skill、确定性 demo、跨进程未知结果恢复、真实 HTTP、人类边界和真实数据双角色浏览器故事
-已实现并通过比例化门禁。实际客户端未完成，不能把自动化或静态检查写成兼容性 PASS，
-也不能更新为 `Ready for Acceptance`。
+已实现并通过比例化门禁。实际 Codex 与 Claude 客户端证据均为 PASS；该状态只表示可送交
+Engineering Review，不表示已审查、已合并、已发布或已正式验收。
 
 ## 10. Next step
 
-取得受控 Codex 回环执行授权并提供已认证 Claude 客户端入口；两项客户端证据通过后，
-执行完整 exact-head 验证矩阵、更新本计划为 `Ready for Acceptance` 并准备 Engineering
-Review PR。LP-05 保持 `Not Started` 且需求未确认。
+在无进一步文件变更的 exact head 上执行完整验证矩阵，准备 PR 并发送 Engineering Review。
+LP-05 保持 `Not Started` 且需求未确认。

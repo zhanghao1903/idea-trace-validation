@@ -11,7 +11,7 @@
 | LP-01 | [核心基础与 Idea 流程](./implementation-plans/v0-1/lp-01-core-idea-flow.md) | None | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
 | LP-02 | [项目执行与决策闭环](./implementation-plans/v0-1/lp-02-execution-decisions.md) | LP-01 | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
 | LP-03 | [结构化汇报与双角色体验](./implementation-plans/v0-1/lp-03-reporting-role-experience.md) | LP-02 | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
-| LP-04 | [AI Skill 与可重复演示](./implementation-plans/v0-1/lp-04-ai-skill-demo.md) | LP-03 | In Progress | 实际 Codex/Claude 客户端证据尚未同时通过 | 取得受控 Codex 回环执行授权并提供已认证 Claude 客户端，再完成 exact-head 全量门禁 |
+| LP-04 | [AI Skill 与可重复演示](./implementation-plans/v0-1/lp-04-ai-skill-demo.md) | LP-03 | Ready for Acceptance | None | 完成 exact-head 全量门禁并发送 Engineering Review；未经批准不合并 |
 | LP-05 | [部署与发布就绪](./implementation-plans/v0-1/lp-05-deployment-release.md) | LP-04 | Not Started | None | 为 LP-05 启动独立 Requirements 阶段 |
 
 ## 依赖
@@ -19,12 +19,12 @@
 验收依赖为 `LP-01 → LP-02 → LP-03 → LP-04 → LP-05`。后续计划可以提前准备
 不依赖前序结果的工作，但不得绕过依赖计划的验收结论。
 
-当前阻塞：LP-04 的自动化 Skill、demo、恢复、真实 HTTP 和浏览器故事已实现；但
-AC-015 要求 Codex 与 Claude 各自实际调用真实 API。普通 Codex 子进程沙箱不能访问回环
-API，开放无沙箱运行需要用户明确授权；当前环境也没有 Claude 可执行文件或已认证会话。
+当前阻塞：无。LP-04 的自动化 Skill、demo、恢复、真实 HTTP、浏览器故事，以及实际
+Codex/Claude 客户端证据均已完成；两份客户端记录已绑定精确 Skill tree、转录摘要、API
+请求和可公开重读的合成资源，并通过独立秘密/人类边界复核。
 
-总体下一步：解除 LP-04 两项外部客户端前置条件，生成可公开重读的客户端证据，执行完整
-exact-head 验证并准备 Engineering Review PR。LP-05 保持 `Not Started` 且需求未确认。
+总体下一步：在最终提交上执行完整 exact-head 验证，准备 PR 并发送 Engineering Review。
+未经 Review 批准和独立合并授权不得合并；LP-05 保持 `Not Started` 且需求未确认。
 
 ## 已接受依赖
 
@@ -61,9 +61,9 @@ LP-03 已通过 Engineering Lifecycle 的 `ACCEPTED_NO_PUBLISH` 迁移正式关�
 - releaseTargets: `[]`
 - 发布产物：没有 tag、GitHub Release、package、部署或其他发布产物。
 
-LP-04 的进行中客观证据见
-[LP-04 verification](./feature/lp-04-ai-skill-demo/verification.md)。`In Progress` 不表示
-客户端兼容性已验证、Review 批准、已合并、已发布或已正式验收。
+LP-04 的送验客观证据见
+[LP-04 verification](./feature/lp-04-ai-skill-demo/verification.md)。`Ready for Acceptance` 只
+表示当前实施与客户端证据可送审，不表示 Review 批准、已合并、已发布或已正式验收。
 
 ## 主归属
 
