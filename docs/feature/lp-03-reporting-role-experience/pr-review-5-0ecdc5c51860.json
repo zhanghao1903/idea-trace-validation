@@ -1,0 +1,466 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 5,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/5",
+    "title": "LP-03: structured reporting and dual-role Web",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "644af4f186b054a9c5d1c6db087a97e009f545a3",
+    "head_ref": "codex/lp-03-reporting-role-experience",
+    "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+    "reviewed_at": "2026-08-01T07:31:22Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete exact base-to-head diff reconciled with the initial review",
+      "all twelve files in the one-commit remediation delta",
+      "both prior blocking findings and forward-risk surfaces",
+      "current-head verification, exact old-binary rollback and live CI"
+    ],
+    "excluded_scope": [
+      "production deployment, production data and load testing",
+      "manual line-by-line reading of the full generated OpenAPI artifact"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "cycle 1 report @ 053cf444cc8e80d6e8947d6cf73bc6361b66673b",
+      "result_path": "docs/feature/lp-03-reporting-role-experience/pr-review-5-ed63a7fffc77.json",
+      "result_sha256": "5e792fb23d5c1179b613f1b9299b30e1b4833958420becbbb90bdb60454f6e99",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 5,
+      "reviewed_at": "2026-08-01T00:15:57Z",
+      "base_sha": "644af4f186b054a9c5d1c6db087a97e009f545a3",
+      "head_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": ["PRR-001", "PRR-002"],
+      "blocking_finding_ids": ["PRR-001", "PRR-002"]
+    },
+    "delta_review": {
+      "previous_base_sha": "644af4f186b054a9c5d1c6db087a97e009f545a3",
+      "previous_head_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860",
+      "current_base_sha": "644af4f186b054a9c5d1c6db087a97e009f545a3",
+      "current_head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+      "triggers": ["HEAD_CHANGED", "EVIDENCE_CHANGED"],
+      "commit_range": "ed63a7fffc7700089e800d519bdbc894c9d87860..0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+      "commits_reviewed": ["0ecdc5c51860d5f32cae2431bda481eaa80fa7ed"],
+      "changed_files": [
+        "CHANGELOG.md",
+        "apps/api/src/app.ts",
+        "docs/feature/lp-03-reporting-role-experience/verification.md",
+        "docs/migration-notes.md",
+        "openapi/lp03.v1.json",
+        "packages/contracts/src/reports.ts",
+        "packages/contracts/test/lp03-api.contract.test.ts",
+        "packages/db/src/migrate.ts",
+        "packages/db/src/migrations.ts",
+        "packages/db/src/readiness.ts",
+        "packages/db/src/schema/index.ts",
+        "packages/db/test/service.integration.test.ts"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "apps/api/src/app.ts",
+        "docs/feature/lp-03-reporting-role-experience/verification.md",
+        "docs/migration-notes.md",
+        "openapi/lp03.v1.json",
+        "packages/contracts/src/reports.ts",
+        "packages/contracts/test/lp03-api.contract.test.ts",
+        "packages/db/src/migrate.ts",
+        "packages/db/src/migrations.ts",
+        "packages/db/src/readiness.ts",
+        "packages/db/src/schema/index.ts",
+        "packages/db/test/service.integration.test.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "One remediation commit closes the unsafe recursive inline-token schema and old-binary migration incompatibility, but introduces a mismatch between Markdown list response schema and production compiler output.",
+      "evidence": "All 12 delta files and the complete base-to-head implementation were reconciled; git diff --check and all advertised suites pass, while a compiler-to-serializer counterexample deterministically fails."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "Unsafe nested tokens are now rejected, but list items are declared as SafeInlineToken[][] while the production compiler emits SafeMarkdownBlock[][]; real compiler output fails the registered response serializer with HTTP 500."
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "A separate feature migration ledger preserves the LP-02 catalog; current integration, exact old readiness and exact LP-01/LP-02 acceptance all pass against the upgraded database."
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Recursive public report DTO, compiler and response serializer",
+        "risk_triggers": ["public-contract", "trust-boundary", "test-adequacy"],
+        "reason": "The remediation changes the recursive schema that validates persisted compiler output before public serialization.",
+        "affected_paths": [
+          "apps/api/src/app.ts",
+          "packages/contracts/src/reports.ts",
+          "packages/reporting/src/markdown.ts",
+          "packages/reporting/src/types.ts",
+          "packages/contracts/test/lp03-api.contract.test.ts",
+          "openapi/lp03.v1.json"
+        ],
+        "checks": [
+          "Compile an ordinary Markdown list through the production compiler",
+          "Validate and serialize the compiler-produced model through the registered API schema"
+        ],
+        "finding_ids": ["PRR-001"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Dual migration ledger and application rollback",
+        "risk_triggers": ["deployment-compatibility", "mutation-recovery", "test-adequacy"],
+        "reason": "The prior blocker required proof that the exact LP-02 binary remains ready after the LP-03 migration.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "docs/feature/lp-03-reporting-role-experience/verification.md",
+          "docs/migration-notes.md",
+          "packages/db/src/migrate.ts",
+          "packages/db/src/migrations.ts",
+          "packages/db/src/readiness.ts",
+          "packages/db/src/schema/index.ts",
+          "packages/db/test/service.integration.test.ts"
+        ],
+        "checks": [
+          "Migrate the prior Cycle 1 layout without SQL replay",
+          "Run exact LP-02 readiness and LP-01/LP-02 acceptance against the upgraded database"
+        ],
+        "finding_ids": ["PRR-002"],
+        "result": "PASS"
+      },
+      {
+        "surface": "Complete LP-03 current-head behavior",
+        "risk_triggers": ["data-integrity", "concurrency", "test-adequacy"],
+        "reason": "The remediation changes public contracts and migration/readiness behavior.",
+        "affected_paths": ["apps", "packages", "openapi", "docs"],
+        "checks": ["Run npm run verify on the exact head", "Observe exact-head GitHub CI"],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "FAIL",
+        "reviewer": "fresh-context independent reviewer (/root/lp03_cycle2_independent)",
+        "summary": "The independent pass reproduced the compiler/schema mismatch and HTTP 500 on a valid Markdown list, confirmed current tests and OpenAPI checks miss it, inspected all 12 delta files, and found no separate migration blocker."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "The exact head is green and resolves the prior rollback blocker, but valid Markdown lists produced by the production compiler do not satisfy the registered public response schema and can make report reads return HTTP 500."
+  ,  "blocking_finding_ids": ["PRR-001"]
+  },
+  "summary": "Cycle 2 resolves old-binary rollback compatibility, but approval renewal is withheld because the recursive list response schema rejects real compiler output and causes a reproducible HTTP 500 on valid reports.",
+  "change_map": [
+    {
+      "area": "Recursive safe rendering contract",
+      "change": "Replace unknown inline recursion with a closed referenced schema and change Markdown list item validation.",
+      "external_behavior": "Unsafe nested tokens are rejected, but valid compiler-produced list blocks are also rejected during response serialization.",
+      "risk": "High",
+      "validation": "Compiler-to-schema check and actual Fastify response serialization fail; PRR-001 remains open."
+    },
+    {
+      "area": "Migration and rollback compatibility",
+      "change": "Move LP-03 migration identity to a separate feature ledger and migrate prior ledger state atomically.",
+      "external_behavior": "The exact LP-02 binary remains ready against the upgraded database.",
+      "risk": "High",
+      "validation": "Current migration integration and exact old-binary readiness/acceptance all pass; PRR-002 is resolved."
+    },
+    {
+      "area": "Verification and API registration",
+      "change": "Register recursive schemas and expand contract/migration evidence.",
+      "external_behavior": "Current advertised suites remain green but do not exercise real compiled list serialization.",
+      "risk": "Medium",
+      "validation": "Full verify passes; discriminating compiler-to-serializer regression fails."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "api-contract",
+      "title": "Recursive remediation rejects compiler-produced Markdown lists",
+      "location": {
+        "path": "packages/contracts/src/reports.ts",
+        "line_start": 107,
+        "line_end": 123,
+        "symbol": "SafeMarkdownBlockSchema",
+        "side": "RIGHT",
+        "commit_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed"
+      },
+      "observation": "The response schema defines each Markdown list item as SafeInlineToken[], while the production compiler and canonical TypeScript model define each item as SafeMarkdownBlock[].",
+      "trigger": "A valid submitted report contains an ordinary or nested Markdown list and a client reads the current or revision response.",
+      "impact": "The report persists successfully, but registered response serialization rejects the compiler-produced render model and can return HTTP 500; generated OpenAPI advertises the same incorrect shape.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "The actual compiler output for '- one\\n- two' fails SafeReportRenderModelSchema, and buildApp/app.inject returns 500 INTERNAL_ERROR when serializing it.",
+          "reference": "exact-head compiler-to-Fastify response reproduction"
+        },
+        {
+          "kind": "code",
+          "description": "compileSafeMarkdown emits blockTokens for every list item and the canonical type is SafeMarkdownBlock[][], contrary to reports.ts lines 117-120.",
+          "reference": "packages/reporting/src/markdown.ts:117-130; packages/reporting/src/types.ts:36-42"
+        },
+        {
+          "kind": "test",
+          "description": "The new passing test fabricates inline_code tokens as list items, a shape the production compiler never emits.",
+          "reference": "packages/contracts/test/lp03-api.contract.test.ts:123-126"
+        }
+      ],
+      "remediation": "Define a recursive SafeMarkdownBlock schema and use block references for list items, regenerate OpenAPI, and cover actual compiler output through schema validation and response serialization, including nested lists.",
+      "verification": "Compiler-produced ordinary/nested lists pass the registered schema and current/revision endpoints return 200 while unsafe nested tokens remain rejected; all contract, OpenAPI and full checks pass.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "api-contract:safe-render-model:recursive-unknown"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "compatibility",
+      "title": "Old-binary rollback now works through a separate feature migration ledger",
+      "location": {
+        "path": "packages/db/src/migrate.ts",
+        "line_start": 1,
+        "line_end": 1,
+        "symbol": "feature migration ledger",
+        "side": "RIGHT",
+        "commit_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed"
+      },
+      "observation": "The legacy migration ledger remains exact for LP-02 while 0003 is tracked and strictly checked in a separate feature ledger; prior Cycle 1 ledger state is migrated atomically without replaying SQL.",
+      "trigger": "Apply the LP-03 migration and roll the application back to the exact LP-02 binary without a schema rollback.",
+      "impact": "The exact old binary remains ready and can serve the previously accepted LP-01/LP-02 behavior.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "Current-head migration/readiness integration passed 10/10.",
+          "reference": "packages/db/test/service.integration.test.ts"
+        },
+        {
+          "kind": "reproduction",
+          "description": "Exact LP-02 PostgresReadiness returned READY and exact LP-01/LP-02 acceptance suites both passed against the upgraded database.",
+          "reference": "detached base 644af4f186b054a9c5d1c6db087a97e009f545a3"
+        }
+      ],
+      "remediation": "Completed for the exact prior finding; preserve the dual-ledger and old-binary regression coverage.",
+      "verification": "Retain exact old-binary readiness and LP-01/LP-02 acceptance against the upgraded database.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "compatibility:lp03-migration:lp02-binary-readiness"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Align recursive Markdown list schema with real compiler output and add compiler-to-serializer regressions.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Preserve the separate feature ledger and exact old-binary rollback compatibility.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "Recursive inline token validation now rejects the unsafe nested-token counterexample.",
+      "mitigation": "Preserve the new negative nested-token regression while fixing lists.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "data-integrity",
+      "level": "Low",
+      "description": "Migration conversion, strict readiness and immutable report persistence suites pass.",
+      "mitigation": "Preserve current transactional and readiness tests.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "High",
+      "description": "Valid reports containing Markdown lists can fail read response serialization with HTTP 500.",
+      "mitigation": "Resolve PRR-001 before merge.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "Low",
+      "description": "No new scalability regression was identified; no production load target was available.",
+      "mitigation": "Observe report response latency when a deployment target exists.",
+      "owner": null
+    },
+    {
+      "category": "api-compatibility",
+      "level": "High",
+      "description": "Generated OpenAPI and runtime response schema disagree with the production compiler's list model.",
+      "mitigation": "Resolve PRR-001 and regenerate the contract.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "Exact LP-02 readiness and acceptance now pass after the LP-03 migration.",
+      "mitigation": "Preserve PRR-002 rollback coverage.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "verify cycle-one JSON bytes from immutable report commit",
+        "environment": "Git and SHA-256 on macOS",
+        "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Previous JSON matches SHA-256 5e792fb23d5c1179b613f1b9299b30e1b4833958420becbbb90bdb60454f6e99.",
+        "required_for_approval": true,
+        "evidence_ref": "053cf444cc8e80d6e8947d6cf73bc6361b66673b"
+      },
+      {
+        "command": "npm ci",
+        "environment": "macOS; Node 24.14.0; npm 11.16.0; exact head",
+        "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 locked packages.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run verify",
+        "environment": "macOS; Node 24.14.0; npm 11.16.0; isolated PostgreSQL 17; Playwright Chromium; exact head",
+        "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Formatting, lint, report types, typecheck, build, OpenAPI, 37 unit, 21 contract, 31 integration, 8 component, 10 acceptance and 7 browser tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": "docs/feature/lp-03-reporting-role-experience/verification.md"
+      },
+      {
+        "command": "npm run test:integration -- packages/db/test/service.integration.test.ts --reporter=dot",
+        "environment": "macOS; exact head; isolated PostgreSQL 17",
+        "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 10 migration, ledger and readiness integration cases passed.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-002"
+      },
+      {
+        "command": "run exact LP-02 PostgresReadiness and exact LP-01/LP-02 acceptance against upgraded database",
+        "environment": "Detached authoritative base 644af4f186b054a9c5d1c6db087a97e009f545a3; upgraded Cycle 2 PostgreSQL",
+        "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Old readiness returned READY; LP-01 and LP-02 acceptance passed 2/2 each.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-002"
+      },
+      {
+        "command": "compileSafeMarkdown list -> SafeReportRenderModelSchema -> registered Fastify response serializer",
+        "environment": "Node 24.14.0; built exact-head contracts, reporting compiler and app",
+        "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "Real compiler list model fails the contract and the API returns 500 INTERNAL_ERROR during response serialization.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "independent fresh-context remediation review",
+        "environment": "Separate exact-head inspection and reproduction",
+        "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "Independently reproduced the same public response contract and HTTP 500 defect; no separate migration blocker found.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "git diff --check 644af4f186b054a9c5d1c6db087a97e009f545a3..0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+        "environment": "Git exact base/head",
+        "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors; all 12 remediation-delta files were classified and reviewed.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-01T07:31:22Z",
+        "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30676378147 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30676378147/job/91304391462"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Production deployment and load test",
+        "reason": "No production target or production data was in scope."
+      }
+    ]
+  },
+  "limitations": [
+    "No production environment, production traffic or real-user usability study was available.",
+    "The generated OpenAPI artifact was generator-verified and inspected at the affected list schema rather than manually read line-by-line."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "The requested SHA is the exact live GitHub PR head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh PR metadata immediately before the decision.",
+      "evidence": "GitHub reported exact base 644af4f186b054a9c5d1c6db087a97e009f545a3 and head 0ecdc5c51860d5f32cae2431bda481eaa80fa7ed at 2026-08-01T07:31:22Z.",
+      "impact_if_false": "The review would bind the wrong snapshot."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The production compiler output is authoritative input to the public response schema and serializer.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Trace report compilation, persistence, current/revision hydration and Fastify response registration.",
+      "evidence": "The persisted render model is produced by compileSafeMarkdown and returned through SafeReportRenderModelSchema.",
+      "impact_if_false": "PRR-001 would not reach the public API."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The authoritative LP-02 binary remains usable after the LP-03 migration.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Run its actual readiness implementation and LP-01/LP-02 acceptance suites against the upgraded database.",
+      "evidence": "Readiness returned READY and both acceptance suites passed.",
+      "impact_if_false": "PRR-002 would remain blocking."
+    }
+  ],
+  "non_blocking_recommendations": []
+}

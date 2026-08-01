@@ -1,0 +1,444 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 5,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/5",
+    "title": "LP-03: structured reporting and dual-role Web",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "644af4f186b054a9c5d1c6db087a97e009f545a3",
+    "head_ref": "codex/lp-03-reporting-role-experience",
+    "head_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+    "reviewed_at": "2026-08-01T08:03:50Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete exact base-to-head diff reconciled with prior reviews",
+      "all six files in the one-commit Cycle 3 remediation delta",
+      "both prior findings and induced public-contract risks",
+      "current-head verification, live CI and exact PR identity"
+    ],
+    "excluded_scope": [
+      "production deployment, production data and load testing",
+      "manual line-by-line reading of the full generated OpenAPI artifact"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "cycle 2 report @ 69159102b1246616bcf74a28058c262ce594f10e",
+      "result_path": "docs/feature/lp-03-reporting-role-experience/pr-review-5-0ecdc5c51860.json",
+      "result_sha256": "c0437d5a7b9889bf8e23bbf7f05af1c984e97f89d0102522993e18c95a205cd1",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 5,
+      "reviewed_at": "2026-08-01T07:31:22Z",
+      "base_sha": "644af4f186b054a9c5d1c6db087a97e009f545a3",
+      "head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": ["PRR-001", "PRR-002"],
+      "blocking_finding_ids": ["PRR-001"]
+    },
+    "delta_review": {
+      "previous_base_sha": "644af4f186b054a9c5d1c6db087a97e009f545a3",
+      "previous_head_sha": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed",
+      "current_base_sha": "644af4f186b054a9c5d1c6db087a97e009f545a3",
+      "current_head_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+      "triggers": ["HEAD_CHANGED", "EVIDENCE_CHANGED"],
+      "commit_range": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed..ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+      "commits_reviewed": ["ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5"],
+      "changed_files": [
+        "apps/api/src/app.ts",
+        "apps/api/test/lp03-report-api.acceptance.test.ts",
+        "docs/feature/lp-03-reporting-role-experience/verification.md",
+        "openapi/lp03.v1.json",
+        "packages/contracts/src/reports.ts",
+        "packages/contracts/test/lp03-api.contract.test.ts"
+      ],
+      "reviewed_files": [
+        "apps/api/src/app.ts",
+        "apps/api/test/lp03-report-api.acceptance.test.ts",
+        "docs/feature/lp-03-reporting-role-experience/verification.md",
+        "openapi/lp03.v1.json",
+        "packages/contracts/src/reports.ts",
+        "packages/contracts/test/lp03-api.contract.test.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "One remediation commit aligns the recursive Markdown list schema with production compiler output, registers both referenced schemas, regenerates OpenAPI and adds production-shaped contract/API coverage.",
+      "evidence": "All six delta files and the complete effective PR were reconciled; exact-head contract, acceptance, full verification, independent review and git diff --check pass."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "Recursive block references match SafeMarkdownBlock[][] compiler output; real nested lists pass TypeBox and actual current/revision serialization while unsafe nested tokens remain rejected."
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "Database, migration, reporting producer and report-service paths are byte-identical from Cycle 2, and current integration 31/31 passes."
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Recursive public report contract propagation",
+        "risk_triggers": ["public-contract", "trust-boundary", "test-adequacy"],
+        "reason": "The remediation changes a recursive serialized shape and its schema registry, generated contract, documentation and executable coverage.",
+        "affected_paths": [
+          "apps/api/src/app.ts",
+          "apps/api/test/lp03-report-api.acceptance.test.ts",
+          "docs/feature/lp-03-reporting-role-experience/verification.md",
+          "openapi/lp03.v1.json",
+          "packages/contracts/src/reports.ts",
+          "packages/contracts/test/lp03-api.contract.test.ts",
+          "packages/reporting/src/markdown.ts",
+          "packages/reporting/src/types.ts",
+          "apps/web/src/components/report-renderer.tsx"
+        ],
+        "checks": [
+          "Trace producer, registry/export, serialization, OpenAPI, Web consumer and executable tests",
+          "Validate actual nested compiler output and unsafe nested counterexamples",
+          "Exercise real current and revision Fastify response serializers"
+        ],
+        "finding_ids": ["PRR-001"],
+        "result": "PASS"
+      },
+      {
+        "surface": "Existing migration and application rollback",
+        "risk_triggers": ["deployment-compatibility", "mutation-recovery", "test-adequacy"],
+        "reason": "Cycle 2 resolved old-binary rollback and Cycle 3 must not regress it indirectly.",
+        "affected_paths": [
+          "packages/db/src/migrate.ts",
+          "packages/db/src/migrations.ts",
+          "packages/db/src/readiness.ts",
+          "packages/db/src/report-service.ts"
+        ],
+        "checks": [
+          "Confirm these paths are unchanged from Cycle 2",
+          "Run the complete current-head integration suite"
+        ],
+        "finding_ids": ["PRR-002"],
+        "result": "PASS"
+      },
+      {
+        "surface": "Complete LP-03 current-head behavior",
+        "risk_triggers": ["data-integrity", "concurrency", "test-adequacy"],
+        "reason": "Approval renewal requires all feature test families and generated contracts at the current head.",
+        "affected_paths": ["apps", "packages", "openapi", "docs"],
+        "checks": ["Run npm run verify on the exact head", "Observe exact-head GitHub CI"],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "GRANTED",
+      "independent_pass": {
+        "status": "PASS",
+        "reviewer": "fresh-context independent reviewer (/root/lp03_cycle3_independent)",
+        "summary": "No actionable finding. Independent compiler, TypeBox, OpenAPI, Fastify current/revision and Web SSR checks passed; unsafe nested counterexamples remained rejected and no database/rollback path changed."
+      }
+    }
+  },
+  "decision": {
+    "status": "APPROVE",
+    "mergeable": true,
+    "rationale": "Both prior findings are resolved at the exact head, all six remediation changes are classified, public-contract propagation and independent review pass, the full current-head suite is green, and no decision-blocking limitation remains.",
+    "blocking_finding_ids": []
+  },
+  "summary": "Cycle 3 closes the recursive Markdown response-contract defect with production-shaped schema, OpenAPI and current/revision API coverage. Both prior findings are resolved, exact-head local/CI verification is green, and approval is renewed under review-only policy.",
+  "change_map": [
+    {
+      "area": "Recursive safe rendering contract",
+      "change": "Define and register a recursive SafeMarkdownBlock schema whose list items reference blocks rather than inline tokens.",
+      "external_behavior": "Ordinary and nested compiler-produced lists serialize through current/revision endpoints while unsafe nested tokens remain rejected.",
+      "risk": "High",
+      "validation": "Direct propagation review, contract 21/21, LP-03 acceptance 6/6, full verify and independent pass."
+    },
+    {
+      "area": "Generated OpenAPI",
+      "change": "Emit separate closed recursive inline-token and Markdown-block components.",
+      "external_behavior": "The published schema now matches compiler and Web consumer recursion.",
+      "risk": "Medium",
+      "validation": "OpenAPI freshness and affected component inspection passed."
+    },
+    {
+      "area": "Regression evidence",
+      "change": "Use real compileReportView nested-list output in schema and current/revision API tests.",
+      "external_behavior": "The prior test-only fabricated list shape is replaced by production-shaped coverage.",
+      "risk": "Medium",
+      "validation": "Targeted and aggregate test suites passed."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "api-contract",
+      "title": "Recursive Markdown response schema matches production compiler output",
+      "location": {
+        "path": "packages/contracts/src/reports.ts",
+        "line_start": 107,
+        "line_end": 145,
+        "symbol": "SafeMarkdownBlockSchema",
+        "side": "RIGHT",
+        "commit_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5"
+      },
+      "observation": "List items now recursively reference SafeMarkdownBlock and text content uses the same registered block component, matching the production compiler's canonical type.",
+      "trigger": "A valid report contains ordinary or nested Markdown lists and a client reads current or revision output.",
+      "impact": "The prior HTTP 500 path is closed; compiler-produced output is accepted without broadening the unsafe-token boundary.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "Production compileReportView nested-list output passes the registered schema and actual current/revision endpoints return 200.",
+          "reference": "apps/api/test/lp03-report-api.acceptance.test.ts"
+        },
+        {
+          "kind": "analysis",
+          "description": "Generated OpenAPI uses recursive def-1 Markdown blocks and def-0 closed inline tokens; unsafe javascript/HTML shapes remain rejected.",
+          "reference": "openapi/lp03.v1.json; packages/contracts/test/lp03-api.contract.test.ts"
+        },
+        {
+          "kind": "analysis",
+          "description": "A fresh-context pass independently reproduced compiler, serializer and Web consumer behavior with no actionable defect.",
+          "reference": "independent Cycle 3 review"
+        }
+      ],
+      "remediation": "Completed for the exact prior finding; preserve recursive compiler-to-serializer and unsafe-token regressions.",
+      "verification": "Contract 21/21, LP-03 acceptance 6/6, full verify and independent checks pass at the exact head.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "api-contract:safe-render-model:recursive-unknown"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "compatibility",
+      "title": "Old-binary rollback remains compatible",
+      "location": {
+        "path": "packages/db/src/migrate.ts",
+        "line_start": 1,
+        "line_end": 1,
+        "symbol": "feature migration ledger",
+        "side": "RIGHT",
+        "commit_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5"
+      },
+      "observation": "The separate feature ledger and strict current readiness logic proven in Cycle 2 are unchanged at this head.",
+      "trigger": "Apply the LP-03 migration and roll the application back to the exact LP-02 binary without schema rollback.",
+      "impact": "The exact old binary remains ready and serves previously accepted behavior.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "Database, migration, reporting producer and report-service paths have no diff from Cycle 2.",
+          "reference": "0ecdc5c51860d5f32cae2431bda481eaa80fa7ed..ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5"
+        },
+        {
+          "kind": "test",
+          "description": "Current-head integration tests pass 31/31.",
+          "reference": "npm run verify"
+        }
+      ],
+      "remediation": "Completed in Cycle 2; preserve the dual-ledger and old-binary compatibility tests.",
+      "verification": "The relevant implementation is byte-identical and all current integration tests pass.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "compatibility:lp03-migration:lp02-binary-readiness"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Preserve recursive compiler-to-serializer and unsafe nested-token regression coverage.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Preserve separate feature-ledger and exact old-binary rollback compatibility.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "Closed recursive inline-token validation still rejects unsafe nested links and unknown HTML tokens.",
+      "mitigation": "Preserve the negative nested-token contract cases.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "data-integrity",
+      "level": "Low",
+      "description": "Migration, readiness and transactional report persistence suites pass.",
+      "mitigation": "Preserve current integration coverage.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Low",
+      "description": "Real current/revision list serialization and aggregate acceptance pass.",
+      "mitigation": "Keep exact-head CI required.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "Low",
+      "description": "No new hot path was added and no production load target was available.",
+      "mitigation": "Observe report response latency after an authorized deployment.",
+      "owner": null
+    },
+    {
+      "category": "api-compatibility",
+      "level": "Low",
+      "description": "Compiler, TypeBox schema, generated OpenAPI and recursive Web consumer agree on the list model.",
+      "mitigation": "Preserve the production-shaped contract and acceptance cases.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "Cycle 2 exact old-binary proof remains applicable because all relevant paths are unchanged.",
+      "mitigation": "Preserve dual-ledger rollback coverage.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "PASSED",
+    "reviewer_runs": [
+      {
+        "command": "verify cycle-two JSON bytes from immutable report commit",
+        "environment": "Git and SHA-256 on macOS",
+        "head_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Previous JSON matches SHA-256 c0437d5a7b9889bf8e23bbf7f05af1c984e97f89d0102522993e18c95a205cd1.",
+        "required_for_approval": true,
+        "evidence_ref": "69159102b1246616bcf74a28058c262ce594f10e"
+      },
+      {
+        "command": "npm ci",
+        "environment": "macOS; Node 24.14.0; npm 11.16.0; exact head",
+        "head_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 locked packages.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:contract -- --reporter=dot",
+        "environment": "macOS; exact head",
+        "head_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 21 contract tests passed, including recursive blocks and unsafe nested-token rejection.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "npm run test:acceptance:lp03 -- --reporter=dot",
+        "environment": "macOS; exact head; serialized isolated PostgreSQL test run",
+        "head_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 6 LP-03 API acceptance tests passed; real nested list current and revision responses returned 200.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "npm run verify",
+        "environment": "macOS; Node 24.14.0; npm 11.16.0; isolated PostgreSQL 17; Playwright Chromium; exact head",
+        "head_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Formatting, lint, report types, typecheck, build, OpenAPI, 37 unit, 21 contract, 31 integration, 8 component, 10 acceptance and 7 browser tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": "docs/feature/lp-03-reporting-role-experience/verification.md"
+      },
+      {
+        "command": "independent fresh-context Cycle 3 public-contract review",
+        "environment": "Separate exact-head inspection and executable checks",
+        "head_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No actionable finding; compiler, TypeBox, OpenAPI, Fastify current/revision, Web SSR and unsafe counterexamples passed.",
+        "required_for_approval": true,
+        "evidence_ref": "independent Cycle 3 review"
+      },
+      {
+        "command": "git diff --check 644af4f186b054a9c5d1c6db087a97e009f545a3..ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+        "environment": "Git exact base/head",
+        "head_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors; all six remediation files and the complete PR diff were reconciled.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-01T08:03:50Z",
+        "head_sha": "ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30690400419 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30690400419/job/91343970582"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Production deployment, load test and real-user study",
+        "reason": "No production target, production data or deployment authorization was in scope."
+      }
+    ]
+  },
+  "limitations": [
+    "No production environment, production traffic, load test or real-user usability study was available.",
+    "Generated OpenAPI was generator-verified and inspected at the recursive components rather than manually read line-by-line."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "The requested SHA is the exact live GitHub PR head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh PR metadata before report preparation and again before the merge disposition.",
+      "evidence": "GitHub reported exact base 644af4f186b054a9c5d1c6db087a97e009f545a3 and head ff2a615fb81f0bd2dc01cb8389ccfd6e44be8cf5.",
+      "impact_if_false": "The approval would bind the wrong snapshot."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "Production compiler output is the persisted public response input and must satisfy the registered schema.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Trace compileReportView through persistence, current/revision hydration, Fastify serialization and Web consumption.",
+      "evidence": "The production nested-list fixture passes all applicable propagation stages and executable tests.",
+      "impact_if_false": "PRR-001 verification would test a non-authoritative shape."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "Cycle 2 old-binary rollback compatibility remains unchanged at this head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Compare all database, migration, reporting producer and report-service paths and run the current integration suite.",
+      "evidence": "Relevant paths are byte-identical from 0ecdc5c to ff2a615 and integration passes 31/31.",
+      "impact_if_false": "PRR-002 would require a new rollback drill before approval."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
