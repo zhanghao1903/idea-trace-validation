@@ -4,6 +4,8 @@ import path from "node:path";
 
 import { canonicalJson } from "./canonical-json.js";
 import type {
+  DemoActor,
+  DemoIdeaTemplate,
   DemoRunRecordV1,
   DemoScenarioManifestV1,
   DurableRequestJournalEntryV1,
@@ -242,7 +244,7 @@ export class DemoScenarioRunner {
       path: "/health/ready",
       fetchImpl: this.options.fetchImpl,
     });
-    if (ready.status !== 200 || dataObject(ready.json).status !== "READY")
+    if (ready.status !== 200 || dataObject(ready.json).status !== "ready")
       throw new Error("SERVICE_NOT_READY");
     const openapi = await readJson({
       baseOrigin: this.options.baseOrigin,
@@ -487,18 +489,7 @@ export class DemoScenarioRunner {
       await this.step({
         stepId,
         path: "/api/v1/ideas",
-        body: {
-          intentSummary: idea.intentSummary,
-          proposer: this.assets.manifest.actors.proposer,
-          ...(idea.desiredOutcome === undefined
-            ? {}
-            : { desiredOutcome: idea.desiredOutcome }),
-          facts: idea.facts.map((text) => ({ text })),
-          hypotheses: idea.hypotheses.map((text) => ({ text })),
-          clarificationQuestions: idea.clarificationQuestions,
-          actor: this.assets.manifest.actors.executor,
-          reason: `SYNTHETIC_DEMO_DATA create ${idea.key}`,
-        },
+        body: ideaRequestBody(idea, this.assets.manifest.actors),
         expectedStatus: 201,
       });
     }
@@ -774,6 +765,22 @@ export class DemoScenarioRunner {
     return this.record;
   }
 }
+
+export const ideaRequestBody = (
+  idea: DemoIdeaTemplate,
+  actors: { proposer: DemoActor; executor: DemoActor },
+): Record<string, unknown> => ({
+  intentSummary: idea.intentSummary,
+  proposer: actors.proposer,
+  ...(idea.desiredOutcome === undefined
+    ? {}
+    : { desiredOutcome: idea.desiredOutcome }),
+  facts: idea.facts.map((text) => ({ text })),
+  hypotheses: idea.hypotheses.map((text) => ({ text })),
+  clarificationQuestions: idea.clarificationQuestions,
+  actor: actors.executor,
+  reason: `SYNTHETIC_DEMO_DATA create ${idea.key}`,
+});
 
 export const loadCommittedEntry = async (input: {
   proofRoot: string;

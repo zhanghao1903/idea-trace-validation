@@ -28,6 +28,7 @@ import {
 import { assertSanitizedEvidence } from "./security.js";
 import { expandTemplate, loadScenarioAssets } from "./scenario.js";
 import { assertStructuredReport } from "./structured-report.js";
+import { parseClientValidationRecord } from "./verify-client-evidence.js";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const temporaryRoots: string[] = [];
@@ -314,5 +315,54 @@ describe("LP-04 deterministic runtime contracts", () => {
         }),
       ),
     ).not.toThrow();
+    expect(() =>
+      assertStructuredReport(
+        expandTemplate(assets.reportTemplates["completed-project"], {
+          projectId: "proj_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+          clientRequestId: deriveRequestId({
+            runId: "template-check",
+            manifestSha256: assets.manifestSha256,
+            stepId: "report-governed",
+            semanticAttempt: 0,
+          }),
+          basedOnRevision: 0,
+          evidenceId: "evd_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+          decisionAttentionId: "attn_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+          supportAttentionId: "attn_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("accepts only digest-bound executed client evidence", () => {
+    const digestInput = {
+      schemaVersion: "1.0",
+      client: "CODEX",
+      clientVersion: "codex-test",
+      executionMode: "CLI",
+      observedBy: "LP-04 acceptance",
+      skillCommitSha: "a".repeat(40),
+      runId: "codex-proof",
+      inputIntent: "SYNTHETIC_DEMO_DATA create and read one Idea",
+      startedAt: "2026-08-01T00:00:00.000Z",
+      finishedAt: "2026-08-01T00:01:00.000Z",
+      rawTranscriptSha256: "b".repeat(64),
+      requestIds: ["req_01ARZ3NDEKTSV4RRFFQ69G5FAV"],
+      resourceRefs: { ideaId: "idea_01ARZ3NDEKTSV4RRFFQ69G5FAV" },
+      webPaths: ["/ideas/idea_01ARZ3NDEKTSV4RRFFQ69G5FAV"],
+      objectiveChecks: [{ id: "live-read", result: "PASS" }],
+      result: "PASS",
+    } as const;
+    const evidenceSha256 = sha256(assertSanitizedEvidence(digestInput));
+    expect(
+      parseClientValidationRecord({ ...digestInput, evidenceSha256 }),
+    ).toMatchObject({ client: "CODEX", result: "PASS" });
+    expect(() =>
+      parseClientValidationRecord({
+        ...digestInput,
+        client: "CLAUDE",
+        evidenceSha256,
+      }),
+    ).toThrow("CLIENT_EVIDENCE_DIGEST");
   });
 });

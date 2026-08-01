@@ -98,6 +98,26 @@ export interface DemoRunRecordV1 {
   result: "PENDING" | "PASS" | "FAIL";
 }
 
+export interface ClientValidationRecordV1 {
+  schemaVersion: "1.0";
+  client: "CODEX" | "CLAUDE";
+  clientVersion: string;
+  executionMode: "CLI" | "DESKTOP";
+  observedBy: string;
+  skillCommitSha: string;
+  runId: string;
+  inputIntent: string;
+  startedAt: string;
+  finishedAt: string;
+  rawTranscriptSha256: string;
+  requestIds: string[];
+  resourceRefs: Record<string, string>;
+  webPaths: string[];
+  objectiveChecks: { id: string; result: "PASS" }[];
+  result: "PASS";
+  evidenceSha256: string;
+}
+
 const object = (value: unknown, code: string): Record<string, unknown> => {
   if (typeof value !== "object" || value === null || Array.isArray(value))
     throw new Error(code);

@@ -28,15 +28,22 @@ const datePattern = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/u;
 const safeResourceId =
   /^(?:idea|proj|ques|evd|attn|conc|rpt|confirm|trn|prog)_[0-9A-Za-z]{10,64}$/u;
 const secretPatterns = [
-  /authorization/iu,
-  /cookie/iu,
-  /human[-_]?control/iu,
   /(?:token|password|secret)\s*[:=]/iu,
   /Bearer\s+[A-Za-z0-9._~+/=-]+/u,
   /postgres(?:ql)?:\/\//iu,
   /https?:\/\/[^\s/@]+:[^\s/@]+@/u,
   /AKIA[0-9A-Z]{16}/u,
 ];
+const secretKeyPattern =
+  /^(?:authorization|cookie|password|secret|token|humanControlToken|human_control_token)$/iu;
+
+const hasSecretKey = (value: unknown): boolean => {
+  if (Array.isArray(value)) return value.some(hasSecretKey);
+  if (typeof value !== "object" || value === null) return false;
+  return Object.entries(value).some(
+    ([key, item]) => secretKeyPattern.test(key) || hasSecretKey(item),
+  );
+};
 
 const transitions: Readonly<
   Record<DurableRequestState, DurableRequestState[]>
@@ -198,8 +205,11 @@ export const validateJournalEntry = (
   )
     throw new Error("JOURNAL_BODY");
   const canonicalBody = input.canonicalBody;
-  JSON.parse(canonicalBody);
-  if (secretPatterns.some((pattern) => pattern.test(canonicalBody)))
+  const parsedBody: unknown = JSON.parse(canonicalBody);
+  if (
+    hasSecretKey(parsedBody) ||
+    secretPatterns.some((pattern) => pattern.test(canonicalBody))
+  )
     throw new Error("JOURNAL_SECRET");
   if (
     typeof input.bodySha256 !== "string" ||
@@ -227,7 +237,7 @@ export const validateJournalEntry = (
     authorityInputs.expectedVersion = expectedVersion;
   if (basedOnRevision !== undefined)
     authorityInputs.basedOnRevision = basedOnRevision;
-  const body = asObject(JSON.parse(canonicalBody));
+  const body = asObject(parsedBody);
   for (const [key, authorityValue] of Object.entries(authorityInputs)) {
     if (body[key] !== authorityValue)
       throw new Error("JOURNAL_AUTHORITY_DRIFT");

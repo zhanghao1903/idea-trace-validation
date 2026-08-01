@@ -17,15 +17,15 @@
           "items": [
             {
               "id": "started",
-              "date": "2026-08-01",
+              "happenedAt": "2026-08-01T03:00:00.000Z",
               "title": "开始合成验证",
-              "status": "done"
+              "description": "使用隔离环境开始合成验证。"
             },
             {
               "id": "confirmed",
-              "date": "2026-08-02",
+              "happenedAt": "2026-08-02T03:00:00.000Z",
               "title": "人类确认完成",
-              "status": "done"
+              "description": "由独立人类 capability 完成确认。"
             }
           ]
         },
