@@ -85,6 +85,39 @@
           }
         ],
         "title": "SafeInlineToken"
+      },
+      "def-1": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+              "type": { "type": "string", "enum": ["paragraph"] },
+              "children": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/def-0" }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "ordered", "items"],
+            "properties": {
+              "type": { "type": "string", "enum": ["list"] },
+              "ordered": { "type": "boolean" },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/def-1" }
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "title": "SafeMarkdownBlock"
       }
     }
   },
@@ -119348,57 +119381,7 @@
                                                     "content": {
                                                       "type": "array",
                                                       "items": {
-                                                        "anyOf": [
-                                                          {
-                                                            "type": "object",
-                                                            "required": [
-                                                              "type",
-                                                              "children"
-                                                            ],
-                                                            "properties": {
-                                                              "type": {
-                                                                "type": "string",
-                                                                "enum": [
-                                                                  "paragraph"
-                                                                ]
-                                                              },
-                                                              "children": {
-                                                                "type": "array",
-                                                                "items": {
-                                                                  "$ref": "#/components/schemas/def-0"
-                                                                }
-                                                              }
-                                                            },
-                                                            "additionalProperties": false
-                                                          },
-                                                          {
-                                                            "type": "object",
-                                                            "required": [
-                                                              "type",
-                                                              "ordered",
-                                                              "items"
-                                                            ],
-                                                            "properties": {
-                                                              "type": {
-                                                                "type": "string",
-                                                                "enum": ["list"]
-                                                              },
-                                                              "ordered": {
-                                                                "type": "boolean"
-                                                              },
-                                                              "items": {
-                                                                "type": "array",
-                                                                "items": {
-                                                                  "type": "array",
-                                                                  "items": {
-                                                                    "$ref": "#/components/schemas/def-0"
-                                                                  }
-                                                                }
-                                                              }
-                                                            },
-                                                            "additionalProperties": false
-                                                          }
-                                                        ]
+                                                        "$ref": "#/components/schemas/def-1"
                                                       }
                                                     }
                                                   },
@@ -119835,57 +119818,7 @@
                                                     "content": {
                                                       "type": "array",
                                                       "items": {
-                                                        "anyOf": [
-                                                          {
-                                                            "type": "object",
-                                                            "required": [
-                                                              "type",
-                                                              "children"
-                                                            ],
-                                                            "properties": {
-                                                              "type": {
-                                                                "type": "string",
-                                                                "enum": [
-                                                                  "paragraph"
-                                                                ]
-                                                              },
-                                                              "children": {
-                                                                "type": "array",
-                                                                "items": {
-                                                                  "$ref": "#/components/schemas/def-0"
-                                                                }
-                                                              }
-                                                            },
-                                                            "additionalProperties": false
-                                                          },
-                                                          {
-                                                            "type": "object",
-                                                            "required": [
-                                                              "type",
-                                                              "ordered",
-                                                              "items"
-                                                            ],
-                                                            "properties": {
-                                                              "type": {
-                                                                "type": "string",
-                                                                "enum": ["list"]
-                                                              },
-                                                              "ordered": {
-                                                                "type": "boolean"
-                                                              },
-                                                              "items": {
-                                                                "type": "array",
-                                                                "items": {
-                                                                  "type": "array",
-                                                                  "items": {
-                                                                    "$ref": "#/components/schemas/def-0"
-                                                                  }
-                                                                }
-                                                              }
-                                                            },
-                                                            "additionalProperties": false
-                                                          }
-                                                        ]
+                                                        "$ref": "#/components/schemas/def-1"
                                                       }
                                                     }
                                                   },
@@ -126129,57 +126062,7 @@
                                                     "content": {
                                                       "type": "array",
                                                       "items": {
-                                                        "anyOf": [
-                                                          {
-                                                            "type": "object",
-                                                            "required": [
-                                                              "type",
-                                                              "children"
-                                                            ],
-                                                            "properties": {
-                                                              "type": {
-                                                                "type": "string",
-                                                                "enum": [
-                                                                  "paragraph"
-                                                                ]
-                                                              },
-                                                              "children": {
-                                                                "type": "array",
-                                                                "items": {
-                                                                  "$ref": "#/components/schemas/def-0"
-                                                                }
-                                                              }
-                                                            },
-                                                            "additionalProperties": false
-                                                          },
-                                                          {
-                                                            "type": "object",
-                                                            "required": [
-                                                              "type",
-                                                              "ordered",
-                                                              "items"
-                                                            ],
-                                                            "properties": {
-                                                              "type": {
-                                                                "type": "string",
-                                                                "enum": ["list"]
-                                                              },
-                                                              "ordered": {
-                                                                "type": "boolean"
-                                                              },
-                                                              "items": {
-                                                                "type": "array",
-                                                                "items": {
-                                                                  "type": "array",
-                                                                  "items": {
-                                                                    "$ref": "#/components/schemas/def-0"
-                                                                  }
-                                                                }
-                                                              }
-                                                            },
-                                                            "additionalProperties": false
-                                                          }
-                                                        ]
+                                                        "$ref": "#/components/schemas/def-1"
                                                       }
                                                     }
                                                   },

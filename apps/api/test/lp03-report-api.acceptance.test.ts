@@ -1,4 +1,9 @@
-import type { StructuredReportV1 } from "@idea/contracts";
+import {
+  SafeInlineTokenSchema,
+  SafeMarkdownBlockSchema,
+  SafeReportRenderModelSchema,
+  type StructuredReportV1,
+} from "@idea/contracts";
 import { createIdFactory } from "@idea/application";
 import {
   canonicalJson,
@@ -16,6 +21,7 @@ import {
   PostgresReportService,
 } from "@idea/db";
 import type { FastifyInstance } from "fastify";
+import Schema from "typebox/schema";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { buildApp } from "../src/app.js";
@@ -83,6 +89,7 @@ const report = (
   clientRequestId: string,
   basedOnRevision: number,
   title = "API 验证报告",
+  markdown = "  保留首尾空格  ",
 ): StructuredReportV1 => ({
   schemaVersion: "1.0",
   projectId,
@@ -99,7 +106,7 @@ const report = (
         {
           id: "summary",
           type: "text",
-          markdown: "  保留首尾空格  ",
+          markdown,
         },
       ],
     },
@@ -288,11 +295,30 @@ describe("LP-03 report HTTP contract", () => {
     expect(replay.json().meta.idempotentReplay).toBe(true);
 
     const secondKey = "req_01ARZ3NDEKTSV4RRFFQ69G5FB3";
+    const listMarkdown =
+      "列表：\n\n- 第一项\n  - 嵌套 **强调** 与 [证据](https://example.test/evidence)\n- 第二项";
+    const secondPayload = report(
+      projectId,
+      secondKey,
+      1,
+      "第二版 API 报告",
+      listMarkdown,
+    );
+    const renderModelSchema = Schema.Compile(
+      {
+        SafeInlineToken: SafeInlineTokenSchema,
+        SafeMarkdownBlock: SafeMarkdownBlockSchema,
+      },
+      SafeReportRenderModelSchema,
+    );
+    expect(renderModelSchema.Check(compileReportView(secondPayload))).toBe(
+      true,
+    );
     const second = await app.inject({
       method: "POST",
       url: `/api/v1/projects/${projectId}/reports`,
       headers: headers(secondKey),
-      payload: report(projectId, secondKey, 1, "第二版 API 报告"),
+      payload: secondPayload,
     });
     expect(second.statusCode, second.body).toBe(201);
 
@@ -317,9 +343,21 @@ describe("LP-03 report HTTP contract", () => {
       runtimeFallback: { revision: 1 },
     });
     expect(
+      current.json().data.primary.renderModel.sections[0].blocks[0].content,
+    ).toMatchObject([
+      { type: "paragraph" },
+      {
+        type: "list",
+        items: [
+          [{ type: "paragraph" }, { type: "list" }],
+          [{ type: "paragraph" }],
+        ],
+      },
+    ]);
+    expect(
       current.json().data.accepted.sourceDocument.sections[0].blocks[0]
         .markdown,
-    ).toBe("  保留首尾空格  ");
+    ).toBe(listMarkdown);
     const history = await app.inject(
       `/api/v1/projects/${projectId}/reports?limit=20`,
     );
@@ -337,6 +375,17 @@ describe("LP-03 report HTTP contract", () => {
       revision: 1,
       renderSlot: { revision: 1 },
     });
+    expect(
+      specific.json().data.sourceDocument.sections[0].blocks[0].markdown,
+    ).toBe("  保留首尾空格  ");
+    const specificList = await app.inject(
+      `/api/v1/projects/${projectId}/reports/2`,
+    );
+    expect(specificList.statusCode, specificList.body).toBe(200);
+    expect(
+      specificList.json().data.renderSlot.renderModel.sections[0].blocks[0]
+        .content[1],
+    ).toMatchObject({ type: "list", items: expect.any(Array) });
   });
 
   it("distinguishes EMPTY, FALLBACK and UNSUPPORTED current modes", async () => {

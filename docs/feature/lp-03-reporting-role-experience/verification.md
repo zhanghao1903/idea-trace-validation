@@ -61,9 +61,11 @@ applicable:
 
 - Invalid schema, unknown blocks/fields, unsafe Markdown/URLs, invalid references and complexity
   violations are rejected before persistence with bounded paths and no dangerous value echo.
-- The public response contract uses one registered recursive safe-token schema. Valid deep nesting
-  compiles, while a nested `javascript:` link and an unknown nested HTML token both fail; generated
-  OpenAPI references that same closed component rather than emitting unconstrained children.
+- The public response contract registers separate recursive safe-inline-token and safe-Markdown-block
+  schemas. Production `compileReportView` output for ordinary and nested lists passes that contract
+  and the actual current/revision Fastify serializers return 200. A nested `javascript:` link and an
+  unknown nested HTML token still fail; generated OpenAPI references the same two closed components
+  rather than emitting unconstrained children.
 - Same-key same-content replay creates one revision; different content conflicts; lock contention maps
   to retryable in-progress; stale revision and completed project paths fail without partial writes.
 - Post-revision, post-pointer and post-audit failpoints roll back revision, pointer, audit and terminal

@@ -6,7 +6,11 @@ import type {
   Readiness,
 } from "@idea/application";
 import { createIdFactory } from "@idea/application";
-import { ErrorEnvelopeSchema, SafeInlineTokenSchema } from "@idea/contracts";
+import {
+  ErrorEnvelopeSchema,
+  SafeInlineTokenSchema,
+  SafeMarkdownBlockSchema,
+} from "@idea/contracts";
 import helmet from "@fastify/helmet";
 import staticPlugin from "@fastify/static";
 import swagger from "@fastify/swagger";
@@ -73,6 +77,7 @@ export const buildApp = async ({
     .withTypeProvider<TypeBoxTypeProvider>()
     .setValidatorCompiler(TypeBoxValidatorCompiler);
   app.addSchema(SafeInlineTokenSchema);
+  app.addSchema(SafeMarkdownBlockSchema);
   app.decorateRequest("writePrincipal", null);
 
   app.setErrorHandler(async (error, request, reply) => {

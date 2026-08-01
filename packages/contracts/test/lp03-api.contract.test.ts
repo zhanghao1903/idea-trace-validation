@@ -5,6 +5,7 @@ import {
   ReportCurrentDtoSchema,
   ReportSubmissionRouteSchema,
   SafeInlineTokenSchema,
+  SafeMarkdownBlockSchema,
   SafeReportRenderModelSchema,
 } from "../src/index.js";
 
@@ -50,7 +51,10 @@ describe("LP-03 report API contracts", () => {
 
   it("accepts only the seven safe render block discriminants", () => {
     const renderModel = Schema.Compile(
-      { SafeInlineToken: SafeInlineTokenSchema },
+      {
+        SafeInlineToken: SafeInlineTokenSchema,
+        SafeMarkdownBlock: SafeMarkdownBlockSchema,
+      },
       SafeReportRenderModelSchema,
     );
     const base = {
@@ -78,7 +82,10 @@ describe("LP-03 report API contracts", () => {
 
   it("closes safe inline tokens recursively at every nesting depth", () => {
     const renderModel = Schema.Compile(
-      { SafeInlineToken: SafeInlineTokenSchema },
+      {
+        SafeInlineToken: SafeInlineTokenSchema,
+        SafeMarkdownBlock: SafeMarkdownBlockSchema,
+      },
       SafeReportRenderModelSchema,
     );
     const base = {
@@ -123,7 +130,26 @@ describe("LP-03 report API contracts", () => {
                 {
                   type: "list",
                   ordered: false,
-                  items: [[{ type: "inline_code", value: "safe" }]],
+                  items: [
+                    [
+                      {
+                        type: "paragraph",
+                        children: [{ type: "inline_code", value: "safe" }],
+                      },
+                      {
+                        type: "list",
+                        ordered: true,
+                        items: [
+                          [
+                            {
+                              type: "paragraph",
+                              children: [{ type: "text", value: "nested" }],
+                            },
+                          ],
+                        ],
+                      },
+                    ],
+                  ],
                 },
               ],
             },
@@ -140,7 +166,10 @@ describe("LP-03 report API contracts", () => {
 
     const unknownNestedToken = structuredClone(validDeepNesting);
     unknownNestedToken.sections[0]!.blocks[0]!.content[1]!.items[0] = [
-      { type: "html", value: "<img src=x onerror=alert(1)>" },
+      {
+        type: "paragraph",
+        children: [{ type: "html", value: "<img src=x onerror=alert(1)>" }],
+      },
     ];
     expect(renderModel.Check(unknownNestedToken)).toBe(false);
   });

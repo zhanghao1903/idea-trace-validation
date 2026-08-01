@@ -104,23 +104,37 @@ export const SafeInlineTokenSchema = Type.Unsafe<SafeInlineTokenDto>({
   $id: "SafeInlineToken",
 });
 
-export const SafeMarkdownBlockSchema = Type.Union([
-  Type.Object(
-    {
-      type: Type.Literal("paragraph"),
-      children: Type.Array(SafeInlineTokenRefSchema),
-    },
-    strict,
-  ),
-  Type.Object(
-    {
-      type: Type.Literal("list"),
-      ordered: Type.Boolean(),
-      items: Type.Array(Type.Array(SafeInlineTokenRefSchema)),
-    },
-    strict,
-  ),
-]);
+type SafeMarkdownBlockDto =
+  | { type: "paragraph"; children: SafeInlineTokenDto[] }
+  | {
+      type: "list";
+      ordered: boolean;
+      items: SafeMarkdownBlockDto[][];
+    };
+
+const SafeMarkdownBlockRefSchema = Type.Unsafe<SafeMarkdownBlockDto>({
+  $ref: "SafeMarkdownBlock",
+});
+export const SafeMarkdownBlockSchema = Type.Unsafe<SafeMarkdownBlockDto>({
+  ...Type.Union([
+    Type.Object(
+      {
+        type: Type.Literal("paragraph"),
+        children: Type.Array(SafeInlineTokenRefSchema),
+      },
+      strict,
+    ),
+    Type.Object(
+      {
+        type: Type.Literal("list"),
+        ordered: Type.Boolean(),
+        items: Type.Array(Type.Array(SafeMarkdownBlockRefSchema)),
+      },
+      strict,
+    ),
+  ]),
+  $id: "SafeMarkdownBlock",
+});
 
 const ReportRecordSchema = Type.Record(Type.String(), Type.Unknown());
 export const SafeReportBlockSchema = Type.Union([
@@ -128,7 +142,7 @@ export const SafeReportBlockSchema = Type.Union([
     {
       id: Type.String(),
       type: Type.Literal("text"),
-      content: Type.Array(SafeMarkdownBlockSchema),
+      content: Type.Array(SafeMarkdownBlockRefSchema),
     },
     strict,
   ),
