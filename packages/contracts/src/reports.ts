@@ -59,36 +59,56 @@ export const ReportCompatibilityCodeSchema = Type.Union([
   Type.Literal("REPORT_RENDER_UNAVAILABLE"),
 ]);
 
-export const SafeInlineTokenSchema = Type.Union([
-  Type.Object({ type: Type.Literal("text"), value: Type.String() }, strict),
-  Type.Object(
-    { type: Type.Literal("strong"), children: Type.Array(Type.Unknown()) },
-    strict,
-  ),
-  Type.Object(
-    { type: Type.Literal("emphasis"), children: Type.Array(Type.Unknown()) },
-    strict,
-  ),
-  Type.Object(
-    { type: Type.Literal("inline_code"), value: Type.String() },
-    strict,
-  ),
-  Type.Object(
-    {
-      type: Type.Literal("link"),
-      href: Type.String({ pattern: "^https://" }),
-      children: Type.Array(Type.Unknown()),
-    },
-    strict,
-  ),
-  Type.Object({ type: Type.Literal("break") }, strict),
-]);
+type SafeInlineTokenDto =
+  | { type: "text"; value: string }
+  | { type: "strong"; children: SafeInlineTokenDto[] }
+  | { type: "emphasis"; children: SafeInlineTokenDto[] }
+  | { type: "inline_code"; value: string }
+  | { type: "link"; href: string; children: SafeInlineTokenDto[] }
+  | { type: "break" };
+
+const SafeInlineTokenRefSchema = Type.Unsafe<SafeInlineTokenDto>({
+  $ref: "SafeInlineToken",
+});
+export const SafeInlineTokenSchema = Type.Unsafe<SafeInlineTokenDto>({
+  ...Type.Union([
+    Type.Object({ type: Type.Literal("text"), value: Type.String() }, strict),
+    Type.Object(
+      {
+        type: Type.Literal("strong"),
+        children: Type.Array(SafeInlineTokenRefSchema),
+      },
+      strict,
+    ),
+    Type.Object(
+      {
+        type: Type.Literal("emphasis"),
+        children: Type.Array(SafeInlineTokenRefSchema),
+      },
+      strict,
+    ),
+    Type.Object(
+      { type: Type.Literal("inline_code"), value: Type.String() },
+      strict,
+    ),
+    Type.Object(
+      {
+        type: Type.Literal("link"),
+        href: Type.String({ pattern: "^https://" }),
+        children: Type.Array(SafeInlineTokenRefSchema),
+      },
+      strict,
+    ),
+    Type.Object({ type: Type.Literal("break") }, strict),
+  ]),
+  $id: "SafeInlineToken",
+});
 
 export const SafeMarkdownBlockSchema = Type.Union([
   Type.Object(
     {
       type: Type.Literal("paragraph"),
-      children: Type.Array(SafeInlineTokenSchema),
+      children: Type.Array(SafeInlineTokenRefSchema),
     },
     strict,
   ),
@@ -96,7 +116,7 @@ export const SafeMarkdownBlockSchema = Type.Union([
     {
       type: Type.Literal("list"),
       ordered: Type.Boolean(),
-      items: Type.Array(Type.Array(Type.Unknown())),
+      items: Type.Array(Type.Array(SafeInlineTokenRefSchema)),
     },
     strict,
   ),

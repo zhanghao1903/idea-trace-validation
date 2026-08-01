@@ -19,7 +19,74 @@
         "name": "lp02_confirmation"
       }
     },
-    "schemas": {}
+    "schemas": {
+      "def-0": {
+        "anyOf": [
+          {
+            "type": "object",
+            "required": ["type", "value"],
+            "properties": {
+              "type": { "type": "string", "enum": ["text"] },
+              "value": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+              "type": { "type": "string", "enum": ["strong"] },
+              "children": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/def-0" }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "children"],
+            "properties": {
+              "type": { "type": "string", "enum": ["emphasis"] },
+              "children": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/def-0" }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "value"],
+            "properties": {
+              "type": { "type": "string", "enum": ["inline_code"] },
+              "value": { "type": "string" }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type", "href", "children"],
+            "properties": {
+              "type": { "type": "string", "enum": ["link"] },
+              "href": { "type": "string", "pattern": "^https://" },
+              "children": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/def-0" }
+              }
+            },
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "required": ["type"],
+            "properties": { "type": { "type": "string", "enum": ["break"] } },
+            "additionalProperties": false
+          }
+        ],
+        "title": "SafeInlineToken"
+      }
+    }
   },
   "paths": {
     "/health/live": {
@@ -119298,126 +119365,7 @@
                                                               "children": {
                                                                 "type": "array",
                                                                 "items": {
-                                                                  "anyOf": [
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "value"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "text"
-                                                                          ]
-                                                                        },
-                                                                        "value": {
-                                                                          "type": "string"
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "children"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "strong"
-                                                                          ]
-                                                                        },
-                                                                        "children": {
-                                                                          "type": "array",
-                                                                          "items": {}
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "children"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "emphasis"
-                                                                          ]
-                                                                        },
-                                                                        "children": {
-                                                                          "type": "array",
-                                                                          "items": {}
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "value"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "inline_code"
-                                                                          ]
-                                                                        },
-                                                                        "value": {
-                                                                          "type": "string"
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "href",
-                                                                        "children"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "link"
-                                                                          ]
-                                                                        },
-                                                                        "href": {
-                                                                          "type": "string",
-                                                                          "pattern": "^https://"
-                                                                        },
-                                                                        "children": {
-                                                                          "type": "array",
-                                                                          "items": {}
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "break"
-                                                                          ]
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    }
-                                                                  ]
+                                                                  "$ref": "#/components/schemas/def-0"
                                                                 }
                                                               }
                                                             },
@@ -119442,7 +119390,9 @@
                                                                 "type": "array",
                                                                 "items": {
                                                                   "type": "array",
-                                                                  "items": {}
+                                                                  "items": {
+                                                                    "$ref": "#/components/schemas/def-0"
+                                                                  }
                                                                 }
                                                               }
                                                             },
@@ -119902,126 +119852,7 @@
                                                               "children": {
                                                                 "type": "array",
                                                                 "items": {
-                                                                  "anyOf": [
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "value"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "text"
-                                                                          ]
-                                                                        },
-                                                                        "value": {
-                                                                          "type": "string"
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "children"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "strong"
-                                                                          ]
-                                                                        },
-                                                                        "children": {
-                                                                          "type": "array",
-                                                                          "items": {}
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "children"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "emphasis"
-                                                                          ]
-                                                                        },
-                                                                        "children": {
-                                                                          "type": "array",
-                                                                          "items": {}
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "value"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "inline_code"
-                                                                          ]
-                                                                        },
-                                                                        "value": {
-                                                                          "type": "string"
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "href",
-                                                                        "children"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "link"
-                                                                          ]
-                                                                        },
-                                                                        "href": {
-                                                                          "type": "string",
-                                                                          "pattern": "^https://"
-                                                                        },
-                                                                        "children": {
-                                                                          "type": "array",
-                                                                          "items": {}
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "break"
-                                                                          ]
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    }
-                                                                  ]
+                                                                  "$ref": "#/components/schemas/def-0"
                                                                 }
                                                               }
                                                             },
@@ -120046,7 +119877,9 @@
                                                                 "type": "array",
                                                                 "items": {
                                                                   "type": "array",
-                                                                  "items": {}
+                                                                  "items": {
+                                                                    "$ref": "#/components/schemas/def-0"
+                                                                  }
                                                                 }
                                                               }
                                                             },
@@ -126313,126 +126146,7 @@
                                                               "children": {
                                                                 "type": "array",
                                                                 "items": {
-                                                                  "anyOf": [
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "value"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "text"
-                                                                          ]
-                                                                        },
-                                                                        "value": {
-                                                                          "type": "string"
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "children"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "strong"
-                                                                          ]
-                                                                        },
-                                                                        "children": {
-                                                                          "type": "array",
-                                                                          "items": {}
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "children"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "emphasis"
-                                                                          ]
-                                                                        },
-                                                                        "children": {
-                                                                          "type": "array",
-                                                                          "items": {}
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "value"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "inline_code"
-                                                                          ]
-                                                                        },
-                                                                        "value": {
-                                                                          "type": "string"
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type",
-                                                                        "href",
-                                                                        "children"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "link"
-                                                                          ]
-                                                                        },
-                                                                        "href": {
-                                                                          "type": "string",
-                                                                          "pattern": "^https://"
-                                                                        },
-                                                                        "children": {
-                                                                          "type": "array",
-                                                                          "items": {}
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    },
-                                                                    {
-                                                                      "type": "object",
-                                                                      "required": [
-                                                                        "type"
-                                                                      ],
-                                                                      "properties": {
-                                                                        "type": {
-                                                                          "type": "string",
-                                                                          "enum": [
-                                                                            "break"
-                                                                          ]
-                                                                        }
-                                                                      },
-                                                                      "additionalProperties": false
-                                                                    }
-                                                                  ]
+                                                                  "$ref": "#/components/schemas/def-0"
                                                                 }
                                                               }
                                                             },
@@ -126457,7 +126171,9 @@
                                                                 "type": "array",
                                                                 "items": {
                                                                   "type": "array",
-                                                                  "items": {}
+                                                                  "items": {
+                                                                    "$ref": "#/components/schemas/def-0"
+                                                                  }
                                                                 }
                                                               }
                                                             },

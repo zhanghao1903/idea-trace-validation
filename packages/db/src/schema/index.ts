@@ -877,3 +877,11 @@ export const schemaMigrations = pgTable("schema_migrations", {
     .notNull()
     .defaultNow(),
 });
+
+export const schemaFeatureMigrations = pgTable("schema_feature_migrations", {
+  id: varchar("id", { length: 128 }).primaryKey(),
+  checksum: char("checksum", { length: 64 }).notNull(),
+  appliedAt: timestamp("applied_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

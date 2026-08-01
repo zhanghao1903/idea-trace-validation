@@ -40,26 +40,30 @@ applicable:
 | Command | Result |
 | --- | --- |
 | `npm ci` using npm 11.16.0 | PASS; 364 locked packages installed without `--force` or legacy peer bypass |
-| `npm run db:migrate:test` | PASS; `0003_lp03_reporting_experience` present and idempotently recognized |
+| `npm run db:migrate:test` | PASS; `0003_lp03_reporting_experience` present in the feature ledger and idempotently recognized |
 | `npm run report-types:check` | PASS; generated report type matches the canonical schema |
 | `npm run openapi:check` | PASS; LP-01/LP-02 immutable digests current and LP-03 current |
 | `npm run lint` | PASS |
 | `npm run typecheck` | PASS, including Playwright sources |
 | `npm run build` | PASS; API/packages and production Web built; Web JavaScript 97.35 KiB gzip |
 | `npm run test:unit` | PASS; 37/37 |
-| `npm run test:contract` | PASS; 20/20, including exact LP-02 closure and LP-03 readiness facts |
+| `npm run test:contract` | PASS; 21/21, including recursive safe-render counterexamples, exact LP-02 closure and LP-03 readiness facts |
 | `npm run test:integration` | PASS; 31/31 |
 | `npm run test:acceptance:lp01` | PASS; 2/2 |
 | `npm run test:acceptance:lp02` | PASS; 2/2 |
 | `npm run test:acceptance:lp03` | PASS; 6/6 |
 | `npm run test:web:component` | PASS; 8 report/role/confirmation component cases plus static-hosting unit coverage in the unit suite |
 | `npm run test:browser` | PASS; 7/7 Chromium scenarios |
+| `npm run verify` | PASS; full ordered gate above completed after both Cycle 1 remediations |
 | `npm audit --omit=dev` | REVIEWED; reports [GHSA-qwww-vcr4-c8h2](https://github.com/advisories/GHSA-qwww-vcr4-c8h2) through `react-router-dom` 7.18.2, but the advisory explicitly affects only unstable RSC APIs and this SPA imports no RSC/server-action API |
 
 ## Security and recovery evidence
 
 - Invalid schema, unknown blocks/fields, unsafe Markdown/URLs, invalid references and complexity
   violations are rejected before persistence with bounded paths and no dangerous value echo.
+- The public response contract uses one registered recursive safe-token schema. Valid deep nesting
+  compiles, while a nested `javascript:` link and an unknown nested HTML token both fail; generated
+  OpenAPI references that same closed component rather than emitting unconstrained children.
 - Same-key same-content replay creates one revision; different content conflicts; lock contention maps
   to retryable in-progress; stale revision and completed project paths fail without partial writes.
 - Post-revision, post-pointer and post-audit failpoints roll back revision, pointer, audit and terminal
@@ -84,10 +88,13 @@ as `ACCEPTED_NO_PUBLISH` at merge `644af4f186b054a9c5d1c6db087a97e009f545a3`, ac
 `b63ec86101008217bfa6eab6bbeda41713735e7099b051a2a7e21f3026321cba`, closure
 `418d1de3689d1bef9a1ce3ee2abf88cb3e44cd1976dc3ec40c2e15f7b63d5061`, with release targets `[]`.
 
-The approved plan described running the prior LP-02 binary after `0003`. Independent inspection of
-that exact binary shows its readiness probe deliberately rejects any migration row outside its two-row
-catalog. The migration notes therefore record the safe, observed recovery path: use an LP-03
-forward-fix or restore a verified pre-`0003` backup. No destructive schema rollback is authorized.
+The LP-01/LP-02 migration ledger remains the exact two IDs and checksums expected by the prior LP-02
+binary. `0003` is held in a separately strict feature ledger used by LP-03 readiness. The integration
+regression reproduces the pre-remediation one-ledger layout, runs the current migrator, proves it
+moves the checksum-verified record without replay, then executes the exact LP-02 two-row readiness
+comparison as `READY`; it also proves extra rows in either ledger make LP-03 not ready. This makes the
+approved old-binary application rollback executable without deleting report data or migration
+history.
 
 LP-03 is only `Ready for Acceptance`. It has not been approved, merged, published, deployed or
 formally accepted by this record. The confirmed scope has no publication target; any later

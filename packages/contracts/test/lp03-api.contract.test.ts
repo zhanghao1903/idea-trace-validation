@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   ReportCurrentDtoSchema,
   ReportSubmissionRouteSchema,
+  SafeInlineTokenSchema,
   SafeReportRenderModelSchema,
 } from "../src/index.js";
 
@@ -48,7 +49,10 @@ describe("LP-03 report API contracts", () => {
   });
 
   it("accepts only the seven safe render block discriminants", () => {
-    const renderModel = Schema.Compile(SafeReportRenderModelSchema);
+    const renderModel = Schema.Compile(
+      { SafeInlineToken: SafeInlineTokenSchema },
+      SafeReportRenderModelSchema,
+    );
     const base = {
       schemaVersion: "1.0",
       locale: "zh-CN",
@@ -70,5 +74,74 @@ describe("LP-03 report API contracts", () => {
         ],
       }),
     ).toBe(false);
+  });
+
+  it("closes safe inline tokens recursively at every nesting depth", () => {
+    const renderModel = Schema.Compile(
+      { SafeInlineToken: SafeInlineTokenSchema },
+      SafeReportRenderModelSchema,
+    );
+    const base = {
+      schemaVersion: "1.0",
+      locale: "zh-CN",
+      title: "报告",
+      summary: null,
+      sections: [
+        { id: "overview", title: "概览", description: null, blocks: [] },
+      ],
+    };
+    const validDeepNesting = {
+      ...base,
+      sections: [
+        {
+          ...base.sections[0],
+          blocks: [
+            {
+              id: "nested",
+              type: "text",
+              content: [
+                {
+                  type: "paragraph",
+                  children: [
+                    {
+                      type: "strong",
+                      children: [
+                        {
+                          type: "emphasis",
+                          children: [
+                            {
+                              type: "link",
+                              href: "https://example.test/evidence",
+                              children: [{ type: "text", value: "证据" }],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+                {
+                  type: "list",
+                  ordered: false,
+                  items: [[{ type: "inline_code", value: "safe" }]],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(renderModel.Check(validDeepNesting)).toBe(true);
+
+    const unsafeNestedLink = structuredClone(validDeepNesting);
+    unsafeNestedLink.sections[0]!.blocks[0]!.content[0]!.children[0]!.children[0]!.children[0]!.href =
+      "javascript:alert(1)";
+    expect(renderModel.Check(unsafeNestedLink)).toBe(false);
+
+    const unknownNestedToken = structuredClone(validDeepNesting);
+    unknownNestedToken.sections[0]!.blocks[0]!.content[1]!.items[0] = [
+      { type: "html", value: "<img src=x onerror=alert(1)>" },
+    ];
+    expect(renderModel.Check(unknownNestedToken)).toBe(false);
   });
 });

@@ -60,3 +60,8 @@
   LP-02 and LP-03 expanded contracts as independently pinned artifacts.
 - Compile dynamic report content into frozen safe tokens and keep every project
   authority field outside the dynamic render boundary.
+- Close the public safe-token contract recursively at every nesting depth and
+  expose the same component through generated OpenAPI.
+- Preserve the exact LP-02 migration ledger while tracking LP-03 in a strict
+  feature ledger, so the accepted LP-02 binary remains a tested application
+  rollback target after the additive upgrade.

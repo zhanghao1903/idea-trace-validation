@@ -1,8 +1,10 @@
 # LP-03 Migration Notes
 
 LP-03 adds `0003_lp03_reporting_experience.sql` after the immutable LP-01 and LP-02
-migrations. The ordered migration catalog verifies every ID and SHA-256 checksum; readiness remains
-false when a migration is missing, changed or out of order.
+migrations. The LP-01/LP-02 compatibility ledger `schema_migrations` remains the exact two rows seen
+by the accepted LP-02 binary; LP-03 records `0003` in `schema_feature_migrations`. Current readiness
+verifies both ordered ledgers and every SHA-256 checksum, and remains false when a migration is
+missing, changed, extra or out of order.
 
 ## Upgrade
 
@@ -13,6 +15,10 @@ false when a migration is missing, changed or out of order.
 5. Build the Web with `npm run build`.
 6. Start the API with `WEB_DIST_DIR=apps/web/dist` when same-origin Web hosting is required.
 7. Use `openapi/lp03.v1.json` for current API clients.
+
+The migrator also recognizes the pre-remediation LP-03 layout where a valid `0003` row was written
+to `schema_migrations`. It verifies that row's checksum and atomically moves the same applied record
+to `schema_feature_migrations`; it does not replay the SQL or discard migration history.
 
 The migration is additive for LP-01/LP-02 data. It extends controlled audit values and creates
 `project_reports`, immutable `report_revisions` and `report_submission_keys`. Existing Idea, project,
@@ -51,9 +57,11 @@ Static hosting uses a strict self-only CSP, immutable hashed assets and a no-cac
 There is no automatic down migration. Before applying `0003`, normal code revert is sufficient.
 After applying it:
 
-- use a forward-fix LP-03 binary, or restore a verified backup;
-- do not run the unmodified LP-02 binary after `0003`: its strict migration catalog correctly reports
-  the newer row as a mismatch; use a forward-fix LP-03 build or restore a verified pre-`0003` backup;
+- the unmodified LP-02 binary at merge `644af4f186b054a9c5d1c6db087a97e009f545a3` may run against
+  the additive schema; it sees its unchanged, exact 0001/0002 migration ledger and the report tables
+  remain dormant because the old binary has no report routes;
+- current LP-03 readiness continues to require the valid `0003` feature-ledger row, so a missing,
+  changed or extra record cannot authorize the current binary;
 - do not delete report revisions, submission keys or audit history as rollback;
 - correct a bad accepted report with a new revision;
 - retry an unknown submit result with the same project, idempotency key and identical content.
