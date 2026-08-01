@@ -1,0 +1,386 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 5,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/5",
+    "title": "LP-03: structured reporting and dual-role Web",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "644af4f186b054a9c5d1c6db087a97e009f545a3",
+    "head_ref": "codex/lp-03-reporting-role-experience",
+    "head_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860",
+    "reviewed_at": "2026-08-01T00:15:57Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete exact base-to-head diff and commit chain",
+      "report contracts, validation, compiler, persistence, API and rendering",
+      "experience projections, Web role flows and scoped confirmation",
+      "migration, compatibility, management evidence and all automated test families"
+    ],
+    "excluded_scope": [
+      "production deployment and production data",
+      "manual line-by-line reading of the generated 148k-line OpenAPI artifact"
+    ]
+  },
+  "review_context": {
+    "kind": "INITIAL",
+    "forward_risk_review": [
+      {
+        "surface": "Public safe render-model DTO and recursive browser renderer",
+        "risk_triggers": [
+          "public-contract",
+          "trust-boundary",
+          "security-privacy",
+          "test-adequacy"
+        ],
+        "reason": "The response DTO is the machine-readable security boundary for persisted render models consumed recursively by the Web.",
+        "affected_paths": [
+          "packages/contracts/src/reports.ts",
+          "packages/contracts/test/lp03-api.contract.test.ts",
+          "apps/web/src/components/report-renderer.tsx"
+        ],
+        "checks": [
+          "Compile the response schema and check an unsafe nested link and unknown token",
+          "Inspect recursive renderer handling of children and href"
+        ],
+        "finding_ids": [
+          "PRR-001"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Additive migration and application rollback compatibility",
+        "risk_triggers": [
+          "deployment-compatibility",
+          "mutation-recovery",
+          "test-adequacy"
+        ],
+        "reason": "The approved plan promises old-binary rollback after migration while the delivered evidence replaces that recovery path.",
+        "affected_paths": [
+          "packages/db/migrations/0003_lp03_reporting_experience.sql",
+          "packages/db/src/readiness.ts",
+          "docs/feature/lp-03-reporting-role-experience/implementation-plan.md",
+          "docs/feature/lp-03-reporting-role-experience/verification.md"
+        ],
+        "checks": [
+          "Compare exact LP-02 migration catalog with the post-0003 ledger",
+          "Compare delivered recovery documentation with the approved plan"
+        ],
+        "finding_ids": [
+          "PRR-002"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Complete LP-03 current-head behavior",
+        "risk_triggers": [
+          "data-integrity",
+          "concurrency",
+          "test-adequacy"
+        ],
+        "reason": "The PR introduces a migration, transactional revisions, public API projections and a new Web surface.",
+        "affected_paths": [
+          "apps",
+          "packages",
+          "scripts",
+          "openapi",
+          "docs"
+        ],
+        "checks": [
+          "Run npm run verify with the exact required toolchain and isolated PostgreSQL",
+          "Observe GitHub verify for the exact head"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ]
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "The exact head is green and the full verification suite passes, but the safe-render response schema is not recursively closed and the delivered rollback evidence contradicts the approved plan.",
+    "blocking_finding_ids": [
+      "PRR-001",
+      "PRR-002"
+    ]
+  },
+  "summary": "LP-03 is broadly implemented and fully green at the reviewed head. Approval is withheld for one reproducible public-contract defect and one admitted rollback-plan incompatibility; no style or file-count concern is treated as blocking.",
+  "change_map": [
+    {
+      "area": "Report write model",
+      "change": "Validate, compile and atomically persist immutable report revisions.",
+      "external_behavior": "Authenticated AI clients gain idempotent structured report submission.",
+      "risk": "High",
+      "validation": "Unit, contract, integration and API acceptance tests passed."
+    },
+    {
+      "area": "Safe rendering contract",
+      "change": "Publish accepted, primary and runtime-fallback report slots.",
+      "external_behavior": "Public clients consume a server-supplied render model.",
+      "risk": "High",
+      "validation": "The recursive schema counterexample failed and produced PRR-001."
+    },
+    {
+      "area": "Experience and Web",
+      "change": "Add role projections, project detail, seven renderers and confirmation UI.",
+      "external_behavior": "Public proposer/executor pages share authoritative project objects.",
+      "risk": "Medium",
+      "validation": "Integration, API, component and browser tests passed."
+    },
+    {
+      "area": "Migration and recovery",
+      "change": "Add report tables and append-only revision enforcement.",
+      "external_behavior": "Current LP-03 upgrades work, but prior LP-02 readiness rejects the new migration row.",
+      "risk": "High",
+      "validation": "Current compatibility tests pass; exact old-binary analysis and delivered verification prove PRR-002."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "api-contract",
+      "title": "Safe render-model schema accepts unsafe nested token trees",
+      "location": {
+        "path": "packages/contracts/src/reports.ts",
+        "line_start": 62,
+        "line_end": 105,
+        "symbol": "SafeInlineTokenSchema",
+        "side": "RIGHT",
+        "commit_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860"
+      },
+      "observation": "Recursive inline children and Markdown list items use Type.Unknown(), so the advertised safe render DTO does not enforce the compiler's closed token model.",
+      "trigger": "A stored/legacy render model or a producer relying on the public schema supplies an unsafe nested link or unknown token below an otherwise valid outer node.",
+      "impact": "Response validation and OpenAPI accept values outside the safe model, and malformed persisted content can reach recursive renderer paths that assume constrained discriminants and HTTPS links.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "The compiled schema returned true for strong.children containing a javascript: link whose child is an unknown html token.",
+          "reference": "Schema.Compile(SafeReportRenderModelSchema) at ed63a7fffc77"
+        },
+        {
+          "kind": "code",
+          "description": "The Web recursively consumes token.children and applies token.href without a second validator.",
+          "reference": "apps/web/src/components/report-renderer.tsx"
+        }
+      ],
+      "remediation": "Replace unknown recursive children/list items with recursively closed token/block schemas, regenerate OpenAPI and add negative nested-shape contract tests.",
+      "verification": "The unsafe nested counterexample is rejected, valid nested Markdown remains accepted and all contract/Web/full checks pass.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "api-contract:safe-render-model:recursive-unknown"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "compatibility",
+      "title": "Delivered rollback procedure contradicts the approved plan",
+      "location": {
+        "path": "docs/feature/lp-03-reporting-role-experience/verification.md",
+        "line_start": 87,
+        "line_end": 90,
+        "symbol": "Compatibility and delivery disposition",
+        "side": "RIGHT",
+        "commit_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860"
+      },
+      "observation": "The approved plan promises that the prior LP-02 binary runs against the additive LP-03 schema, but the delivered record confirms that binary rejects the additional migration row and substitutes forward-fix or backup restore.",
+      "trigger": "Migration 0003 is applied and the application is rolled back to the authoritative LP-02 binary without a schema rollback.",
+      "impact": "The old binary returns MIGRATION_MISMATCH, stays not-ready and cannot serve the old API behavior promised as the incident recovery path.",
+      "evidence": [
+        {
+          "kind": "spec",
+          "description": "Implementation plan lines 477-478 require the LP-02 binary to run after application rollback.",
+          "reference": "docs/feature/lp-03-reporting-role-experience/implementation-plan.md"
+        },
+        {
+          "kind": "code",
+          "description": "The exact LP-02 readiness code returns MIGRATION_MISMATCH when ledger row count differs from its exact expected catalog.",
+          "reference": "packages/db/src/readiness.ts at base 644af4f186b054a9c5d1c6db087a97e009f545a3"
+        },
+        {
+          "kind": "analysis",
+          "description": "The PR's verification record explicitly acknowledges this incompatibility and changes the recovery model.",
+          "reference": "docs/feature/lp-03-reporting-role-experience/verification.md:87"
+        }
+      ],
+      "remediation": "Either make the approved old-binary/additive-schema rollback executable and tested, or route and pass a revised technical plan that authorizes and verifies the different forward-fix/backup recovery model.",
+      "verification": "An executable recovery drill proves the approved behavior, or a newly approved exact plan and matching test replace it without contradictory documentation.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "compatibility:lp03-migration:lp02-binary-readiness"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Close the recursive safe render-model schema and add negative nested-token contract coverage.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Reconcile rollback implementation/evidence with approved authority and add an executable recovery proof.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "High",
+      "description": "The public safe-render DTO does not constrain nested token trees.",
+      "mitigation": "Resolve PRR-001 before merge.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "data-integrity",
+      "level": "Low",
+      "description": "Revision, idempotency, audit and transaction rollback paths passed independent integration tests.",
+      "mitigation": "Preserve the current transactional regression suite.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Low",
+      "description": "Full integration and acceptance tests passed at the exact head.",
+      "mitigation": "Keep existing current-head and CI checks required.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "Low",
+      "description": "Projection and reference queries are batched, but no production load test was available.",
+      "mitigation": "Observe query latency when a deployment target exists.",
+      "owner": null
+    },
+    {
+      "category": "api-compatibility",
+      "level": "High",
+      "description": "The advertised response contract is broader than compiler and renderer invariants.",
+      "mitigation": "Resolve PRR-001 before merge.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "High",
+      "description": "The approved prior-binary rollback path is not executable after migration 0003.",
+      "mitigation": "Resolve PRR-002 before merge.",
+      "owner": "Engineering Main and plan owner"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm ci",
+        "environment": "macOS; Node 24.14.0; npm 11.16.0; exact head",
+        "head_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 locked packages.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run verify",
+        "environment": "macOS; Node 24.14.0; npm 11.16.0; isolated PostgreSQL 17; Playwright Chromium; exact head",
+        "head_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Formatting, lint, types, build, OpenAPI, 37 unit, 20 contract, 31 integration, 8 component, 10 acceptance and 7 browser tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": "docs/feature/lp-03-reporting-role-experience/verification.md"
+      },
+      {
+        "command": "Schema.Compile(SafeReportRenderModelSchema).Check(unsafeNestedToken)",
+        "environment": "Node 24.14.0; built exact-head contracts",
+        "head_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "The supposed safe schema returned true for a nested javascript: link and unknown html token.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "Compare LP-02 expected migration catalog with schema_migrations after 0003",
+        "environment": "Exact base source and current migration/verification record",
+        "head_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860",
+        "status": "FAIL",
+        "exit_code": null,
+        "summary": "The extra ledger row causes the prior binary's exact-catalog readiness probe to return MIGRATION_MISMATCH.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-002"
+      },
+      {
+        "command": "git diff --check 644af4f186b054a9c5d1c6db087a97e009f545a3..ed63a7fffc7700089e800d519bdbc894c9d87860",
+        "environment": "Git exact base/head",
+        "head_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-01T00:15:57Z",
+        "head_sha": "ed63a7fffc7700089e800d519bdbc894c9d87860",
+        "status": "PASS",
+        "summary": "GitHub check completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30655018969/job/91237177045"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Production deployment and load test",
+        "reason": "No production target or production data was in scope."
+      },
+      {
+        "check": "Live prior-LP-02-binary rollback drill",
+        "reason": "The exact old readiness code and the PR's own verification record already deterministically falsify the approved claim; remediation must add this proof."
+      }
+    ]
+  },
+  "limitations": [
+    "No production environment, production traffic or real-user usability study was available.",
+    "The generated LP-03 OpenAPI artifact was generator-verified and contract-sampled rather than manually read line-by-line."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "The requested SHA is the exact live GitHub PR head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh PR metadata immediately before decision.",
+      "evidence": "GitHub reported head ed63a7fffc7700089e800d519bdbc894c9d87860 at 2026-08-01T00:15:57Z.",
+      "impact_if_false": "The review would bind the wrong snapshot."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "Persisted render models must remain safe across compiler/protocol evolution and are governed by the advertised closed response DTO.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect accepted design, persistence and compatibility selection paths.",
+      "evidence": "Render models are immutable persisted JSON and current/fallback slots are served through SafeReportRenderModelSchema.",
+      "impact_if_false": "PRR-001 would be contract-only rather than a runtime defense-in-depth gap."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The authoritative LP-02 binary expects exactly its two recorded migrations.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Inspect readiness.ts at authoritative base 644af4f186b054a9c5d1c6db087a97e009f545a3.",
+      "evidence": "Rows with a count or identity different from expectedMigrationRows produce MIGRATION_MISMATCH.",
+      "impact_if_false": "The approved rollback incompatibility would not reproduce."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
