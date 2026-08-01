@@ -13,6 +13,9 @@
   confirmation.
 - Define the LP-03 technical design for immutable structured-report revisions,
   safe generic rendering, and the proposer/executor Web experience.
+- Define the implementation-ready LP-04 design for a client-neutral AI Skill,
+  deterministic synthetic demos, real HTTP recovery proof, and exact
+  Codex/Claude validation evidence.
 
 ### Added
 

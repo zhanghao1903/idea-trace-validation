@@ -191,10 +191,13 @@ attempt does not rewrite historical proof.
 | `schemaVersion` | New | literal `"1.0"` | Required | Evidence validator | Exact match | Committed JSON |
 | `client` | New | `CODEX` or `CLAUDE` | Required | External client run | Exact enum | One PASS record required for each |
 | `clientVersion` | New | string | Required | Client executable | Non-empty, sanitized | Evidence only |
-| `skillCommitSha` | New | 40-char Git SHA | Required | Git | Must equal reviewed implementation head for final proof | Prevents stale Skill claims |
+| `executionMode` | New | `CLI` or `DESKTOP` | Required | Acceptance operator | Must match the observed client surface | Evidence provenance only |
+| `observedBy` | New | bounded string | Required | Acceptance operator | Non-empty; no credential or email required | Names evidence authority, not application identity |
+| `skillCommitSha` | New | 40-char Git SHA | Required | Git | Must be an ancestor whose Skill tree is byte-identical to reviewed head | Prevents stale Skill claims while allowing later evidence/docs commits |
 | `runId` | New | demo run ID | Required | Operator | Same v1 pattern; unique per client proof | Links local/HTTP evidence |
 | `inputIntent` | New | synthetic natural-language text | Required | Acceptance scenario | Bounded; must carry synthetic marker or obviously synthetic content | Records the exact safe prompt intent |
 | `startedAt` / `finishedAt` | New | RFC3339 | Required | Client runner | Ordered UTC values | Evidence only |
+| `rawTranscriptSha256` | New | lowercase SHA-256 | Required | Local client runner | Digest is computed before raw ignored transcript is removed | Correlates provenance without committing transcript |
 | `requestIds` | New | non-empty request ID array | Required | API response metadata | Existing request ID pattern; unique | Correlates API actions without secrets |
 | `resourceRefs` | New | Idea/project/report IDs | Required | API | Must pass live public reads and belong to the run marker | Independently reverified |
 | `webPaths` | New | relative paths | Required | Web/API | Must start with `/`; no origin, query secret or cookie | Reproducible human check |
