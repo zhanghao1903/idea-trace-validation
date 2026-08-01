@@ -1,6 +1,8 @@
 import type {
+  ExperienceQueryService,
   IdeaService,
   ProjectExecutionService,
+  ReportService,
   Readiness,
 } from "@idea/application";
 
@@ -17,6 +19,20 @@ const unavailableExecutionService = new Proxy({} as ProjectExecutionService, {
   get() {
     return async () => {
       throw new Error("OPENAPI_EXECUTION_SERVICE_MUST_NOT_BE_CALLED");
+    };
+  },
+});
+const unavailableReportService = new Proxy({} as ReportService, {
+  get() {
+    return async () => {
+      throw new Error("OPENAPI_REPORT_SERVICE_MUST_NOT_BE_CALLED");
+    };
+  },
+});
+const unavailableExperienceService = new Proxy({} as ExperienceQueryService, {
+  get() {
+    return async () => {
+      throw new Error("OPENAPI_EXPERIENCE_SERVICE_MUST_NOT_BE_CALLED");
     };
   },
 });
@@ -40,6 +56,8 @@ export const generateOpenApi = async (): Promise<
       port: 3000,
       databaseUrl: "postgres://example.invalid/idea_validation",
       aiApiToken: "openapi-generation-token-at-least-32-characters",
+      aiWriteDisplayName: "LP-03 report writer",
+      aiWriteClient: null,
       humanControlToken: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
       logLevel: "silent",
       dbPoolMax: 1,
@@ -48,6 +66,8 @@ export const generateOpenApi = async (): Promise<
     },
     service: unavailableService,
     executionService: unavailableExecutionService,
+    reportService: unavailableReportService,
+    experienceService: unavailableExperienceService,
     readiness: ready,
   });
   try {

@@ -9,8 +9,8 @@
 | Plan ID | Plan | Depends on | Status | Blocker | Next step |
 | --- | --- | --- | --- | --- | --- |
 | LP-01 | [核心基础与 Idea 流程](./implementation-plans/v0-1/lp-01-core-idea-flow.md) | None | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
-| LP-02 | [项目执行与决策闭环](./implementation-plans/v0-1/lp-02-execution-decisions.md) | LP-01 | Ready for Acceptance | None | 完成精确 head 代码审查、合并证明与正式验收 |
-| LP-03 | [结构化汇报与双角色体验](./implementation-plans/v0-1/lp-03-reporting-role-experience.md) | LP-02 | Not Started | None | 为 LP-03 启动独立 Requirements 阶段 |
+| LP-02 | [项目执行与决策闭环](./implementation-plans/v0-1/lp-02-execution-decisions.md) | LP-01 | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
+| LP-03 | [结构化汇报与双角色体验](./implementation-plans/v0-1/lp-03-reporting-role-experience.md) | LP-02 | Ready for Acceptance | None | 完成精确 head 代码审查、合并证明与正式验收 |
 | LP-04 | [AI Skill 与可重复演示](./implementation-plans/v0-1/lp-04-ai-skill-demo.md) | LP-03 | Not Started | None | 为 LP-04 启动独立 Requirements 阶段 |
 | LP-05 | [部署与发布就绪](./implementation-plans/v0-1/lp-05-deployment-release.md) | LP-04 | Not Started | None | 为 LP-05 启动独立 Requirements 阶段 |
 
@@ -21,8 +21,8 @@
 
 当前阻塞：`None`。
 
-总体下一步：完成 LP-02 精确 head 代码审查、合并证明和正式验收。LP-03 保持
-`Not Started`，只有 LP-02 被正式接受后才可启动其独立 Requirements 阶段。
+总体下一步：完成 LP-03 精确 head 代码审查、合并证明和正式验收。LP-04 保持
+`Not Started`；当前记录不授予 LP-04 Requirements、设计或实现权限。
 
 ## 已接受依赖
 
@@ -37,9 +37,21 @@ LP-01 已通过 Engineering Lifecycle 的 `ACCEPTED_NO_PUBLISH` 迁移正式关�
 - releaseTargets: `[]`
 - 发布产物：没有 tag、GitHub Release、package、部署或其他发布产物。
 
-LP-02 的客观实现证据见
-[LP-02 verification](./feature/lp-02-execution-decisions/verification.md)。这里的
-`Ready for Acceptance` 不表示代码审查通过、已合并、已发布或已正式验收。
+LP-02 已通过 Engineering Lifecycle 的 `ACCEPTED_NO_PUBLISH` 迁移正式关闭：
+
+- merge commit:
+  `644af4f186b054a9c5d1c6db087a97e009f545a3`
+- acceptanceId:
+  `b63ec86101008217bfa6eab6bbeda41713735e7099b051a2a7e21f3026321cba`
+- closureId:
+  `418d1de3689d1bef9a1ce3ee2abf88cb3e44cd1976dc3ec40c2e15f7b63d5061`
+- releaseTargets: `[]`
+- 发布产物：没有 tag、GitHub Release、package、部署或其他发布产物。
+
+LP-03 的客观实现证据见
+[LP-03 verification](./feature/lp-03-reporting-role-experience/verification.md)。这里的
+`Ready for Acceptance` 只表示实现和本地门禁已准备送审，不表示 Review 批准、已合并、
+已发布或已正式验收。
 
 ## 主归属
 

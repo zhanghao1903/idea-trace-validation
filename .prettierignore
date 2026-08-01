@@ -1,7 +1,9 @@
 .codex/
 coverage/
 dist/
+dist-types/
 docs/
 node_modules/
 openapi/lp01.v1.json
+packages/contracts/src/generated/structured-report.v1.ts
 package-lock.json

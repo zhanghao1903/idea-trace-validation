@@ -1,7 +1,9 @@
 import {
   createPool,
   PostgresIdeaService,
+  PostgresExperienceQueryService,
   PostgresProjectExecutionService,
+  PostgresReportService,
   PostgresReadiness,
 } from "@idea/db";
 
@@ -23,6 +25,8 @@ const app = await buildApp({
     pool,
     config.humanControlToken,
   ),
+  reportService: new PostgresReportService(pool),
+  experienceService: new PostgresExperienceQueryService(pool),
   readiness,
 });
 

@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import {
   createPool,
+  expectedMigrationRows,
   migrate,
   PostgresIdeaService,
   PostgresReadiness,
@@ -68,6 +69,56 @@ describe("PostgreSQL command protocol", () => {
     const readiness = new PostgresReadiness(readinessPool);
     try {
       expect(await readiness.probe()).toMatchObject({ status: "READY" });
+      // Reproduce the first LP-03 implementation's ledger layout, then prove
+      // the current migrator converts it without replaying 0003.
+      await readinessPool.query(`
+        INSERT INTO schema_migrations (id, checksum, applied_at)
+        SELECT id, checksum, applied_at
+        FROM schema_feature_migrations
+        WHERE id = '0003_lp03_reporting_experience'
+      `);
+      await readinessPool.query(`
+        DELETE FROM schema_feature_migrations
+        WHERE id = '0003_lp03_reporting_experience'
+      `);
+      await expect(migrate(readinessPool)).resolves.toEqual({
+        id: "0003_lp03_reporting_experience",
+        applied: false,
+      });
+
+      const lp02Expected = await expectedMigrationRows("legacy");
+      expect(lp02Expected.map((row) => row.id)).toEqual([
+        "0001_lp01_core",
+        "0002_lp02_execution_decisions",
+      ]);
+      const lp02Visible = await readinessPool.query<{
+        id: string;
+        checksum: string;
+      }>(`
+        SELECT id, checksum
+        FROM schema_migrations
+        ORDER BY applied_at, id
+      `);
+      // This is the exact ledger and comparison contract used by the LP-02
+      // binary at 644af4f: it must remain a two-row exact match after 0003.
+      expect(lp02Visible.rows).toEqual(lp02Expected);
+      expect(
+        lp02Visible.rowCount === lp02Expected.length &&
+          lp02Visible.rows.every(
+            (row, index) =>
+              row.id === lp02Expected[index]?.id &&
+              row.checksum === lp02Expected[index]?.checksum,
+          ),
+      ).toBe(true);
+      expect(
+        (
+          await readinessPool.query<{ id: string }>(`
+            SELECT id
+            FROM schema_feature_migrations
+            ORDER BY applied_at, id
+          `)
+        ).rows,
+      ).toEqual([{ id: "0003_lp03_reporting_experience" }]);
       expect(
         (
           await readinessPool.query<{ statement_timeout: string }>(
@@ -84,9 +135,23 @@ describe("PostgreSQL command protocol", () => {
         status: "NOT_READY",
         reason: "MIGRATION_MISMATCH",
       });
+      await readinessPool.query(
+        "DELETE FROM schema_migrations WHERE id = '9999_future'",
+      );
+      await readinessPool.query(`
+        INSERT INTO schema_feature_migrations (id, checksum)
+        VALUES ('9999_future', repeat('0', 64))
+      `);
+      expect(await readiness.probe()).toMatchObject({
+        status: "NOT_READY",
+        reason: "MIGRATION_MISMATCH",
+      });
     } finally {
       await readinessPool
         .query("DELETE FROM schema_migrations WHERE id = '9999_future'")
+        .catch(() => undefined);
+      await readinessPool
+        .query("DELETE FROM schema_feature_migrations WHERE id = '9999_future'")
         .catch(() => undefined);
       await readinessPool.end();
     }

@@ -19,6 +19,7 @@
     "@idea/application": "0.1.0",
     "@idea/contracts": "0.1.0",
     "@idea/domain": "0.1.0",
+    "@idea/reporting": "0.1.0",
     "drizzle-orm": "0.45.2",
     "pg": "8.22.0"
   }

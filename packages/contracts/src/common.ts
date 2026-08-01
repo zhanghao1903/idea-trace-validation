@@ -16,6 +16,7 @@ export const ATTENTION_EVENT_ID_PATTERN = `^atnevt_${ULID_PATTERN}$`;
 export const EVIDENCE_ID_PATTERN = `^evd_${ULID_PATTERN}$`;
 export const CONCLUSION_ID_PATTERN = `^conc_${ULID_PATTERN}$`;
 export const CONFIRMATION_ID_PATTERN = `^confirm_${ULID_PATTERN}$`;
+export const REPORT_ID_PATTERN = `^rpt_${ULID_PATTERN}$`;
 export const ARTIFACT_ID_PATTERN = `^artifact_${ULID_PATTERN}$`;
 export const RFC3339_PATTERN =
   "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{3})?Z$";
@@ -94,6 +95,7 @@ export const ConclusionIdSchema = Type.String({
 export const ConfirmationIdSchema = Type.String({
   pattern: CONFIRMATION_ID_PATTERN,
 });
+export const ReportIdSchema = Type.String({ pattern: REPORT_ID_PATTERN });
 export const ArtifactIdSchema = Type.String({ pattern: ARTIFACT_ID_PATTERN });
 export const DateTimeSchema = Type.String({ pattern: RFC3339_PATTERN });
 export const IdempotencyKeySchema = Type.String({
@@ -366,6 +368,27 @@ export const ProjectExecutionErrorSchema = Type.Object(
   strict,
 );
 
+export const ReportErrorSchema = Type.Object(
+  {
+    code: Type.Union([
+      Type.Literal("REPORT_IDENTITY_MISMATCH"),
+      Type.Literal("REPORT_SCHEMA_UNSUPPORTED"),
+      Type.Literal("REPORT_VALIDATION_FAILED"),
+      Type.Literal("REPORT_UNSAFE_CONTENT"),
+      Type.Literal("REPORT_REFERENCE_INVALID"),
+      Type.Literal("REPORT_REVISION_NOT_FOUND"),
+      Type.Literal("REPORT_REVISION_CONFLICT"),
+      Type.Literal("PROJECT_REPORT_FROZEN"),
+      Type.Literal("IDEMPOTENCY_KEY_REUSED"),
+      Type.Literal("REQUEST_TOO_LARGE"),
+    ]),
+    message: Type.String(),
+    retryable: Type.Boolean(),
+    details: Type.Record(Type.String(), Type.Unknown()),
+  },
+  strict,
+);
+
 export const InternalErrorSchema = Type.Object(
   {
     code: Type.Literal("INTERNAL_ERROR"),
@@ -387,6 +410,7 @@ export const ApiErrorSchema = Type.Union([
   PromotionPreconditionErrorSchema,
   HumanControlErrorSchema,
   ProjectExecutionErrorSchema,
+  ReportErrorSchema,
   ServiceNotReadyErrorSchema,
   InternalErrorSchema,
 ]);

@@ -1,9 +1,10 @@
 # Idea Trace Validation
 
-LP-01 与 LP-02 组成当前可运行纵向切片：登记和澄清 Idea、显式推进为唯一验证项目，随后记录执行转换、进展、三类关注事项、Evidence、版本化结论和受人类确认保护的完成、停止、移交与重开。proposer 与 executor 视图始终读取同一份 PostgreSQL 权威数据。
+LP-01～LP-03 组成当前可运行纵向切片：登记和澄清 Idea、显式推进为唯一验证项目，记录执行转换与决策历史，再通过不可变结构化汇报和 proposer/executor
+Web 读取同一份 PostgreSQL 权威数据。汇报只负责展示，不能覆盖项目状态、确认或审计事实。
 
-当前范围只包含 API、共享契约、数据库迁移和自动化验证。结构化汇报 Web、AI
-Skill 和生产部署分别属于 LP-03～LP-05。
+当前范围包含 API、共享契约、三份增量数据库迁移、安全通用汇报渲染器、双角色 Web 和自动化验证。AI
+Skill、可重复演示与生产部署分别属于 LP-04～LP-05。
 
 ## 运行要求
 
@@ -28,10 +29,20 @@ npm run db:migrate
 npm run dev
 ```
 
+Web 开发服务器单独运行：
+
+```bash
+npm run dev --workspace @idea/web
+```
+
+生产式同源托管先执行 `npm run build`，再把 `WEB_DIST_DIR` 指向 `apps/web/dist`
+后启动 API。未配置该变量时 API 不托管静态页面。
+
 `DATABASE_URL`、`AI_API_TOKEN` 和 `HUMAN_CONTROL_TOKEN` 是必填配置。AI
 token 去除首尾空白后至少 32 字符；human-control
-token 必须是 32 字节 base64url（43 字符）且与 AI
-token 不同。完整字段、默认值和边界见 [.env.example](./.env.example)。
+token 必须是 32 字节 base64url（43 字符）且与 AI token 不同。LP-03 可选配置
+`AI_WRITE_DISPLAY_NAME`、`AI_WRITE_CLIENT` 和 `WEB_DIST_DIR`
+不包含凭据。完整字段、默认值和边界见 [.env.example](./.env.example)。
 
 配置合法后，API 会立即监听，不等待数据库：
 
@@ -68,12 +79,20 @@ Content-Type: application/json
 | `GET`  | `/api/v1/projects`、`/api/v1/projects/:projectId`                                             | Public read                    |
 | `GET`  | `/api/v1/projects/:projectId/{progress-updates,attention-items,evidence,conclusions,history}` | Public read                    |
 | `GET`  | `/api/v1/human-confirmations/:confirmationId`                                                 | Human control or scoped cookie |
+| `POST` | `/api/v1/projects/:projectId/reports`                                                         | AI write                       |
+| `GET`  | `/api/v1/projects/:projectId/reports`、`/reports/current`、`/reports/:revision`               | Public read                    |
+| `GET`  | `/api/v1/experience/proposer/ideas`、`/experience/executor/projects`                          | Public read                    |
+| `GET`  | `/api/v1/experience/projects/:projectId?view=proposer\|executor`                              | Public read                    |
 
 人类确认创建使用 `X-Human-Control-Token`；成功后只通过
 `HttpOnly; Secure; SameSite=Strict`
-且绑定单一确认路径的 cookie 返回短期 capability。capability 原文不会进入响应正文或数据库。完整请求、响应、稳定错误与
-`proposer|executor` 投影以 [LP-02 OpenAPI](./openapi/lp02.v1.json) 为准；冻结的
-[LP-01 OpenAPI](./openapi/lp01.v1.json) 仍由漂移门禁保护。
+且绑定单一确认路径的 cookie 返回短期 capability。capability 原文不会进入响应正文或数据库。完整请求、响应、稳定错误与 LP-03 当前契约以
+[LP-03 OpenAPI](./openapi/lp03.v1.json) 为准；冻结的
+[LP-01 OpenAPI](./openapi/lp01.v1.json) 与
+[LP-02 OpenAPI](./openapi/lp02.v1.json) 仍由漂移门禁保护。
+
+Web 入口为 `/proposer`、`/executor`、对应的项目详情路径和
+`/confirmations/:confirmationId`。角色只改变信息组织，不代表认证身份或附加权限。
 
 写入 token 只证明调用来源可以写入；body 中的 `actor`、`proposer` 和 `role`
 是声明归属，不是已认证用户身份。公开演示环境不得保存真实秘密、个人数据或商业机密。
@@ -91,6 +110,10 @@ npm run test:contract
 TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:integration
 TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:acceptance:lp01
 TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:acceptance:lp02
+TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:acceptance:lp03
+npm run test:web:component
+npx playwright install chromium
+npm run test:browser
 ```
 
 `npm run verify`
@@ -106,7 +129,13 @@ TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/ide
 - 每个成功命令原子追加脱敏 audit event；数据库触发器拒绝更新或删除历史。
 - 进展、事项、Evidence 和结论不隐式改变项目状态；纠正、撤回、回应和取代均为追加式。
 - 高影响操作摘要绑定项目版本和结论/终态事实；过期、失效或已消费的确认不能生效。
+- 汇报以 `workspace + project + clientRequestId`
+  幂等，revision 只追加；校验、保存、accepted 指针和脱敏审计在同一事务中完成。
+- 页面只渲染七类受控块和安全 Markdown
+  token；协议/编译器不兼容或运行时渲染失败时使用明确兼容状态或上一份安全候选，固定权威区域保持可用。
 
 升级与恢复边界见 [migration notes](./docs/migration-notes.md)。实现和客观证据见
-[LP-01 verification](./docs/feature/lp-01-core-idea-flow/verification.md) 与
-[LP-02 verification](./docs/feature/lp-02-execution-decisions/verification.md)。
+[LP-01 verification](./docs/feature/lp-01-core-idea-flow/verification.md)、
+[LP-02 verification](./docs/feature/lp-02-execution-decisions/verification.md)
+与
+[LP-03 verification](./docs/feature/lp-03-reporting-role-experience/verification.md)。

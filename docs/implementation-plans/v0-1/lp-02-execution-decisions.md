@@ -63,9 +63,11 @@
 
 Acceptance record:
 
-- Result: `Ready for formal acceptance`
-- Accepted by: `None`
-- Accepted at (UTC): `None`
+- Result: `ACCEPTED_NO_PUBLISH`
+- Merge commit: `644af4f186b054a9c5d1c6db087a97e009f545a3`
+- Acceptance ID: `b63ec86101008217bfa6eab6bbeda41713735e7099b051a2a7e21f3026321cba`
+- Closure ID: `418d1de3689d1bef9a1ce3ee2abf88cb3e44cd1976dc3ec40c2e15f7b63d5061`
+- Release targets: `[]`
 - Evidence:
   [LP-02 verification](../../feature/lp-02-execution-decisions/verification.md)
 
@@ -77,12 +79,12 @@ Acceptance record:
 
 ## 9. Status
 
-`Ready for Acceptance`
+`Accepted`
 
-客观实现、迁移、契约、集成、安全和闭环验收证据已完成；该状态不表示 Review
-批准、合并、发布或正式验收。
+Engineering Lifecycle 已对精确 merge commit 执行 acceptance-only/no-publish 验收并关闭。
+没有创建 tag、GitHub Release、package、部署或其他发布产物。
 
 ## 10. Next step
 
-提交精确 Git head 代码审查；审查通过后由外部 merge owner 合并，再由正式验收方
-记录接受结果。LP-03 继续保持 `Not Started`。
+保留不可变验收和关闭证据。LP-03 已在独立 Engineering Lifecycle 中实施，不复用
+本计划的实现或验收授权。
