@@ -76,8 +76,9 @@ services to create, update or read business records.
    state. Before any versioned write, the client reads the target authority and allowed action again.
 4. **One intent, one deterministic identity.** A run ID, manifest digest and semantic step derive a stable
    `Idempotency-Key`; report `clientRequestId` equals its request header identity. Changed intent requires a new key.
-5. **Unknown-result recovery preserves bytes.** Only an identical method, path, body and key may be replayed after
-   the result is unknown. The client never "helpfully" reconstructs a similar body.
+5. **Unknown-result recovery preserves durable bytes.** Before any write is sent, the demo runner atomically journals
+   the exact method, path, canonical UTF-8 body and key outside Git. Only those persisted bytes may be replayed after
+   the result is unknown or the process restarts; the client never "helpfully" reconstructs a similar body.
 6. **Human confirmation is out of Skill reach.** The Skill can explain the exact human step and public URL, then
    stops. A separately invoked demo-facilitator path may exercise the existing human API using environment-injected
    credentials, but is not referenced as an AI action.
@@ -171,9 +172,10 @@ record helps resume and verify a run but never authorizes a business action.
 | `manifestSha256` | New | lowercase SHA-256 | Required | Demo runtime | Digest of canonical committed manifest | Same run ID with different digest is rejected |
 | `skillCommitSha` | New | 40-char Git SHA | Required | Demo runtime | Must resolve and contain the Skill | Binds evidence to exact instructions |
 | `baseOrigin` | New | sanitized URL origin | Required | Demo runtime | Loopback HTTP only; no userinfo/path/query | Local evidence only |
-| `phase` | New | run-state enum | Required | Demo runtime | Legal transition table below | Updated atomically in local proof file |
+| `phase` | New | run-state enum | Required | Demo runtime | Legal transition table below, including `RECOVERING_UNKNOWN` | Updated atomically in local proof file |
+| `resumePhase` | New | non-recovery run-state enum / null | Default `null` | Demo runtime | Required while `phase=RECOVERING_UNKNOWN`; must be the last durable checkpoint | Restores the run checkpoint after all request entries resolve |
 | `startedAt` / `finishedAt` | New | RFC3339 / nullable RFC3339 | Required | Demo runtime | UTC server/client clock | Evidence only, not API state |
-| `requestTrace` | New | bounded sanitized entries | Default `[]` | Demo runtime | Step, method, path template, key digest, response request ID/status/error, resource refs; no headers/body | Evidence only |
+| `requestTrace` | New | bounded sanitized entries | Default `[]` | Demo runtime | Step, method, path template, key/body digests, response request ID/status/error, resource refs; no headers/body | Evidence projection only; recovery authority is the request journal below |
 | `resourceRefs` | New | manifest-key to authoritative ID map | Default `{}` | API response | IDs must be re-read before use | Evidence index, not current state |
 | `assertions` | New | bounded assertion result array | Default `[]` | Verifier | Stable assertion ID and pass/fail/detail code | No raw response bodies |
 | `result` | New | `PENDING`/`PASS`/`FAIL` | Default `PENDING` | Verifier | `PASS` only after all required reads | Evidence only |
@@ -181,7 +183,42 @@ record helps resume and verify a run but never authorizes a business action.
 `requestTrace` never stores Authorization, Cookie, full request/response bodies, database URLs or environment dumps.
 The exact AI token is also registered with the redactor in memory so accidental matches fail evidence generation.
 
-### 5.3 `ClientValidationRecordV1`
+### 5.3 `DurableRequestJournalEntryV1`
+
+Every semantic write has one recovery-authority file at
+`.lp04-demo/runs/<runId>/requests/<stepId>-<semanticAttempt>.json`. The sanitized `stepId` and bounded integer attempt
+determine the file name; callers cannot supply an arbitrary path. The directory is ignored by Git and contains only
+synthetic demo request material.
+
+| Field | New/changed | Type | Required/default | Owner | Validation | Persistence / compatibility |
+| --- | --- | --- | --- | --- | --- | --- |
+| `schemaVersion` | New | literal `"1.0"` | Required | Demo runtime | Exact match | Local ignored file; incompatible format requires a new run ID |
+| `runId` | New | safe run ID | Required | Demo runtime | Equals parent run record | Binds entry to one run |
+| `stepId` / `semanticAttempt` | New | safe step string / non-negative integer | Required | Scenario expander | Together unique within run; attempt changes only for changed intent | Stable journal identity |
+| `method` / `path` | New | HTTP method / relative API path | Required | Scenario expander | Existing frozen route; no origin, query credential or traversal | Exact replay target |
+| `canonicalBody` | New | canonical UTF-8 JSON string | Required | Canonical serializer | Valid JSON, at most 64 KiB, synthetic marker or synthetic resource lineage; contains no secret/header/cookie | Exact replay bytes, not copied to committed evidence |
+| `bodySha256` | New | lowercase SHA-256 | Required | Demo runtime | Digest of exact `canonicalBody` bytes | Detects corruption and byte drift |
+| `authorityInputs` | New | `{ expectedVersion?: integer, basedOnRevision?: integer }` | Required; keys may be absent | Scenario expander | Values must equal the corresponding canonical-body fields when present | Freezes version/revision inputs that cannot be regenerated after a commit |
+| `idempotencyKey` | New | existing `req_` request identity | Required | Request identity module | Re-derived from run/manifest/step/attempt before first send | Exact replay identity; non-secret synthetic value |
+| `idempotencyKeySha256` | New | lowercase SHA-256 | Required | Demo runtime | Digest of exact key | Safe correlation with evidence/proxy |
+| `manifestSha256` / `skillCommitSha` | New | lowercase SHA-256 / 40-char Git SHA | Required | Preflight | Equal parent run record and current invocation | Prevents stale scenario or Skill reuse |
+| `serializationVersion` | New | literal `"canonical-json-v1"` | Required | Canonical serializer | Exact match | Prevents silent byte-format drift |
+| `state` | New | `PREPARED` / `DISPATCHED` / `OUTCOME_UNKNOWN` / `COMMITTED` / `REJECTED` | Required | HTTP client | Legal transition table below | Per-request recovery authority |
+| `preparedAt` / `dispatchedAt` / `resolvedAt` | New | RFC3339 / nullable RFC3339 | `preparedAt` required; others default `null` | Demo runtime | Ordered; non-null fields required by state | Local recovery diagnostics |
+| `lastObservation` | New | sanitized request ID/status/error or null | Default `null` | HTTP client | Existing envelope patterns; no body/headers | Evidence-safe recovery result |
+| `resultResourceRefs` | New | bounded resource-ID map | Default `{}` | Public verifier | Every ID must be re-read before `COMMITTED` | Safe authority index only |
+
+Persistence uses a same-directory temporary file, complete write, file `fsync`, atomic rename and directory `fsync`
+where the platform supports it. The client durably writes `PREPARED`, then `DISPATCHED`, before calling `fetch`.
+Every later state change uses the same replacement protocol. A missing, malformed, oversized, digest-mismatched or
+secret-bearing entry fails before any network write. Journal files never contain Authorization, Cookie, raw
+environment, database URL, human-control material or a full response body.
+
+Retention is explicit and narrow: a journal stays with its ignored run proof until verification completes; an
+operator may remove only `.lp04-demo/runs/<exactRunId>` after checking the resolved state. Removing local proof never
+deletes API business records.
+
+### 5.4 `ClientValidationRecordV1`
 
 One immutable sanitized record is required for each actual client. Files are named by client and run ID so a new
 attempt does not rewrite historical proof.
@@ -209,7 +246,7 @@ Raw client transcripts stay under `.lp04-demo/` and are never committed. The san
 runtime secrets and common credential assignments before creating the record. A static prompt response without
 observed API request IDs and live-readable resource IDs cannot produce `PASS`.
 
-### 5.4 `UnknownResultFaultPlan`
+### 5.5 `UnknownResultFaultPlan`
 
 This object exists only in the acceptance-test fault proxy.
 
@@ -235,6 +272,9 @@ unchanged. The only new lifecycle-bearing objects are local tooling/evidence obj
 stateDiagram-v2
   [*] --> CREATED
   CREATED --> PREFLIGHT_PASSED: loopback + ready + manifest/Skill digests valid
+  PREFLIGHT_PASSED --> RECOVERING_UNKNOWN: unresolved durable request exists
+  RECOVERING_UNKNOWN --> PREFLIGHT_PASSED: request replay/reconcile resolved
+  RECOVERING_UNKNOWN --> FAILED: journal invalid or recovery failed
   PREFLIGHT_PASSED --> SEEDED: required synthetic API records observable
   SEEDED --> SMOKE_PASSED: core and failure-path assertions pass
   SMOKE_PASSED --> VERIFIED: public API and Web reads reconcile all refs
@@ -247,20 +287,47 @@ stateDiagram-v2
 ```
 
 - **Creation:** an explicit run ID plus canonical manifest and exact Skill commit creates the record.
-- **Persistence:** atomic write/rename inside ignored `.lp04-demo/runs/<runId>/`.
+- **Persistence:** atomic write/rename inside ignored `.lp04-demo/runs/<runId>/`; `resumePhase` retains the last
+  non-recovery checkpoint while unresolved request entries put the run in `RECOVERING_UNKNOWN`.
 - **Update rule:** only legal state transitions; each API resource is re-read before another write.
-- **Replay:** same run ID plus same manifest/Skill digest reuses deterministic request bodies and keys. Different
-  manifest or Skill digest is a conflict requiring a new run ID.
+- **Replay:** same run ID plus same manifest/Skill digest scans request entries in stable step/attempt order. An
+  unresolved entry is recovered before scenario expansion continues. Different manifest or Skill digest is a
+  fail-before-send conflict requiring a new run ID.
 - **Deletion:** local proof can be removed by exact explicit path after the run. Business records are not deleted.
 - **Observable states:** phase, sanitized trace, API resource refs, assertion result and final result.
 
-### 6.2 Skill Invocation Lifecycle
+### 6.2 Durable Request Lifecycle
+
+```mermaid
+stateDiagram-v2
+  [*] --> PREPARED: canonical bytes and key fsynced
+  PREPARED --> DISPATCHED: dispatch intent fsynced before fetch
+  DISPATCHED --> DISPATCHED: bounded same-byte replay
+  DISPATCHED --> OUTCOME_UNKNOWN: transport/result lost
+  DISPATCHED --> COMMITTED: success/replay plus public read
+  DISPATCHED --> REJECTED: stable non-retryable error
+  OUTCOME_UNKNOWN --> DISPATCHED: restart replays exact journal bytes/key
+  OUTCOME_UNKNOWN --> COMMITTED: replay plus public read reconciles one result
+  OUTCOME_UNKNOWN --> REJECTED: stable replay error proves no accepted intent
+  COMMITTED --> COMMITTED: public re-read, no write
+  REJECTED --> REJECTED: no implicit changed intent
+```
+
+On startup or explicit same-run resume, preflight first validates the run, manifest, Skill, serialization version,
+file path and every entry digest. `PREPARED`, `DISPATCHED` and `OUTCOME_UNKNOWN` entries are replayed from the stored
+method/path/body/key without a new authority read or body expansion. The replay response is then reconciled through
+the public read route before atomically becoming `COMMITTED` or `REJECTED`. A `COMMITTED` entry is publicly re-read
+and skipped; a `REJECTED` entry remains terminal. A corrected body, refreshed version/revision or other changed
+intent creates a new semantic attempt and key only after the prior entry is terminal. It never overwrites or reuses
+the old entry.
+
+### 6.3 Skill Invocation Lifecycle
 
 `COLLECT_INTENT → CLASSIFY → CLARIFY_OR_READ → PROPOSE_ACTION → EXECUTE_OR_HANDOFF → VERIFY → REPORT`.
 Any authority/version change returns to `READ`. Any human-governed action moves to `HANDOFF` and terminates AI
 automation for that intent. Invocation context expires with the client session and has no repository/database state.
 
-### 6.3 Client Validation Record Lifecycle
+### 6.4 Client Validation Record Lifecycle
 
 Raw execution is first local and untrusted. The validator sanitizes it, verifies the exact Skill Git commit, re-reads
 every recorded resource through public HTTP and evaluates mandatory checks. Only then does it emit an immutable
@@ -304,11 +371,19 @@ flowchart TD
   A["Explicit run ID + committed synthetic manifest"] --> B{"Environment guard"}
   B -->|"not loopback / not ready / digest conflict"| X["Stop with no business write"]
   B -->|"safe"| C["Fetch readiness and OpenAPI"]
-  C --> D["Derive deterministic identities"]
-  D --> E["Create/replay Idea and project stories through HTTP"]
-  E --> F["Drop one upstream-completed response"]
-  F --> G["Retry byte-identical request with same key"]
-  G --> H["Submit invalid report and observe path error"]
+  C --> R{"Unresolved request journal?"}
+  R -->|"yes"| R1["Validate digests and enter RECOVERING_UNKNOWN"]
+  R1 --> R2["Replay stored method/path/body/key"]
+  R2 --> R3["Public read; atomically resolve entry"]
+  R3 --> D["Resume last durable run checkpoint"]
+  R -->|"no"| D["Derive deterministic identities"]
+  D --> E["Canonicalize and fsync PREPARED/DISPATCHED"]
+  E --> F["Create/replay Idea and project stories through HTTP"]
+  F --> G["Drop one upstream-completed response"]
+  G --> G1["Persist OUTCOME_UNKNOWN or crash process"]
+  G1 --> R
+  G --> G2["Same-process retry uses identical journal bytes/key"]
+  G2 --> H["Submit invalid report and observe path error"]
   H --> I["Submit corrected report with new identity"]
   I --> J["Human facilitator creates/completes only synthetic governed fixture"]
   J --> K["Read proposer/executor API and real Web"]
@@ -332,6 +407,8 @@ used as the `Idempotency-Key`; report `clientRequestId` is identical. Inputs are
 silently reuse old identities.
 
 - An identical replay must reuse the exact serialized canonical JSON body.
+- Initial dispatch requires a durable `PREPARED → DISPATCHED` entry. Recovery reads that entry instead of
+  recomputing `expectedVersion`, `basedOnRevision` or any other body field.
 - A corrected validation request or newly chosen action increments `semanticAttempt` and therefore uses a new key.
 - `VERSION_CONFLICT` and `REPORT_REVISION_CONFLICT` always trigger a fresh read and new intent identity.
 - `IDEMPOTENCY_IN_PROGRESS` waits the advertised 250 ms and retries the same body/key, at most three times.
@@ -346,6 +423,10 @@ silently reuse old identities.
 | --- | --- | --- | --- |
 | Missing user information | Ask or preserve an explicit unknown/question | No write/key yet | User answer or stored clarification |
 | Network result unknown / `INTERNAL_ERROR` after a write may have reached API | Re-send byte-identical request, then read authority | Same key and body only | Replay metadata plus public read |
+| Process exits after `PREPARED`, `DISPATCHED` or an upstream commit | Start `RECOVERING_UNKNOWN`; validate and replay the stored request before expanding later steps | Exact stored method/path/body/key only | Replay response plus public read and one authoritative business result |
+| Journal required by an existing run/trace is missing, corrupt, digest-mismatched, secret-bearing or bound to another manifest/Skill | Stop before send; preserve available files for diagnosis | No replacement key or reconstructed body | Correct journal or explicit new run ID |
+| Journal state is `COMMITTED` | Re-read recorded resources and skip the write | Existing key is not sent again | Matching public authority |
+| Changed body/version/revision after a terminal request | Treat as explicit new semantic attempt only | New key and new immutable journal entry | Renewed intent plus current authority read |
 | `IDEMPOTENCY_IN_PROGRESS` | Bounded wait using `retryAfterMs`, then replay | Same key/body | Later success or explicit stop |
 | `IDEMPOTENCY_CONFLICT` / `IDEMPOTENCY_KEY_REUSED` | Stop; distinguish original replay from changed intent | Original intent reuses original bytes; changed intent needs explicit new key | User intent plus API response |
 | `VERSION_CONFLICT` | Re-read current resource and allowed action; explain changed facts | New key only after renewed intent | Latest versioned read |
@@ -399,6 +480,9 @@ implementation Goal is genuinely blocked until the external dependency is restor
 - Demo runtime creates redacted structured logs; it never prints request headers, cookies, raw environment or full
   response bodies.
 - `.lp04-demo/`, Playwright artifacts and local client transcripts are ignored and excluded from writer commits.
+- Durable request journals may contain only bounded synthetic canonical request bodies and non-secret request
+  identities. They are written below the exact ignored run directory, scanned for secrets before persistence and
+  never copied into committed `result.json`, client evidence or documentation.
 - Evidence generation fails on exact token matches, bearer/cookie assignments, common cloud-key patterns,
   credential-bearing URLs or non-synthetic personal/company content.
 - Public Web role selection remains presentation only. Skill text must not call proposer/executor an authenticated
@@ -409,13 +493,15 @@ implementation Goal is genuinely blocked until the external dependency is restor
 
 ## 13. Observability And Proof
 
-Every demo step has a stable `stepId`. Sanitized evidence records method, path template, API request ID, status/error
-code, resource IDs and assertion IDs. It does not record raw bodies or secrets. Required proof commands produce
-machine-readable exit status plus a concise terminal summary:
+Every demo step has a stable `stepId`. Sanitized evidence records method, path template, body/key digests, API request
+ID, status/error code, resource IDs and assertion IDs. It does not record raw bodies or secrets. The ignored journal
+is recovery authority, while `result.json` and committed records remain evidence projections. Required proof commands
+produce machine-readable exit status plus a concise terminal summary:
 
 - Skill structure/link/forbidden-instruction validation;
 - fixture validation and deterministic identity tests;
-- real HTTP demo acceptance including one-shot unknown-result recovery;
+- real HTTP demo acceptance including one-shot unknown-result recovery and crash/restart recovery from a durable
+  request entry;
 - real-data proposer/executor browser test;
 - Codex evidence verification;
 - Claude evidence verification;
@@ -451,9 +537,9 @@ their exact isolated demo database/volume when they own it.
 | Layer | Planned proof | Critical assertions |
 | --- | --- | --- |
 | Skill structure | frontmatter/link/reference validator plus Skill Creator `quick_validate.py` when available | discoverable name/description, one-level references, no secret or forbidden human action |
-| Unit | deterministic IDs, canonical manifest digest, environment guard, run-state transitions, sanitization | same input same key; changed intent new key; non-loopback rejected; secret match fails |
+| Unit | deterministic IDs, canonical manifest digest, environment guard, run/request-state transitions, atomic journal and sanitization | same input same key; changed intent new key; non-loopback rejected; corrupt/secret journal fails before send |
 | Contract | route/error names compared with frozen LP-03 OpenAPI and report JSON Schema | no hidden/missing route; no copied schema drift |
-| Real HTTP acceptance | isolated PostgreSQL, listening Fastify API, demo runner | create/read, execution fact, report, rejection/correction, unknown-result replay, one business result |
+| Real HTTP acceptance | isolated PostgreSQL, listening Fastify API, demo runner plus child-process crash harness | create/read, execution fact, report, rejection/correction; kill after upstream commit, restart same run with exact stored body/key, one business result |
 | Human boundary | API acceptance plus separate facilitator test | AI bearer cannot use human route; facilitator secret absent from output; final state public-read verified |
 | Browser | real demo data through proposer/executor routes without Playwright API mocks | same IDs, different role emphasis, two report structures, no write-boundary regression |
 | Client | actual Codex and Claude runs plus evidence re-read | exact Skill commit/client version, observed request IDs, unique authoritative resources, no static-only claim |
@@ -496,10 +582,10 @@ reproducible gap and return to Requirements. It must not invent an API change un
 | --- | --- |
 | AC 1–5 | Sections 2–4, 7–9: Skill structure, intent map, read-before-write and existing API authority |
 | AC 6 | Sections 3, 7.3, 9, 12: hard human boundary and separate facilitator |
-| AC 7–8 | Sections 3, 8–9: deterministic identities, unknown-result replay and conflict recovery |
+| AC 7–8 | Sections 3, 5.3, 6.1–6.2 and 8–9: deterministic identities, durable unknown-result replay, cross-process recovery and conflict handling |
 | AC 9 | Sections 4.3, 7.2, 9–10: report rejection, path correction and new revision identity |
 | AC 10–14 | Sections 5–7, 10, 15: synthetic manifest, repeatable real HTTP and real-data Web story |
-| AC 15 | Sections 5.3 and 11: exact Codex/Claude execution evidence, no static substitution |
-| AC 16 | Sections 5.2–5.3 and 12–13: sanitization, ignored raw proof and secret scanning |
+| AC 15 | Sections 5.4 and 11: exact Codex/Claude execution evidence, no static substitution |
+| AC 16 | Sections 5.2–5.4 and 12–13: sanitization, synthetic-only ignored journal/raw proof and secret scanning |
 | AC 17 | Sections 14–15: additive delivery and full LP-01–LP-03 regression gates |
 | AC 18 | Section 16: synchronized management/plan evidence without premature acceptance |

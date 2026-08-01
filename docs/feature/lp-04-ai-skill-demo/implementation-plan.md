@@ -9,6 +9,9 @@
 - Design: [design.md](./design.md)
 - Current phase: F3 — Implementation planning
 - Delivery mode: acceptance-only / no publish unless separately authorized after merge
+- Cycle 1 plan review: `TPR-001` from result
+  `3d7e3853ebb894ff34ceffbba696c7b636fa7df953b2913e09cbd07b02d5a66d`; closed by Design §§5.3,
+  6.1–6.2, 7.2, 8–9 and Implementation Plan Slices 2–3 before Cycle 2 re-review
 
 ## 1. Entry Gate And Scope Control
 
@@ -25,6 +28,8 @@ The implementation Goal must preserve these invariants:
 - no non-loopback automated demo write;
 - no direct service/database call as core demo evidence;
 - no generated secret, token, raw transcript or local proof in Git;
+- no business write before its synthetic canonical request and identity are durably journaled under the exact
+  ignored run directory;
 - no static-only Codex/Claude compatibility claim;
 - no LP-05 deployment, release or production work.
 
@@ -156,6 +161,7 @@ Rollback is a commit revert; no runtime/persisted state exists. Trace: AC 1, 3�
 - `scripts/lp04/request-identity.ts`
 - `scripts/lp04/environment.ts`
 - `scripts/lp04/http-client.ts`
+- `scripts/lp04/request-journal.ts`
 - `scripts/lp04/run-record.ts`
 - `scripts/lp04/scenario.ts`
 - `scripts/lp04/run.ts`
@@ -169,9 +175,13 @@ Rollback is a commit revert; no runtime/persisted state exists. Trace: AC 1, 3�
 Implement the design matrices exactly:
 
 - strict `DemoScenarioManifestV1` with unknown-field rejection and bounded counts;
-- `DemoRunRecordV1` with legal transitions and atomic ignored-file replacement;
+- `DemoRunRecordV1` with `RECOVERING_UNKNOWN`, `resumePhase`, legal transitions and atomic ignored-file replacement;
+- `DurableRequestJournalEntryV1` at
+  `.lp04-demo/runs/<runId>/requests/<stepId>-<semanticAttempt>.json`, including exact canonical body, body/key
+  digests, version/revision inputs, manifest/Skill binding, timestamps, safe observations/resource refs and
+  `PREPARED/DISPATCHED/OUTCOME_UNKNOWN/COMMITTED/REJECTED` state;
 - deterministic `req_` identity from versioned run ID, manifest digest, step and semantic attempt;
-- typed HTTP results that retain frozen request bytes in memory until success or final stop;
+- typed HTTP results that use the journal's frozen request bytes as recovery authority across processes;
 - a redactor given the exact runtime AI token that rejects evidence containing it;
 - cursor iteration with duplicate detection and 100-page ceiling.
 
@@ -186,9 +196,19 @@ marker, manifest/Skill digest conflicts or non-ready API. Never accept a databas
 
 ### 4.3 Scenario Expansion And Replay
 
-Replace only declared placeholders: run label, API IDs, current version and report request identity. Canonicalize the
-expanded body before its first write and retain those bytes for replay. A same-run restart fails before write if its
-recomputed body differs from the local record.
+Replace only declared placeholders: run label, API IDs, current version and report request identity. Before the first
+write, serialize once with `canonical-json-v1`, derive the key, validate the synthetic/body/version fields, and
+atomically persist `PREPARED` using same-directory temp write, file `fsync`, rename and directory `fsync` where
+supported. Persist `DISPATCHED` before `fetch`; persist `OUTCOME_UNKNOWN`, `COMMITTED` or `REJECTED` with the same
+protocol. Never store Authorization, Cookie, environment values, human capability or full response bodies.
+
+At process start, validate the run/manifest/Skill/serialization bindings and scan journal entries in stable
+step/attempt order. For `PREPARED`, `DISPATCHED` or `OUTCOME_UNKNOWN`, enter `RECOVERING_UNKNOWN` and replay the
+stored method/path/canonical body/key before any later scenario expansion or authority re-read can replace its
+version inputs. Publicly re-read the resulting resource, then atomically resolve the entry and resume
+`resumePhase`. `COMMITTED` re-reads and skips; `REJECTED` is terminal. Missing/corrupt/oversized/secret-bearing or
+digest-mismatched entries, changed manifest/Skill and any attempted same-step body/key drift fail before send. A
+corrected body, current-version retry or other changed intent uses a new semantic attempt, key and immutable entry.
 
 Through public reads and AI write routes, create/replay a clarification Idea, promoted/in-progress project, progress,
 blocker, decision request, support request, Evidence, conclusion, rejected/corrected report and the report side of a
@@ -200,6 +220,11 @@ second project later completed by the separate facilitator.
 - canonical manifest/digest and placeholder validation;
 - loopback acceptance plus remote/userinfo/path rejection;
 - run lifecycle and same-run conflict;
+- request-journal schema, safe filename/bounds, atomic replacement ordering and every legal/illegal request-state
+  transition;
+- restart recovery goldens proving exact stored UTF-8 body bytes and key survive a fresh process;
+- fail-before-send fixtures for missing/corrupt/tampered/secret-bearing journal, changed manifest/Skill digest and
+  same-step changed body/version;
 - secret/redaction and evidence-size bounds;
 - HTTP policy through a local non-business server;
 - report templates against canonical report Schema after expansion.
@@ -213,6 +238,7 @@ commit and may remove only exact local `.lp04-demo/runs/<runId>` evidence, never
 ### 5.1 Files
 
 - `scripts/lp04/unknown-result-proxy.ts`
+- `scripts/lp04/test-harness/crash-after-upstream-worker.ts`
 - `scripts/lp04/human-facilitator.ts`
 - `scripts/lp04/verify-client-evidence.ts`
 - `apps/api/test/lp04-demo.acceptance.test.ts`
@@ -230,9 +256,17 @@ the exact URL used by the test pool. Demo runtime contains no truncate/drop/rese
 ### 5.3 Unknown-Result And Report-Correction Proof
 
 Configure one `UnknownResultFaultPlan`. The proxy matches method/path/key digest, forwards unchanged, waits for the
-upstream response, drops downstream bytes once, then permits direct identical retry. Assert replay metadata and
-exactly one collection/history result. Counter-fixtures prove changed body/same key conflicts and version conflict
-causes a re-read plus new key.
+upstream response and signals a test-only child process after the upstream commit is observable but before the
+runner can persist resolution. The parent kills that process, asserts its journal remains `DISPATCHED` or
+`OUTCOME_UNKNOWN`, and starts a fresh process with the same run ID. The new process must replay the exact stored body
+bytes/key, observe API replay metadata, publicly reconcile the resource and finish with exactly one collection and
+history result. The oracle compares body/key digests across process boundaries, not merely logical payload values.
+
+Add discriminating cases for a crash after `PREPARED` but before dispatch (restart sends the frozen request once), a
+`COMMITTED` restart (public re-read and zero write), corrupt/tampered journal (zero send), changed manifest/Skill
+binding (zero send) and changed body/version with an old key (zero send/conflict). Keep the existing same-process
+one-shot dropped-response case as a smaller transport regression. Counter-fixtures also prove a genuine renewed
+version intent uses a new key.
 
 Submit one invalid report, capture stable bounded path error and prove current revision unchanged. Correct from known
 manifest/API facts, use a new matching header/body identity and prove exactly one accepted revision. Do not add a
@@ -255,7 +289,8 @@ request/resource correlation cannot become PASS.
 ### 5.6 Gate And Rollback
 
 Run LP-04 real HTTP acceptance plus LP-01, LP-02 and LP-03 acceptance against the same isolated test database, then
-unit/contract gates. Commit and push only after discriminating unknown-result, correction and human-boundary proof.
+unit/contract gates. Commit and push only after discriminating same-process unknown-result, cross-process
+crash/restart, correction and human-boundary proof.
 Rollback reverts Slice 3; it adds no migration or runtime route. Trace: AC 2, 5–13, 16–17.
 
 ## 6. Slice 4 — Real-Data Proposer/Executor Browser Story
@@ -381,8 +416,8 @@ npm run verify
 ```
 
 Also verify both client records read-only, frozen artifact digests, forbidden runtime-path diff, `git diff --check`,
-tracked-file secret absence and complete requirements trace. Do not write `Ready for Acceptance` if any mandatory
-check or client proof is unavailable.
+tracked-file secret absence, ignored journal containment, crash/restart body/key digest equality and complete
+requirements trace. Do not write `Ready for Acceptance` if any mandatory check or client proof is unavailable.
 
 ### 8.4 Gate And Rollback
 
