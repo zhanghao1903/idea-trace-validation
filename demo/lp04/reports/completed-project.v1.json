@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "1.0",
+  "projectId": "{{projectId}}",
+  "clientRequestId": "{{clientRequestId}}",
+  "basedOnRevision": "{{basedOnRevision}}",
+  "locale": "zh-CN",
+  "title": "SYNTHETIC_DEMO_DATA 时间线优先完成报告",
+  "summary": "合成人类治理步骤完成后的只读展示。",
+  "sections": [
+    {
+      "id": "timeline_first",
+      "title": "完成时间线",
+      "blocks": [
+        {
+          "id": "timeline",
+          "type": "timeline",
+          "items": [
+            {
+              "id": "started",
+              "date": "2026-08-01",
+              "title": "开始合成验证",
+              "status": "done"
+            },
+            {
+              "id": "confirmed",
+              "date": "2026-08-02",
+              "title": "人类确认完成",
+              "status": "done"
+            }
+          ]
+        },
+        {
+          "id": "metrics",
+          "type": "metrics",
+          "items": [
+            {
+              "id": "interviews",
+              "label": "合成访谈",
+              "value": 5,
+              "unit": "次",
+              "trend": "flat"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

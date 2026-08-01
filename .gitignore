@@ -10,3 +10,4 @@ node_modules/
 .idea-validation-test-db
 playwright-report/
 test-results/
+.lp04-demo/
