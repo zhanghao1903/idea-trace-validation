@@ -1,0 +1,35 @@
+{
+  "schemaVersion": "1.0",
+  "images": [
+    {
+      "role": "builder",
+      "repository": "docker.io/library/node",
+      "versionTag": "24.18.0-alpine",
+      "indexDigest": "sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd",
+      "platformDigests": {
+        "linux/amd64": "sha256:4ba75f835bb8802193e4c114572113d4b26f95f6f094f4b5229d2a77773e0afc",
+        "linux/arm64": "sha256:eef73a25205e27bd016ce672af71560ad6b681142ddf00ff63c7b3098eafcd4d"
+      }
+    },
+    {
+      "role": "database",
+      "repository": "docker.io/library/postgres",
+      "versionTag": "17.10-alpine",
+      "indexDigest": "sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193",
+      "platformDigests": {
+        "linux/amd64": "sha256:af194ccf3e2d7fe367012c7b88ce8b816c5c889b18a5b316799a1f0d7eac746a",
+        "linux/arm64": "sha256:b797483593b82cbea9a7ee41c88f324a90d10d9c2504d40e755d91c75456366d"
+      }
+    },
+    {
+      "role": "proxy",
+      "repository": "docker.io/library/caddy",
+      "versionTag": "2.10.2-alpine",
+      "indexDigest": "sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d",
+      "platformDigests": {
+        "linux/amd64": "sha256:d8c17a862962def15cde69863a3a463f25a2664942eafd7bdbf050e9c3116b83",
+        "linux/arm64": "sha256:8dbca3525dd8dce671e495665a0eb297a83ec87ee30f373947d0ea93115949db"
+      }
+    }
+  ]
+}
