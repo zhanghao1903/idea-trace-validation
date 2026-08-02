@@ -34,11 +34,11 @@
 | `npm run build` and frozen OpenAPI/report-type checks | PASS; Web bundle 97.35 KiB gzip |
 | repository unit/contract/integration/Web component tests | PASS; 82 + 23 + 31 + 8 tests |
 | LP-01–LP-04 acceptance tests | PASS; 13 tests on the isolated PostgreSQL database |
-| `npm run test:deployment:unit` | PASS; 4 files, 27 tests |
+| `npm run test:deployment:unit` | PASS; 5 files, 31 tests |
 | `npm run deploy:lp05:validate` | PASS; `LP05_RELEASE_READINESS_PASS` |
 | Playwright LP-03/LP-04 stories | PASS; 7 + 1 scenarios |
 | `npm run verify` | PASS; complete ordered gate |
-| immutable `linux/amd64` candidate | PASS; source `71f1ada65cdda3864c9b397c5659689e9c0fee6f` |
+| immutable `linux/amd64` candidate | PASS; ignored manifest binds the exact source commit/tree |
 | candidate archive/provenance verification | PASS; `LP05_CANDIDATE_PASS` |
 | loopback production topology | PASS; `LP05_LOCAL_ACCEPTANCE_PASS` |
 
