@@ -74,10 +74,10 @@ Acceptance record:
 - Risk: Skill 与 API 漂移；示例和自动化演示必须使用当前契约，不加隐藏参数。
 - Risk: 演示脚本只覆盖顺利路径；至少保留网络未知、输入不足和确认拒绝恢复场景。
 - Risk: 客户端自报或资源创建成功不能单独授权 PASS；必须同时绑定原始 transcript 摘要、
-  闭合 POST request claims、逐条公开请求审计和资源精确读回；拒绝请求须配对精确 transcript
-  request/result。
+  闭合 POST request claims、逐条公开审计的固定操作语义和资源精确读回；拒绝请求须配对
+  精确 transcript request/result，objective 必须由这些事实推导。
 - Blocker: `None`。实际 Codex CLI 与 Claude Desktop/Claude Code 客户端均已完成独立运行，
-  且 Cycle 2 保留的混合真实/伪造 request-ID 反例现已 fail closed。
+  且 Cycle 3 保留的同资源错操作/错状态反例现已 fail closed。
 
 ## 9. Status
 
@@ -89,5 +89,5 @@ Engineering Review，不表示已审查、已合并、已发布或已正式验�
 
 ## 10. Next step
 
-在无进一步文件变更的 remediation exact head 上执行完整验证矩阵并发送 Cycle 3
+在无进一步文件变更的 remediation exact head 上执行完整验证矩阵并发送 Cycle 4
 Engineering Review。LP-05 保持 `Not Started` 且需求未确认。

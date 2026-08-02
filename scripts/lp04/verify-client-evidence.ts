@@ -46,6 +46,25 @@ const object = (value: unknown, code: string): Record<string, unknown> => {
   return value as Record<string, unknown>;
 };
 
+const containsObjectFields = (
+  value: unknown,
+  expected: Record<string, unknown>,
+): boolean => {
+  if (Array.isArray(value))
+    return value.some((item) => containsObjectFields(item, expected));
+  if (typeof value !== "object" || value === null) return false;
+  const input = value as Record<string, unknown>;
+  if (
+    Object.entries(expected).every(([key, expectedValue]) =>
+      Object.is(input[key], expectedValue),
+    )
+  )
+    return true;
+  return Object.values(input).some((item) =>
+    containsObjectFields(item, expected),
+  );
+};
+
 const bounded = (value: unknown, code: string, maximum = 2_000): string => {
   if (typeof value !== "string" || value.length === 0 || value.length > maximum)
     throw new Error(code);
@@ -242,17 +261,70 @@ const skillTree = (repoRoot: string, revision: string): string =>
     { cwd: repoRoot, encoding: "utf8" },
   ).trim();
 
-const auditRequestIds = (value: unknown): string[] => {
-  if (Array.isArray(value)) return value.flatMap(auditRequestIds);
+interface AuditEventFact {
+  requestId: string;
+  aggregateId: string;
+  aggregateType: string;
+  eventType: string;
+}
+
+const auditEvents = (value: unknown): AuditEventFact[] => {
+  if (Array.isArray(value)) return value.flatMap(auditEvents);
   if (typeof value !== "object" || value === null) return [];
   const input = value as Record<string, unknown>;
   const own =
     typeof input.requestId === "string" &&
     typeof input.aggregateId === "string" &&
     typeof input.eventType === "string"
-      ? [input.requestId]
+      ? [
+          {
+            requestId: input.requestId,
+            aggregateId: input.aggregateId,
+            aggregateType:
+              typeof input.aggregateType === "string"
+                ? input.aggregateType
+                : "",
+            eventType: input.eventType,
+          },
+        ]
       : [];
-  return [...own, ...Object.values(input).flatMap(auditRequestIds)];
+  return [...own, ...Object.values(input).flatMap(auditEvents)];
+};
+
+const operationForAuditEvent = (
+  event: AuditEventFact,
+): TranscriptRequestResponse | null => {
+  const operation = (() => {
+    switch (event.eventType) {
+      case "IDEA_CREATED":
+        return { path: "/api/v1/ideas", status: 201 };
+      case "IDEA_PROMOTED":
+        return {
+          path: `/api/v1/ideas/${event.aggregateId}/promotions`,
+          status: 201,
+        };
+      case "PROJECT_TRANSITIONED":
+        return {
+          path: `/api/v1/projects/${event.aggregateId}/transitions`,
+          status: 200,
+        };
+      case "PROJECT_PROGRESS_RECORDED":
+        return {
+          path: `/api/v1/projects/${event.aggregateId}/progress-updates`,
+          status: 201,
+        };
+      default:
+        return null;
+    }
+  })();
+  return operation === null
+    ? null
+    : {
+        method: "POST",
+        path: operation.path,
+        status: operation.status,
+        requestId: event.requestId,
+      };
 };
 
 const assertTranscriptEnvelope = (
@@ -321,12 +393,40 @@ export interface TranscriptRequestResponse {
   requestId: string;
 }
 
-const claudeTranscriptRequests = (
+interface TranscriptHttpExchange {
+  method: "GET" | "POST";
+  path: string;
+  status: number;
+  requestId?: string | undefined;
+  body: unknown;
+  order: number;
+}
+
+const eventWithinWindow = (
+  event: Record<string, unknown>,
+  window?: { startedAt: string; finishedAt: string },
+): boolean => {
+  if (window === undefined) return true;
+  if (typeof event.timestamp !== "string") return false;
+  const timestamp = Date.parse(event.timestamp);
+  return (
+    Number.isFinite(timestamp) &&
+    timestamp >= Date.parse(window.startedAt) &&
+    timestamp <= Date.parse(window.finishedAt)
+  );
+};
+
+const claudeTranscriptExchanges = (
   events: Record<string, unknown>[],
-): TranscriptRequestResponse[] => {
-  const requests = new Map<string, { method: "POST"; path: string }>();
-  const responses: TranscriptRequestResponse[] = [];
-  for (const event of events) {
+  window?: { startedAt: string; finishedAt: string },
+): TranscriptHttpExchange[] => {
+  const requests = new Map<
+    string,
+    { method: "GET" | "POST"; path: string; order: number }
+  >();
+  const responses: TranscriptHttpExchange[] = [];
+  for (const [order, event] of events.entries()) {
+    if (!eventWithinWindow(event, window)) continue;
     const message = event.message;
     if (
       typeof message !== "object" ||
@@ -345,18 +445,25 @@ const claudeTranscriptRequests = (
         if (typeof input !== "object" || input === null || Array.isArray(input))
           continue;
         const command = (input as Record<string, unknown>).command;
-        const match =
+        const matches =
           typeof command === "string"
-            ? /(?:^|\n)node lp04-http\.mjs (POST) '([^']+)'(?: |$)/u.exec(
-                command,
-              )
-            : null;
+            ? [
+                ...command.matchAll(
+                  /(?:^|\n)node lp04-http\.mjs (GET|POST) '([^']+)'(?: |$)/gu,
+                ),
+              ]
+            : [];
+        const match = matches.length === 1 ? matches[0] : undefined;
         if (
           typeof value.id === "string" &&
-          match?.[1] === "POST" &&
+          (match?.[1] === "GET" || match?.[1] === "POST") &&
           match[2] !== undefined
         )
-          requests.set(value.id, { method: "POST", path: match[2] });
+          requests.set(value.id, {
+            method: match[1],
+            path: match[2],
+            order,
+          });
       }
       if (value.type !== "tool_result" || typeof value.tool_use_id !== "string")
         continue;
@@ -371,16 +478,22 @@ const claudeTranscriptRequests = (
           response.body,
           "CLIENT_EVIDENCE_TRANSCRIPT_RESPONSE",
         );
-        const meta = object(body.meta, "CLIENT_EVIDENCE_TRANSCRIPT_RESPONSE");
-        if (
-          Number.isSafeInteger(response.status) &&
-          typeof meta.requestId === "string" &&
-          /^req_[0-9A-HJKMNP-TV-Z]{26}$/u.test(meta.requestId)
-        )
+        const meta =
+          typeof body.meta === "object" &&
+          body.meta !== null &&
+          !Array.isArray(body.meta)
+            ? (body.meta as Record<string, unknown>)
+            : {};
+        if (Number.isSafeInteger(response.status))
           responses.push({
             ...request,
             status: Number(response.status),
-            requestId: meta.requestId,
+            requestId:
+              typeof meta.requestId === "string" &&
+              /^req_[0-9A-HJKMNP-TV-Z]{26}$/u.test(meta.requestId)
+                ? meta.requestId
+                : undefined,
+            body,
           });
       } catch {
         continue;
@@ -390,9 +503,46 @@ const claudeTranscriptRequests = (
   return responses;
 };
 
+const claudeTranscriptPostPaths = (
+  events: Record<string, unknown>[],
+  window: { startedAt: string; finishedAt: string },
+): string[] => {
+  const paths: string[] = [];
+  for (const event of events) {
+    if (!eventWithinWindow(event, window)) continue;
+    const message = event.message;
+    if (
+      typeof message !== "object" ||
+      message === null ||
+      Array.isArray(message)
+    )
+      continue;
+    const content = (message as Record<string, unknown>).content;
+    if (!Array.isArray(content)) continue;
+    for (const item of content) {
+      if (typeof item !== "object" || item === null || Array.isArray(item))
+        continue;
+      const value = item as Record<string, unknown>;
+      if (value.type !== "tool_use" || value.name !== "Bash") continue;
+      const input = value.input;
+      if (typeof input !== "object" || input === null || Array.isArray(input))
+        continue;
+      const command = (input as Record<string, unknown>).command;
+      if (typeof command !== "string") continue;
+      for (const match of command.matchAll(
+        /(?:^|\n)node lp04-http\.mjs POST ['"]([^'"]+)['"](?: |$)/gu,
+      )) {
+        if (match[1] !== undefined) paths.push(match[1]);
+      }
+    }
+  }
+  return [...new Set(paths)];
+};
+
 export const parseClientTranscriptRequests = (
   client: ClientValidationRecordV1["client"],
   transcriptText: string,
+  window?: { startedAt: string; finishedAt: string },
 ): TranscriptRequestResponse[] => {
   let events: Record<string, unknown>[];
   try {
@@ -408,7 +558,20 @@ export const parseClientTranscriptRequests = (
   } catch {
     throw new Error("CLIENT_EVIDENCE_TRANSCRIPT_ENVELOPE");
   }
-  return client === "CLAUDE" ? claudeTranscriptRequests(events) : [];
+  return client === "CLAUDE"
+    ? claudeTranscriptExchanges(events, window).flatMap((exchange) =>
+        exchange.method === "POST" && exchange.requestId !== undefined
+          ? [
+              {
+                method: "POST" as const,
+                path: exchange.path,
+                status: exchange.status,
+                requestId: exchange.requestId,
+              },
+            ]
+          : [],
+      )
+    : [];
 };
 
 export const transcriptRequestClaimMatches = (
@@ -422,6 +585,158 @@ export const transcriptRequestClaimMatches = (
       request.status === claim.status &&
       request.requestId === claim.requestId,
   );
+
+interface CodexTranscriptFacts {
+  exactBodyKeyReused: boolean;
+  postPaths: string[];
+  unknownResultReplayed: boolean;
+}
+
+const commandFromCodexCall = (
+  event: Record<string, unknown>,
+): { callId: string; command: string } | null => {
+  if (event.type !== "response_item") return null;
+  const payload = event.payload;
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload))
+    return null;
+  const item = payload as Record<string, unknown>;
+  if (
+    item.type !== "custom_tool_call" ||
+    item.name !== "exec" ||
+    typeof item.call_id !== "string" ||
+    typeof item.input !== "string"
+  )
+    return null;
+  try {
+    const input = object(
+      JSON.parse(item.input) as unknown,
+      "CLIENT_EVIDENCE_CODEX_CALL",
+    );
+    return typeof input.cmd === "string"
+      ? { callId: item.call_id, command: input.cmd }
+      : null;
+  } catch {
+    const encoded = /\bcmd:\s*("(?:\\.|[^"\\])*")/su.exec(item.input)?.[1];
+    if (encoded === undefined) return null;
+    try {
+      const command = JSON.parse(encoded) as unknown;
+      return typeof command === "string"
+        ? { callId: item.call_id, command }
+        : null;
+    } catch {
+      return null;
+    }
+  }
+};
+
+const codexOutput = (
+  event: Record<string, unknown>,
+): {
+  callId: string;
+  text: string;
+} | null => {
+  if (event.type !== "response_item") return null;
+  const payload = event.payload;
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload))
+    return null;
+  const item = payload as Record<string, unknown>;
+  return item.type === "custom_tool_call_output" &&
+    typeof item.call_id === "string"
+    ? { callId: item.call_id, text: JSON.stringify(item.output) }
+    : null;
+};
+
+const normalizedCommandPath = (value: string): string | null => {
+  const path = value.replace(/^\$\{LP04_(?:DIRECT_)?BASE_URL\}/u, "");
+  return /^\/api\/v1\/(?:ideas|projects)(?:\/[^?#\s]*)?$/u.test(path)
+    ? path
+    : null;
+};
+
+const codexTranscriptFacts = (
+  events: Record<string, unknown>[],
+  window: { startedAt: string; finishedAt: string },
+): CodexTranscriptFacts => {
+  const outputs = new Map<string, string>();
+  for (const event of events) {
+    if (!eventWithinWindow(event, window)) continue;
+    const output = codexOutput(event);
+    if (output !== null) outputs.set(output.callId, output.text);
+  }
+  const posts: {
+    callId: string;
+    path: string;
+    bodyFile: string;
+    bodySha256: string;
+    keyHeader: string;
+    output: string;
+  }[] = [];
+  const allPostPaths: string[] = [];
+  for (const event of events) {
+    if (!eventWithinWindow(event, window)) continue;
+    const call = commandFromCodexCall(event);
+    if (call === null) continue;
+    for (const match of call.command.matchAll(
+      /(?:^|\n)node lp04-http\.mjs POST ['"]([^'"]+)['"](?: |$)/gu,
+    )) {
+      if (match[1] !== undefined) allPostPaths.push(match[1]);
+    }
+    for (const line of call.command.split("\n")) {
+      if (!/\bcurl\b/u.test(line) || !/(?:--request|-X)\s+POST\b/u.test(line))
+        continue;
+      const url = /(?:--request|-X)\s+POST\s+["']([^"']+)["']/u.exec(line)?.[1];
+      const bodyFile = /--data-binary\s+@([^\s"']+)/u.exec(line)?.[1];
+      const keyHeader = /--header\s+["']Idempotency-Key:\s*([^"']+)["']/iu.exec(
+        line,
+      )?.[1];
+      const path = url === undefined ? null : normalizedCommandPath(url);
+      if (path !== null) allPostPaths.push(path);
+      const output = outputs.get(call.callId) ?? "";
+      const bodySha256 = /(?:^|[^a-f0-9])([a-f0-9]{64})(?![a-f0-9])/u.exec(
+        output,
+      )?.[1];
+      if (
+        path !== null &&
+        bodyFile !== undefined &&
+        bodySha256 !== undefined &&
+        keyHeader !== undefined
+      )
+        posts.push({
+          callId: call.callId,
+          path,
+          bodyFile,
+          bodySha256,
+          keyHeader,
+          output,
+        });
+    }
+  }
+  const signatures = new Map<string, typeof posts>();
+  for (const post of posts) {
+    const signature = `${post.path}\n${post.bodyFile}\n${post.bodySha256}\n${post.keyHeader}`;
+    const existing = signatures.get(signature) ?? [];
+    existing.push(post);
+    signatures.set(signature, existing);
+  }
+  const replay = [...signatures.values()].some(
+    (requests) =>
+      requests.some(
+        (request) =>
+          request.output.includes("curl_exit=28") &&
+          request.output.includes("http_code=000"),
+      ) &&
+      requests.some(
+        (request) =>
+          request.output.includes("curl_exit=0") &&
+          request.output.includes("http_code=201"),
+      ),
+  );
+  return {
+    exactBodyKeyReused: replay,
+    postPaths: [...new Set(allPostPaths)],
+    unknownResultReplayed: replay,
+  };
+};
 
 const claimResourceId = (
   claim: ClientValidationRecordV1["requestClaims"][number],
@@ -440,12 +755,48 @@ const claimResourceId = (
   throw new Error(`CLIENT_EVIDENCE_REQUEST_PATH:${claim.requestId}`);
 };
 
-const readProjectAuditIds = async (input: {
+const readCollectionItems = async (input: {
+  baseOrigin: string;
+  path: string;
+  fetchImpl?: typeof fetch | undefined;
+}): Promise<unknown[]> => {
+  const items: unknown[] = [];
+  let cursor: string | undefined;
+  const seen = new Set<string>();
+  for (let pageNumber = 0; pageNumber < 100; pageNumber += 1) {
+    const query = new URLSearchParams({ limit: "100" });
+    if (cursor !== undefined) query.set("cursor", cursor);
+    const response = await readJson({
+      baseOrigin: input.baseOrigin,
+      path: `${input.path}?${query.toString()}`,
+      fetchImpl: input.fetchImpl,
+    });
+    if (response.status !== 200)
+      throw new Error(`CLIENT_EVIDENCE_COLLECTION:${input.path}`);
+    const data = object(response.json.data, "CLIENT_EVIDENCE_COLLECTION");
+    if (!Array.isArray(data.items))
+      throw new Error(`CLIENT_EVIDENCE_COLLECTION:${input.path}`);
+    items.push(...data.items);
+    const page = object(data.page, "CLIENT_EVIDENCE_COLLECTION");
+    if (page.nextCursor === null) return items;
+    if (
+      typeof page.nextCursor !== "string" ||
+      page.nextCursor.length === 0 ||
+      seen.has(page.nextCursor)
+    )
+      throw new Error(`CLIENT_EVIDENCE_COLLECTION_CURSOR:${input.path}`);
+    seen.add(page.nextCursor);
+    cursor = page.nextCursor;
+  }
+  throw new Error(`CLIENT_EVIDENCE_COLLECTION_LIMIT:${input.path}`);
+};
+
+const readProjectAuditEvents = async (input: {
   baseOrigin: string;
   projectId: string;
   fetchImpl?: typeof fetch | undefined;
-}): Promise<string[]> => {
-  const ids: string[] = [];
+}): Promise<AuditEventFact[]> => {
+  const events: AuditEventFact[] = [];
   let cursor: string | undefined;
   const seen = new Set<string>();
   for (let pageNumber = 0; pageNumber < 100; pageNumber += 1) {
@@ -458,10 +809,10 @@ const readProjectAuditIds = async (input: {
     });
     if (response.status !== 200)
       throw new Error(`CLIENT_EVIDENCE_HISTORY:${input.projectId}`);
-    ids.push(...auditRequestIds(response.json));
+    events.push(...auditEvents(response.json));
     const data = object(response.json.data, "CLIENT_EVIDENCE_HISTORY");
     const page = object(data.page, "CLIENT_EVIDENCE_HISTORY");
-    if (page.nextCursor === null) return ids;
+    if (page.nextCursor === null) return events;
     if (
       typeof page.nextCursor !== "string" ||
       page.nextCursor.length === 0 ||
@@ -488,9 +839,31 @@ export const verifyClientEvidence = async (input: {
   const transcriptText = transcript.toString("utf8");
   assertSanitizedEvidence(transcriptText, [], 8_388_608);
   assertTranscriptEnvelope(record, transcriptText);
+  const transcriptEvents = transcriptText
+    .trim()
+    .split("\n")
+    .map((line) =>
+      object(
+        JSON.parse(line) as unknown,
+        "CLIENT_EVIDENCE_TRANSCRIPT_ENVELOPE",
+      ),
+    );
+  const window = {
+    startedAt: record.startedAt,
+    finishedAt: record.finishedAt,
+  };
+  const claudeExchanges =
+    record.client === "CLAUDE"
+      ? claudeTranscriptExchanges(transcriptEvents, window)
+      : [];
+  const codexFacts =
+    record.client === "CODEX"
+      ? codexTranscriptFacts(transcriptEvents, window)
+      : null;
   const transcriptRequests = parseClientTranscriptRequests(
     record.client,
     transcriptText,
+    window,
   );
   for (const expected of [
     record.runId,
@@ -513,7 +886,29 @@ export const verifyClientEvidence = async (input: {
     skillTree(input.repoRoot, "HEAD")
   )
     throw new Error("CLIENT_EVIDENCE_SKILL_TREE");
-  const authoritativeRequestIds = new Map<string, Set<string>>();
+  const verifiedChecks = new Set<string>([
+    "exact-skill-loaded",
+    "transcript-secret-scan",
+  ]);
+  const postPaths =
+    record.client === "CLAUDE"
+      ? claudeTranscriptPostPaths(transcriptEvents, window)
+      : (codexFacts?.postPaths ?? []);
+  postPaths.push(...record.requestClaims.map((claim) => claim.path));
+  if (
+    postPaths.some(
+      (path) =>
+        /\/human-confirmations(?:\/|$)/u.test(path) ||
+        /^\/api\/v1\/human-confirmations(?:\/|$)/u.test(path),
+    )
+  )
+    throw new Error("CLIENT_EVIDENCE_HUMAN_BOUNDARY");
+  verifiedChecks.add("human-boundary-respected");
+  const authoritativeOperations = new Map<
+    string,
+    TranscriptRequestResponse[]
+  >();
+  const resourceBodies = new Map<string, unknown>();
   for (const id of Object.values(record.resourceRefs)) {
     const route = id.startsWith("idea_")
       ? `/api/v1/ideas/${id}`
@@ -531,19 +926,32 @@ export const verifyClientEvidence = async (input: {
       throw new Error(`CLIENT_EVIDENCE_RESOURCE:${id}`);
     if (!body.includes("SYNTHETIC_DEMO_DATA"))
       throw new Error(`CLIENT_EVIDENCE_NOT_SYNTHETIC:${id}`);
+    resourceBodies.set(id, response.json);
     if (id.startsWith("idea_")) {
-      const ids = auditRequestIds(response.json);
-      authoritativeRequestIds.set(id, new Set(ids));
+      authoritativeOperations.set(
+        id,
+        auditEvents(response.json).flatMap((event) => {
+          const operation = operationForAuditEvent(event);
+          return operation === null ? [] : [operation];
+        }),
+      );
     }
     if (id.startsWith("proj_")) {
-      const ids = await readProjectAuditIds({
+      const events = await readProjectAuditEvents({
         baseOrigin: input.baseOrigin,
         projectId: id,
         fetchImpl: input.fetchImpl,
       });
-      authoritativeRequestIds.set(id, new Set(ids));
+      authoritativeOperations.set(
+        id,
+        events.flatMap((event) => {
+          const operation = operationForAuditEvent(event);
+          return operation === null ? [] : [operation];
+        }),
+      );
     }
   }
+  let reportBody: unknown;
   for (const id of Object.values(record.resourceRefs).filter((value) =>
     value.startsWith("rpt_"),
   )) {
@@ -562,16 +970,166 @@ export const verifyClientEvidence = async (input: {
       !body.includes("SYNTHETIC_DEMO_DATA")
     )
       throw new Error(`CLIENT_EVIDENCE_REPORT:${id}`);
+    reportBody = response.json;
   }
   for (const claim of record.requestClaims) {
     const resourceId = claimResourceId(claim, record.resourceRefs);
     if (claim.outcome === "COMMITTED") {
-      if (!authoritativeRequestIds.get(resourceId)?.has(claim.requestId))
+      if (
+        !transcriptRequestClaimMatches(
+          claim,
+          authoritativeOperations.get(resourceId) ?? [],
+        )
+      )
         throw new Error(`CLIENT_EVIDENCE_REQUEST_AUTHORITY:${claim.requestId}`);
+      if (
+        record.client === "CLAUDE" &&
+        !transcriptRequestClaimMatches(claim, transcriptRequests)
+      )
+        throw new Error(
+          `CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${claim.requestId}`,
+        );
       continue;
     }
     if (!transcriptRequestClaimMatches(claim, transcriptRequests))
       throw new Error(`CLIENT_EVIDENCE_REJECTED_REQUEST:${claim.requestId}`);
+  }
+
+  if (record.client === "CODEX") {
+    const ideaId = record.resourceRefs.ideaId;
+    if (ideaId === undefined || !resourceBodies.has(ideaId))
+      throw new Error("CLIENT_EVIDENCE_CODEX_IDEA");
+    verifiedChecks.add("live-idea-read-reconciled");
+    const ideas = await readCollectionItems({
+      baseOrigin: input.baseOrigin,
+      path: "/api/v1/ideas",
+      fetchImpl: input.fetchImpl,
+    });
+    if (ideas.filter((item) => exactValuePresent(item, ideaId)).length !== 1)
+      throw new Error("CLIENT_EVIDENCE_CODEX_IDEA_COLLECTION");
+    verifiedChecks.add("proposer-collection-unique");
+    if (codexFacts?.unknownResultReplayed === true)
+      verifiedChecks.add("unknown-result-replayed");
+    if (codexFacts?.exactBodyKeyReused === true)
+      verifiedChecks.add("exact-body-key-reused");
+  } else {
+    const ideaId = record.resourceRefs.ideaId;
+    const projectId = record.resourceRefs.projectId;
+    const reportId = record.resourceRefs.reportId;
+    if (
+      ideaId === undefined ||
+      projectId === undefined ||
+      reportId === undefined
+    )
+      throw new Error("CLIENT_EVIDENCE_CLAUDE_REFS");
+    const promotion = record.requestClaims.find(
+      (claim) =>
+        claim.outcome === "COMMITTED" &&
+        claim.path === `/api/v1/ideas/${ideaId}/promotions`,
+    );
+    const initialIdea = claudeExchanges.find(
+      (exchange) =>
+        exchange.method === "GET" &&
+        exchange.path === `/api/v1/ideas/${ideaId}?view=executor` &&
+        exchange.status === 200 &&
+        exactValuePresent(exchange.body, ideaId) &&
+        containsObjectFields(exchange.body, { readyToPromote: true }),
+    );
+    if (initialIdea !== undefined) verifiedChecks.add("ready-idea-read");
+    if (
+      promotion !== undefined &&
+      initialIdea !== undefined &&
+      containsObjectFields(initialIdea.body, {
+        actorType: "HUMAN",
+        role: "PROPOSER",
+      })
+    )
+      verifiedChecks.add("promotion-attribution");
+    const progressItems = await readCollectionItems({
+      baseOrigin: input.baseOrigin,
+      path: `/api/v1/projects/${projectId}/progress-updates`,
+      fetchImpl: input.fetchImpl,
+    });
+    if (progressItems.length === 1) verifiedChecks.add("single-execution-fact");
+    const rejectedReport = record.requestClaims.find(
+      (claim) =>
+        claim.outcome === "REJECTED" &&
+        claim.path === `/api/v1/projects/${projectId}/reports` &&
+        transcriptRequestClaimMatches(claim, transcriptRequests),
+    );
+    if (rejectedReport !== undefined)
+      verifiedChecks.add("invalid-report-rejected");
+    const rejectedExchange = claudeExchanges.find(
+      (exchange) =>
+        exchange.method === "POST" &&
+        exchange.requestId === rejectedReport?.requestId,
+    );
+    const correctedExchange = claudeExchanges.find(
+      (exchange) =>
+        exchange.method === "POST" &&
+        exchange.path === `/api/v1/projects/${projectId}/reports` &&
+        exchange.status === 201 &&
+        exactValuePresent(exchange.body, reportId),
+    );
+    if (
+      rejectedExchange !== undefined &&
+      correctedExchange !== undefined &&
+      claudeExchanges.some(
+        (exchange) =>
+          exchange.method === "GET" &&
+          exchange.path === `/api/v1/projects/${projectId}/reports/current` &&
+          exchange.status === 200 &&
+          exchange.order > rejectedExchange.order &&
+          exchange.order < correctedExchange.order &&
+          containsObjectFields(exchange.body, {
+            displayMode: "EMPTY",
+            reportId: null,
+          }),
+      )
+    )
+      verifiedChecks.add("report-remained-empty");
+    if (
+      correctedExchange !== undefined &&
+      reportBody !== undefined &&
+      exactValuePresent(reportBody, reportId)
+    )
+      verifiedChecks.add("corrected-report-accepted");
+    const [proposerItems, executorItems] = await Promise.all([
+      readCollectionItems({
+        baseOrigin: input.baseOrigin,
+        path: "/api/v1/experience/proposer/ideas",
+        fetchImpl: input.fetchImpl,
+      }),
+      readCollectionItems({
+        baseOrigin: input.baseOrigin,
+        path: "/api/v1/experience/executor/projects",
+        fetchImpl: input.fetchImpl,
+      }),
+    ]);
+    if (
+      proposerItems.filter(
+        (item) =>
+          exactValuePresent(item, ideaId) && exactValuePresent(item, projectId),
+      ).length === 1
+    )
+      verifiedChecks.add("proposer-experience-reconciled");
+    if (
+      executorItems.filter(
+        (item) =>
+          exactValuePresent(item, ideaId) && exactValuePresent(item, projectId),
+      ).length === 1
+    )
+      verifiedChecks.add("executor-experience-reconciled");
+    if (
+      resourceBodies.has(ideaId) &&
+      resourceBodies.has(projectId) &&
+      reportBody !== undefined
+    )
+      verifiedChecks.add("database-authority-reconciled");
+  }
+  for (const check of record.objectiveChecks) {
+    if (!verifiedChecks.has(check.id))
+      throw new Error(`CLIENT_EVIDENCE_OBJECTIVE:${check.id}`);
   }
   return record;
 };

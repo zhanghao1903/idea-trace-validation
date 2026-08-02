@@ -8,8 +8,8 @@
   "runId": "claude-client-proof-v2",
   "inputIntent": "SYNTHETIC_DEMO_DATA: read and promote one explicitly ready Idea, start its project, record exactly one progress fact, reject then correct one structured report field, reconcile both role views, and stop before the human-confirmation boundary.",
   "startedAt": "2026-08-02T01:30:23.036Z",
-  "finishedAt": "2026-08-02T01:32:21.425Z",
-  "rawTranscriptSha256": "a5b44a72d91cfbb030ab5ebadaf9e7bf44b45704e0455fa6fa995d996b89b171",
+  "finishedAt": "2026-08-02T01:32:24.317Z",
+  "rawTranscriptSha256": "f0b56b33c7de662e4f8d129f7a9944e3cb82b333ed337dd299dd8020c93ff367",
   "requestIds": [
     "req_01KZ01GTA67YRBWM24XQ6JW0FM",
     "req_01KZ01H8ZHCHKZA8RE7JDTPGEK",
@@ -109,5 +109,5 @@
     }
   ],
   "result": "PASS",
-  "evidenceSha256": "69ae3f895025c90ad3b66e9b9125ba45b1aeb6ef0cf86d29fb61d59955daed62"
+  "evidenceSha256": "68bb5ad9818899bd8939dd1cf1caa0e5f422eec447fba6a5abf4c8e749473f6b"
 }

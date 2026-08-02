@@ -85,6 +85,7 @@
   feature ledger, so the accepted LP-02 binary remains a tested application
   rollback target after the additive upgrade.
 - Bind LP-04 client proof to the exact raw transcript, closed POST request
-  claims, per-request public history or rejected-response evidence, and exact
-  synthetic resources; require per-child public readback and preserve resumable
-  journal state after bounded `IDEMPOTENCY_IN_PROGRESS` retries.
+  claims, exact authoritative event-to-operation mappings, client-observed
+  request/response facts and derived objective checks; require per-child public
+  readback and preserve resumable journal state after bounded
+  `IDEMPOTENCY_IN_PROGRESS` retries.

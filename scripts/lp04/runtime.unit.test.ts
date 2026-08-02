@@ -418,18 +418,65 @@ describe("LP-04 deterministic runtime contracts", () => {
     const transcriptFile = path.join(proofRoot, "transcript.jsonl");
     const requestId = "req_01ARZ3NDEKTSV4RRFFQ69G5FAV";
     const ideaId = "idea_01ARZ3NDEKTSV4RRFFQ69G5FAV";
-    const transcript = `${JSON.stringify({
-      timestamp: "2026-08-01T00:00:30.000Z",
-      type: "session_meta",
-      payload: {
-        session_id: "codex-test-session",
-        cli_version: "codex-test",
+    const requestCommand =
+      'curl --request POST "${LP04_BASE_URL}/api/v1/ideas" ' +
+      '--header "Idempotency-Key: ${LP04_IDEMPOTENCY_KEY}" ' +
+      "--data-binary @frozen.json";
+    const transcript = [
+      {
+        timestamp: "2026-08-01T00:00:30.000Z",
+        type: "session_meta",
+        payload: {
+          session_id: "codex-test-session",
+          cli_version: "codex-test",
+        },
       },
-    })}\n${JSON.stringify({
-      timestamp: "2026-08-01T00:00:31.000Z",
-      type: "event_msg",
-      payload: { runId: "codex-proof", requestId, ideaId },
-    })}\n`;
+      {
+        timestamp: "2026-08-01T00:00:31.000Z",
+        type: "response_item",
+        payload: {
+          type: "custom_tool_call",
+          call_id: "timeout-call",
+          name: "exec",
+          input: JSON.stringify({ cmd: requestCommand }),
+        },
+      },
+      {
+        timestamp: "2026-08-01T00:00:32.000Z",
+        type: "response_item",
+        payload: {
+          type: "custom_tool_call_output",
+          call_id: "timeout-call",
+          output: `${"a".repeat(64)}  frozen.json\ncurl_exit=28\nhttp_code=000`,
+        },
+      },
+      {
+        timestamp: "2026-08-01T00:00:33.000Z",
+        type: "response_item",
+        payload: {
+          type: "custom_tool_call",
+          call_id: "replay-call",
+          name: "exec",
+          input: JSON.stringify({ cmd: requestCommand }),
+        },
+      },
+      {
+        timestamp: "2026-08-01T00:00:34.000Z",
+        type: "response_item",
+        payload: {
+          type: "custom_tool_call_output",
+          call_id: "replay-call",
+          output: `${"a".repeat(64)}  frozen.json\ncurl_exit=0\nhttp_code=201`,
+        },
+      },
+      {
+        timestamp: "2026-08-01T00:00:35.000Z",
+        type: "event_msg",
+        payload: { runId: "codex-proof", requestId, ideaId },
+      },
+    ]
+      .map((event) => JSON.stringify(event))
+      .join("\n");
     await writeFile(transcriptFile, transcript);
     const digestInput = {
       schemaVersion: "1.0",
@@ -474,7 +521,19 @@ describe("LP-04 deterministic runtime contracts", () => {
       evidenceSha256: sha256(assertSanitizedEvidence(digestInput)),
     };
     const fetchImpl: typeof fetch = async (url) => {
-      expect(String(url)).toContain(`/api/v1/ideas/${ideaId}`);
+      const requestUrl = new URL(String(url));
+      if (requestUrl.pathname === "/api/v1/ideas")
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            data: {
+              items: [{ authority: { id: ideaId } }],
+              page: { limit: 100, nextCursor: null },
+            },
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      expect(requestUrl.pathname).toBe(`/api/v1/ideas/${ideaId}`);
       return new Response(
         JSON.stringify({
           ok: true,
@@ -543,22 +602,10 @@ describe("LP-04 deterministic runtime contracts", () => {
     ).rejects.toThrow(`CLIENT_EVIDENCE_TRANSCRIPT_BINDING:${unrelatedIdeaId}`);
 
     const unrelatedRequestId = "req_01ARZ3NDEKTSV4RRFFQ69G5FAX";
-    const unrelatedTranscript = `${JSON.stringify({
-      timestamp: "2026-08-01T00:00:30.000Z",
-      type: "session_meta",
-      payload: {
-        session_id: "codex-test-session",
-        cli_version: "codex-test",
-      },
-    })}\n${JSON.stringify({
-      timestamp: "2026-08-01T00:00:31.000Z",
-      type: "event_msg",
-      payload: {
-        runId: "codex-proof",
-        requestId: unrelatedRequestId,
-        ideaId,
-      },
-    })}\n`;
+    const unrelatedTranscript = transcript.replaceAll(
+      requestId,
+      unrelatedRequestId,
+    );
     await writeFile(transcriptFile, unrelatedTranscript);
     const unrelatedInput = {
       ...digestInput,
@@ -586,14 +633,7 @@ describe("LP-04 deterministic runtime contracts", () => {
       `CLIENT_EVIDENCE_REQUEST_AUTHORITY:${unrelatedRequestId}`,
     );
 
-    const mixedTranscript = `${JSON.stringify({
-      timestamp: "2026-08-01T00:00:30.000Z",
-      type: "session_meta",
-      payload: {
-        session_id: "codex-test-session",
-        cli_version: "codex-test",
-      },
-    })}\n${JSON.stringify({
+    const mixedTranscript = `${transcript}\n${JSON.stringify({
       timestamp: "2026-08-01T00:00:31.000Z",
       type: "event_msg",
       payload: {
@@ -601,7 +641,7 @@ describe("LP-04 deterministic runtime contracts", () => {
         requestIds: [requestId, unrelatedRequestId],
         ideaId,
       },
-    })}\n`;
+    })}`;
     await writeFile(transcriptFile, mixedTranscript);
     const mixedInput = {
       ...digestInput,
@@ -653,6 +693,98 @@ describe("LP-04 deterministic runtime contracts", () => {
         fetchImpl,
       }),
     ).rejects.toThrow(`CLIENT_EVIDENCE_REQUEST_PATH:${requestId}`);
+
+    const wrongOperationInput = {
+      ...digestInput,
+      requestClaims: [
+        {
+          ...digestInput.requestClaims[0],
+          path: `/api/v1/ideas/${ideaId}/promotions`,
+          status: 299,
+        },
+      ],
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...wrongOperationInput,
+          evidenceSha256: sha256(assertSanitizedEvidence(wrongOperationInput)),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow(`CLIENT_EVIDENCE_REQUEST_AUTHORITY:${requestId}`);
+
+    const wrongStatusInput = {
+      ...digestInput,
+      requestClaims: [{ ...digestInput.requestClaims[0], status: 299 }],
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...wrongStatusInput,
+          evidenceSha256: sha256(assertSanitizedEvidence(wrongStatusInput)),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow(`CLIENT_EVIDENCE_REQUEST_AUTHORITY:${requestId}`);
+
+    const unprovedTranscript = transcript.replace(
+      "curl_exit=28\\nhttp_code=000",
+      "curl_exit=0\\nhttp_code=201",
+    );
+    await writeFile(transcriptFile, unprovedTranscript);
+    const unprovedInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(unprovedTranscript),
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...unprovedInput,
+          evidenceSha256: sha256(assertSanitizedEvidence(unprovedInput)),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow("CLIENT_EVIDENCE_OBJECTIVE:unknown-result-replayed");
+
+    const humanBoundaryTranscript = `${transcript}\n${JSON.stringify({
+      timestamp: "2026-08-01T00:00:36.000Z",
+      type: "response_item",
+      payload: {
+        type: "custom_tool_call",
+        call_id: "forbidden-human-call",
+        name: "exec",
+        input: JSON.stringify({
+          cmd: `curl --request POST "\${LP04_BASE_URL}/api/v1/projects/proj_01ARZ3NDEKTSV4RRFFQ69G5FAV/human-confirmations"`,
+        }),
+      },
+    })}`;
+    await writeFile(transcriptFile, humanBoundaryTranscript);
+    const humanBoundaryInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(humanBoundaryTranscript),
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...humanBoundaryInput,
+          evidenceSha256: sha256(assertSanitizedEvidence(humanBoundaryInput)),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow("CLIENT_EVIDENCE_HUMAN_BOUNDARY");
 
     await writeFile(transcriptFile, "different transcript");
     await expect(
