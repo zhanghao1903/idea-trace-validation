@@ -15,6 +15,7 @@ import {
   type Platform,
 } from "../shared/contracts.js";
 import { atomicWrite } from "../shared/filesystem.js";
+import { inspectLoadedImageConfigId } from "./loaded-image.js";
 
 interface ImageLockEntry {
   role: "builder" | "database" | "proxy";
@@ -263,15 +264,10 @@ const build = async (): Promise<void> => {
     "--load",
     ".",
   ]);
-  const loadedImageId = (
-    await run("docker", [
-      "image",
-      "inspect",
-      "--format",
-      "{{.Id}}",
-      `idea-trace-validation:${releaseId}`,
-    ])
-  ).trim();
+  const loadedImageId = await inspectLoadedImageConfigId(
+    `idea-trace-validation:${releaseId}`,
+    candidateRoot,
+  );
   if (loadedImageId !== imageId) throw new Error("LOADED_IMAGE_ID_MISMATCH");
   const migrationPaths = [
     ["0001_lp01_core", "packages/db/migrations/0001_lp01_core.sql", "legacy"],

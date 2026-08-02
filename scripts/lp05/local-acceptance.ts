@@ -9,6 +9,7 @@ import { verifyCandidateFiles } from "./candidate/verify.js";
 import { verifySecurityHeaders } from "./smoke/security.js";
 import type { HttpObservation } from "./smoke/http.js";
 import type { JsonRecord } from "./shared/contracts.js";
+import { inspectLoadedImageConfigId } from "./candidate/loaded-image.js";
 
 const execute = promisify(execFile);
 
@@ -64,21 +65,19 @@ export const runLocalAcceptance = async (
   const archivePath = join(dirname(manifestPath), String(archive.basename));
   const expectedImageId = String(manifest.imageId);
   const imageName = String(manifest.imageName);
-  let loadedImageId = (
+  const inspectedImageId = (
     await command(
       ["image", "inspect", "--format", "{{.Id}}", imageName],
       process.env,
     ).catch(() => "")
   ).trim();
-  if (loadedImageId === "") {
+  if (inspectedImageId === "") {
     await command(["image", "load", "--input", archivePath], process.env);
-    loadedImageId = (
-      await command(
-        ["image", "inspect", "--format", "{{.Id}}", imageName],
-        process.env,
-      )
-    ).trim();
   }
+  const loadedImageId = await inspectLoadedImageConfigId(
+    imageName,
+    dirname(manifestPath),
+  );
   if (loadedImageId !== expectedImageId)
     throw new Error("LOCAL_LOADED_IMAGE_ID_MISMATCH");
 
