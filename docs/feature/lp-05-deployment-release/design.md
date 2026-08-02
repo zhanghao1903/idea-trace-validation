@@ -351,6 +351,7 @@ candidate/operation change requires a new proposal and authorization. Interrupte
 | `initialSmoke` | `SmokeEvidenceRefV1` or null | Default null | external smoke engine | Mode `EXTERNAL_INITIAL`; exact target/candidate | Defines expected synthetic story digest |
 | `postDeployBackup` | `BackupRefV1` or null | Default null | backup command | Purpose `POST_DEPLOY_RECOVERABILITY`; exact attempt/target/source DB | AC 10/16 backup authority |
 | `restoreEvidence` | `RestoreEvidenceRefV1` or null | Default null | isolated restore verifier | Exact post-deploy backup and attempt | AC 10/16 restore authority |
+| `productionUnchangedSha256` | digest or null | Default null; required at `PRODUCTION_UNCHANGED_VERIFIED` | independent before/after inspect | Equal the restore ref and transition evidence | Production mutation guard |
 | `postRestoreSmoke` | `SmokeEvidenceRefV1` or null | Default null | external smoke engine | Mode `EXTERNAL_POST_RESTORE`; story digest equals initial/restore | Final public re-smoke |
 | `rollback` | `RollbackEvidenceV1` | Required/default `NOT_STARTED` | controller | Closed shape below; no DB restore | Failure recovery projection |
 | `transitionLog` | ordered `AttemptTransitionV1[]` | Required/default initial transition | controller | Sequence starts 0, chained hashes, legal graph only, max 64 | Immutable history |
@@ -363,7 +364,12 @@ Nested attempt contracts reject unknown fields:
 | `CandidateIdentityV1.manifestSha256` / `archiveSha256` | lowercase digests | Required | candidate manifest | Deep-equal verified manifest/envelope | Immutable refs |
 | `.releaseId` / `.sourceCommit` / `.sourceTree` / `.imageId` / `.platform` | candidate identity scalars | Required | candidate manifest | Exact §3.2 validation; production source equals merge | Immutable refs |
 | `ReleaseIdentityV1.releaseId` / `.sourceCommit` / `.imageId` | identity scalars | Required | host release marker + container inspect | All observed independently; no default | Immutable observation |
-| `.configSha256` | lowercase digest | Required | rendered sanitized production config | Recomputed excluding secret values | Rollback/config authority |
+| `.configSha256` | lowercase digest | Required | closed sanitized deployment config projection | Recomputed over `DeploymentConfig` excluding secret values | Rollback/config authority |
+
+For an upgrade, the protected controller request also carries the closed non-secret Compose environment projection
+whose canonical digest is `.configSha256`; fresh attempts require this projection to be null. The rollback adapter
+revalidates that digest and the previous release/image/target, recreates only `app` and `caddy`, inspects the running
+image and then performs readiness/core reads. Secret values are not part of the projection.
 | `DatabaseIdentityV1.targetId` / `.project` | target/safe string | Required | attempt/Compose inspect | Equal authorized target/project | Immutable observation per phase |
 | `.containerId` / `.volumeName` / `.volumeMountId` | safe runtime identities | Required | engine inspect | Existing exact labelled production resources | No caller values |
 | `.systemIdentifier` / `.databaseName` / `.postgresVersion` | numeric string/safe strings | Required | `pg_control_system()`/server read | Expected DB/version; no URL | Exact source DB authority |
@@ -512,9 +518,11 @@ Symlink/root/workspace/Web path escape fails. A failed new backup never triggers
 | `status` | literal `PASS` | Required | verifier | Every prior field/oracle PASS | No partial proof |
 
 `IsolatedRestoreTargetV1` contains required generated Compose project prefixed `lp05-restore-`, unique DB system
-identifier, volume/container label digests, loopback-only origin, restore DB name ending `_restore`, and target kind
-literal `ISOLATED`. It must differ from production project, DB system identifier, volume/container identity, domain
-and published ports.
+identifier, volume/container label digests, loopback-only application `origin`, `databaseHost`, `databasePort`,
+restore `databaseName` ending `_restore`, and target kind literal `ISOLATED`. The restore command derives
+`PGHOST`/`PGPORT`/`PGDATABASE` only from those closed fields, re-inspects the exact Compose project/container/volume
+labels and live `pg_control_system()` identity, and rejects any mismatch before starting `age` or `pg_restore`. It
+must differ from production project, DB system identifier, volume/container identity, domain and published ports.
 
 `ProductionResourceIdentityV1` contains target ID, production Compose project, DB container/volume/system/database
 identity, app container/image/config identity, Caddy container/config identity and current release marker digest. It
@@ -600,6 +608,11 @@ headers, cookies, environment and database URLs are forbidden.
 `EXTERNAL_POST_RESTORE` runs only after `RestoreEvidenceV1` PASS and production-unchanged equality. Its candidate,
 target, story/resource digests and mandatory assertion-set digest must equal `EXTERNAL_INITIAL`; only time/request/
 certificate validity observations may differ.
+
+`--observations` is a local-fixture-only import surface and rejects every external mode. External smoke accepts an
+authorization/attempt request instead, derives the HTTPS origin from the authorized target and actively observes
+DNS, the trusted TLS peer, published ports, live HTTP responses, body limits, runtime image/health/logs and the
+LP-04 public journey. Caller-authored certificate, assertion, origin or PASS fields cannot enter this path.
 
 ### 7.2 Credential Rotation
 

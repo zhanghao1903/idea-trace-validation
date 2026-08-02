@@ -5,10 +5,24 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { loadDeploymentConfig } from "./config.js";
+import {
+  acquireAttemptLock,
+  bindEnvelopeToAttempt,
+  releaseAttemptLock,
+} from "./attempt-lock.js";
+import { finalizeAuthorizationEnvelope } from "./authorization-envelope.js";
+import { createAttemptRecord } from "./attempt-record.js";
+import { runDeployment, type DeploymentOracles } from "./controller.js";
 import { evaluateOperations } from "./ops-status.js";
 import { readValidatedRuntimeSecrets } from "./preflight.js";
 import { parseSemver, inspectToolchain } from "./toolchain.js";
 import { verifyPublishedPorts } from "../smoke/network.js";
+import { canonicalSha256, sha256 } from "../shared/canonical-json.js";
+import {
+  REQUIRED_EXCLUSIONS,
+  REQUIRED_OPERATIONS,
+  type JsonRecord,
+} from "../shared/contracts.js";
 
 const roots: string[] = [];
 afterEach(async () =>
@@ -195,6 +209,165 @@ describe("LP-05 operational safety", () => {
       "BACKUP_STALE",
       "BACKUP_TIMER_FAILED",
       "SMOKE_FAILED",
+    ]);
+  });
+});
+
+describe("LP-05 deployment attempt lock", () => {
+  it("serializes one target and releases only the owning lock", async () => {
+    const root = await mkdtemp(join(tmpdir(), "lp05-state-"));
+    roots.push(root);
+    const lock = await acquireAttemptLock(
+      root,
+      "target_production",
+      "deploy_attempt_one",
+    );
+    await expect(
+      acquireAttemptLock(root, "target_production", "deploy_attempt_two"),
+    ).rejects.toThrow("DEPLOYMENT_TARGET_LOCKED");
+    await releaseAttemptLock(lock);
+    const next = await acquireAttemptLock(
+      root,
+      "target_production",
+      "deploy_attempt_two",
+    );
+    await releaseAttemptLock(next);
+  });
+
+  it("binds one envelope idempotently to exactly one attempt", async () => {
+    const root = await mkdtemp(join(tmpdir(), "lp05-state-"));
+    roots.push(root);
+    await bindEnvelopeToAttempt(root, "auth_one", "deploy_attempt_one");
+    await bindEnvelopeToAttempt(root, "auth_one", "deploy_attempt_one");
+    await expect(
+      bindEnvelopeToAttempt(root, "auth_one", "deploy_attempt_two"),
+    ).rejects.toThrow("DEPLOYMENT_ENVELOPE_ALREADY_BOUND");
+  });
+});
+
+describe("LP-05 deployment failure recovery", () => {
+  it("persists failure and invokes ingress-disable rollback", async () => {
+    const candidate = {
+      manifestSha256: "1".repeat(64),
+      releaseId: "lp05-controller-test",
+      sourceCommit: "a".repeat(40),
+      sourceTree: "b".repeat(40),
+      imageId: `sha256:${"c".repeat(64)}`,
+      archiveSha256: "d".repeat(64),
+      platform: "linux/amd64",
+    };
+    const targetSeed = {
+      hostFingerprintSha256: "2".repeat(64),
+      domain: "demo.example.com",
+      deployRoot: "/srv/idea-validation",
+    };
+    const target = {
+      targetId: `target_${canonicalSha256(targetSeed).slice(0, 32)}`,
+      ...targetSeed,
+      expectedIps: ["8.8.8.8"],
+      platform: "linux/amd64",
+      os: { id: "ubuntu", versionId: "24.04" },
+      composeProject: "idea-validation-prod",
+    };
+    const envelope = finalizeAuthorizationEnvelope({
+      proposal: {
+        workflowId: "ab5accf2-4bea-4ea2-b3c5-4f3f115d45ff",
+        featureId: "lp-05-deployment-release-8c3f1a6d5e20",
+        mergeCommitSha: "a".repeat(40),
+        candidate,
+        target,
+        backupPolicy: {
+          backupRoot: "/srv/idea-validation-backups",
+          retentionCount: 7,
+          schedule: "daily",
+          ageRecipientFingerprint: "3".repeat(64),
+          minimumFreeBytes: 10_000_000,
+          responsibleOperator: "operator",
+        },
+        operations: [...REQUIRED_OPERATIONS],
+        excludedOperations: [...REQUIRED_EXCLUSIONS],
+        syntheticPublicReadConsent: true,
+        previousRelease: null,
+        toolchain: {
+          dockerEngineVersion: "28.0.0",
+          composeVersion: "2.35.0",
+          ageVersion: "1.2.1",
+          dockerInstallationSource: "OFFICIAL_DOCKER_PACKAGE",
+          ageInstallationSource: "OS_VENDOR_PACKAGE",
+          observedAt: "2026-08-03T00:00:00.000Z",
+        },
+        proposedAt: "2026-08-03T00:00:00.000Z",
+      },
+      authorization: {
+        authorizedBy: "User",
+        sourceThreadId: "019fa641-0154-70f3-9d06-4905baa7e186",
+        authorizedAt: "2026-08-03T00:01:00.000Z",
+        expiresAt: "2026-08-03T12:01:00.000Z",
+        authorizationEvidenceSha256: sha256("controller authority"),
+      },
+      createdAt: "2026-08-03T00:01:00.000Z",
+    });
+    const attempt = createAttemptRecord({
+      attemptId: "deploy_controller123",
+      envelopeId: String(envelope.envelopeId),
+      envelopeSha256: String(envelope.envelopeSha256),
+      candidate,
+      target,
+      previousRelease: null,
+      startedAt: "2026-08-03T00:01:00.000Z",
+    });
+    const unexpected = async (): Promise<never> => {
+      throw new Error("UNEXPECTED_ORACLE");
+    };
+    let rollbackCalls = 0;
+    const rollback = {
+      status: "NOT_APPLICABLE",
+      reasonCode: "FRESH_INSTALL_INGRESS_DISABLED",
+      previousRelease: null,
+      readinessSha256: null,
+      smokeSha256: null,
+      startedAt: "2026-08-03T00:02:00.000Z",
+      finishedAt: "2026-08-03T00:02:01.000Z",
+    };
+    const oracles: DeploymentOracles = {
+      preflight: async () => {
+        throw new Error("PREFLIGHT_FAULT");
+      },
+      safetyBackup: unexpected,
+      migrate: unexpected,
+      appReady: unexpected,
+      httpsReady: unexpected,
+      initialSmoke: unexpected,
+      postDeployBackup: unexpected,
+      restoreEnvironment: unexpected,
+      restore: unexpected,
+      productionUnchanged: unexpected,
+      postRestoreSmoke: unexpected,
+      rollback: async () => {
+        rollbackCalls += 1;
+        return {
+          reasonCode: "FRESH_INSTALL_INGRESS_DISABLED",
+          evidenceSha256: canonicalSha256(rollback),
+          projection: { rollback },
+        };
+      },
+    };
+    const persisted: JsonRecord[] = [];
+    const result = await runDeployment({
+      envelope,
+      attempt,
+      oracles,
+      now: () => new Date("2026-08-03T00:02:00.000Z"),
+      persist: async (_previous, next) => {
+        persisted.push(next);
+      },
+    });
+    expect(result.currentState).toBe("ROLLED_BACK");
+    expect(rollbackCalls).toBe(1);
+    expect(persisted.map((entry) => entry.currentState)).toEqual([
+      "FAILED",
+      "ROLLING_BACK",
+      "ROLLED_BACK",
     ]);
   });
 });

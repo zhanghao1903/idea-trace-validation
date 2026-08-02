@@ -1,11 +1,15 @@
-import { sha256 } from "../shared/canonical-json.js";
+import { canonicalJson, sha256 } from "../shared/canonical-json.js";
 import {
+  record,
   verifyDeploymentAuthorizationEnvelope,
   type AttemptState,
   type JsonRecord,
 } from "../shared/contracts.js";
 import { finalizeAttemptRecord } from "./attempt-record.js";
-import { transitionAttempt } from "./attempt-state.js";
+import {
+  completeAttemptEvidenceSha256,
+  transitionAttempt,
+} from "./attempt-state.js";
 
 export interface DeploymentStepResult {
   reasonCode: string;
@@ -28,6 +32,7 @@ export interface DeploymentOracles {
   restore: DeploymentOracle;
   productionUnchanged: DeploymentOracle;
   postRestoreSmoke: DeploymentOracle;
+  rollback: DeploymentOracle;
 }
 
 const sequence: { to: AttemptState; oracle: keyof DeploymentOracles }[] = [
@@ -44,15 +49,32 @@ const sequence: { to: AttemptState; oracle: keyof DeploymentOracles }[] = [
   { to: "POST_RESTORE_SMOKE_PASSED", oracle: "postRestoreSmoke" },
 ];
 
+const remainingSequence = (
+  attempt: JsonRecord,
+): { to: AttemptState; oracle: keyof DeploymentOracles }[] => {
+  let state = attempt.currentState as AttemptState;
+  if (state === "RESUMING") {
+    const resume = attempt.resume as JsonRecord;
+    state = resume.interruptedState as AttemptState;
+  }
+  if (state === "DEPLOYED") return [];
+  const completedIndex = sequence.findIndex((step) => step.to === state);
+  if (state === "PREPARED") return sequence;
+  if (completedIndex >= 0) return sequence.slice(completedIndex + 1);
+  throw new Error(`CONTROLLER_STATE_NOT_RUNNABLE:${state}`);
+};
+
 export const runDeployment = async (input: {
   envelope: unknown;
   attempt: JsonRecord;
   oracles: DeploymentOracles;
   now?: () => Date;
+  persist?: (previous: JsonRecord, next: JsonRecord) => Promise<void>;
 }): Promise<JsonRecord> => {
+  const now = input.now ?? (() => new Date());
   const envelope = verifyDeploymentAuthorizationEnvelope(
     input.envelope,
-    new Date(),
+    now(),
     {
       workflowId: "ab5accf2-4bea-4ea2-b3c5-4f3f115d45ff",
       featureId: "lp-05-deployment-release-8c3f1a6d5e20",
@@ -64,31 +86,47 @@ export const runDeployment = async (input: {
     input.attempt.envelopeSha256 !== envelope.envelopeSha256
   )
     throw new Error("CONTROLLER_ENVELOPE_MISMATCH");
-  const now = input.now ?? (() => new Date());
+  const proposal = record(envelope.proposal, "CONTROLLER_PROPOSAL");
+  if (
+    canonicalJson(input.attempt.candidate) !==
+      canonicalJson(proposal.candidate) ||
+    canonicalJson(input.attempt.target) !== canonicalJson(proposal.target) ||
+    canonicalJson(input.attempt.previousRelease) !==
+      canonicalJson(proposal.previousRelease)
+  )
+    throw new Error("CONTROLLER_ATTEMPT_AUTHORITY_MISMATCH");
   let attempt = finalizeAttemptRecord(input.attempt);
+  if (attempt.currentState === "DEPLOYED") return attempt;
+  const advance = async (next: JsonRecord): Promise<void> => {
+    await input.persist?.(attempt, next);
+    attempt = next;
+  };
   try {
-    for (const step of sequence) {
+    for (const step of remainingSequence(attempt)) {
       const result = await input.oracles[step.oracle](attempt);
       if (!/^[0-9a-f]{64}$/u.test(result.evidenceSha256))
         throw new Error("CONTROLLER_EVIDENCE_DIGEST");
-      attempt = finalizeAttemptRecord(
-        transitionAttempt(attempt, {
-          to: step.to,
-          occurredAt: now().toISOString(),
-          reasonCode: result.reasonCode,
-          evidenceSha256: result.evidenceSha256,
-          projection: result.projection,
-        }),
+      await advance(
+        finalizeAttemptRecord(
+          transitionAttempt(attempt, {
+            to: step.to,
+            occurredAt: now().toISOString(),
+            reasonCode: result.reasonCode,
+            evidenceSha256: result.evidenceSha256,
+            projection: result.projection,
+          }),
+        ),
       );
     }
-    const tail = (attempt.transitionLog as JsonRecord[]).at(-1);
-    attempt = finalizeAttemptRecord(
-      transitionAttempt(attempt, {
-        to: "DEPLOYED",
-        occurredAt: now().toISOString(),
-        reasonCode: "COMPLETE_EQUALITY_CHAIN_VERIFIED",
-        evidenceSha256: sha256(JSON.stringify(tail)),
-      }),
+    await advance(
+      finalizeAttemptRecord(
+        transitionAttempt(attempt, {
+          to: "DEPLOYED",
+          occurredAt: now().toISOString(),
+          reasonCode: "COMPLETE_EQUALITY_CHAIN_VERIFIED",
+          evidenceSha256: completeAttemptEvidenceSha256(attempt),
+        }),
+      ),
     );
     return attempt;
   } catch (error) {
@@ -98,15 +136,81 @@ export const runDeployment = async (input: {
       )
     )
       throw error;
-    return finalizeAttemptRecord(
-      transitionAttempt(attempt, {
-        to: "FAILED",
-        occurredAt: now().toISOString(),
-        reasonCode: "ORACLE_FAILED",
-        evidenceSha256: sha256(
-          error instanceof Error ? error.message : "UNKNOWN_ORACLE_FAILURE",
-        ),
-      }),
+    await advance(
+      finalizeAttemptRecord(
+        transitionAttempt(attempt, {
+          to: "FAILED",
+          occurredAt: now().toISOString(),
+          reasonCode: "ORACLE_FAILED",
+          evidenceSha256: sha256(
+            error instanceof Error ? error.message : "UNKNOWN_ORACLE_FAILURE",
+          ),
+        }),
+      ),
     );
+    await advance(
+      finalizeAttemptRecord(
+        transitionAttempt(attempt, {
+          to: "ROLLING_BACK",
+          occurredAt: now().toISOString(),
+          reasonCode: "INGRESS_DISABLE_AND_ROLLBACK_STARTED",
+          evidenceSha256: sha256("INGRESS_DISABLE_AND_ROLLBACK_STARTED"),
+          projection: { rollback: attempt.rollback },
+        }),
+      ),
+    );
+    try {
+      const rollback = await input.oracles.rollback(attempt);
+      const projection = rollback.projection ?? {};
+      const evidence = recordRollback(projection.rollback);
+      const next = finalizeAttemptRecord(
+        transitionAttempt(attempt, {
+          to:
+            evidence.status === "PASS" || evidence.status === "NOT_APPLICABLE"
+              ? "ROLLED_BACK"
+              : "ROLLBACK_FAILED",
+          occurredAt: now().toISOString(),
+          reasonCode: rollback.reasonCode,
+          evidenceSha256: rollback.evidenceSha256,
+          projection,
+        }),
+      );
+      await advance(next);
+      return attempt;
+    } catch (rollbackError) {
+      const failedRollback = {
+        status: "FAIL",
+        reasonCode: "ROLLBACK_ORACLE_FAILED",
+        previousRelease: attempt.previousRelease,
+        readinessSha256: null,
+        smokeSha256: null,
+        startedAt: now().toISOString(),
+        finishedAt: now().toISOString(),
+      };
+      const next = finalizeAttemptRecord(
+        transitionAttempt(attempt, {
+          to: "ROLLBACK_FAILED",
+          occurredAt: now().toISOString(),
+          reasonCode: "ROLLBACK_ORACLE_FAILED",
+          evidenceSha256: sha256(
+            rollbackError instanceof Error
+              ? rollbackError.message
+              : "UNKNOWN_ROLLBACK_FAILURE",
+          ),
+          projection: { rollback: failedRollback },
+        }),
+      );
+      await advance(next);
+      return attempt;
+    }
   }
+};
+
+const recordRollback = (value: unknown): JsonRecord => {
+  if (typeof value !== "object" || value === null || Array.isArray(value))
+    throw new Error("CONTROLLER_ROLLBACK_EVIDENCE");
+  const result = value as JsonRecord;
+  if (!["PASS", "FAIL", "NOT_APPLICABLE"].includes(String(result.status)))
+    throw new Error("CONTROLLER_ROLLBACK_EVIDENCE");
+  return result;
 };

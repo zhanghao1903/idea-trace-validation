@@ -46,6 +46,8 @@
     "release:lp05:candidate": "tsx scripts/lp05/candidate/build.ts",
     "release:lp05:verify-candidate": "tsx scripts/lp05/candidate/verify.ts",
     "deploy:lp05:validate": "tsx scripts/lp05/verify-release-readiness.ts",
+    "deploy:lp05": "tsx scripts/lp05/deploy/controller-cli.ts",
+    "deploy:lp05:rollback": "tsx scripts/lp05/deploy/rollback-cli.ts",
     "deploy:lp05:smoke": "tsx scripts/lp05/smoke/run.ts",
     "deploy:lp05:verify-evidence": "tsx scripts/lp05/smoke/verify-evidence.ts",
     "backup:lp05": "tsx scripts/lp05/database/backup-cli.ts",

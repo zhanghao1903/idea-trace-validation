@@ -4,6 +4,7 @@ import {
   exactKeys,
   parseCandidateIdentity,
   parseDeploymentTarget,
+  parseReleaseIdentity,
   record,
   type JsonRecord,
 } from "../shared/contracts.js";
@@ -30,6 +31,7 @@ const keys = [
   "initialSmoke",
   "postDeployBackup",
   "restoreEvidence",
+  "productionUnchangedSha256",
   "postRestoreSmoke",
   "rollback",
   "transitionLog",
@@ -79,6 +81,7 @@ export const createAttemptRecord = (input: {
     initialSmoke: null,
     postDeployBackup: null,
     restoreEvidence: null,
+    productionUnchangedSha256: null,
     postRestoreSmoke: null,
     rollback: {
       status: "NOT_STARTED",
@@ -104,6 +107,8 @@ export const verifyAttemptRecord = (value: unknown): JsonRecord => {
     throw new Error("ATTEMPT_ID");
   parseCandidateIdentity(input.candidate);
   parseDeploymentTarget(input.target);
+  if (input.previousRelease !== null)
+    parseReleaseIdentity(input.previousRelease);
   if (!/^auth_[0-9a-f]{32}$/u.test(String(input.envelopeId)))
     throw new Error("ATTEMPT_ENVELOPE_ID");
   if (!/^[0-9a-f]{64}$/u.test(String(input.envelopeSha256)))
@@ -164,6 +169,49 @@ export const verifyAttemptRecord = (value: unknown): JsonRecord => {
     )
   )
     throw new Error("ATTEMPT_ROLLBACK_STATUS");
+  const rollbackTimes = [rollback.startedAt, rollback.finishedAt];
+  if (rollback.status === "NOT_STARTED") {
+    if (
+      [
+        rollback.reasonCode,
+        rollback.previousRelease,
+        rollback.readinessSha256,
+        rollback.smokeSha256,
+        ...rollbackTimes,
+      ].some((value) => value !== null)
+    )
+      throw new Error("ATTEMPT_ROLLBACK_NOT_STARTED");
+  } else {
+    if (
+      typeof rollback.reasonCode !== "string" ||
+      rollbackTimes.some(
+        (value) => typeof value !== "string" || Number.isNaN(Date.parse(value)),
+      )
+    )
+      throw new Error("ATTEMPT_ROLLBACK_TIMES");
+    if (rollback.status === "PASS") {
+      parseReleaseIdentity(rollback.previousRelease);
+      for (const field of ["readinessSha256", "smokeSha256"] as const)
+        if (
+          typeof rollback[field] !== "string" ||
+          !/^[0-9a-f]{64}$/u.test(rollback[field])
+        )
+          throw new Error("ATTEMPT_ROLLBACK_EVIDENCE");
+    }
+    if (
+      rollback.status === "NOT_APPLICABLE" &&
+      (rollback.previousRelease !== null ||
+        rollback.readinessSha256 !== null ||
+        rollback.smokeSha256 !== null)
+    )
+      throw new Error("ATTEMPT_ROLLBACK_NOT_APPLICABLE");
+  }
+  if (
+    (input.currentState === "ROLLED_BACK" &&
+      !["PASS", "NOT_APPLICABLE"].includes(String(rollback.status))) ||
+    (input.currentState === "ROLLBACK_FAILED" && rollback.status !== "FAIL")
+  )
+    throw new Error("ATTEMPT_ROLLBACK_STATE");
   if (
     !Array.isArray(input.knownLimitations) ||
     input.knownLimitations.length > 20 ||

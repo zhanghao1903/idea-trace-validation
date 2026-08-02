@@ -105,3 +105,7 @@
   positional input or selector-bound `--slurpfile` can satisfy response-file
   proof; require per-child public readback and preserve resumable journal state
   after bounded `IDEMPOTENCY_IN_PROGRESS` retries.
+- Make LP-05 external smoke an active observer, require authority-bound evidence
+  at every persisted deployment transition, execute idempotent host rollback,
+  and derive `pg_restore` connectivity only from a live re-inspected isolated
+  target.

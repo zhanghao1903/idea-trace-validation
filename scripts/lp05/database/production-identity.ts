@@ -1,5 +1,8 @@
 import { canonicalSha256 } from "../shared/canonical-json.js";
-import type { JsonRecord } from "../shared/contracts.js";
+import {
+  parseProductionResourceIdentity,
+  type JsonRecord,
+} from "../shared/contracts.js";
 
 export const createDatabaseIdentity = (
   fields: Omit<JsonRecord, "databaseInstanceSha256">,
@@ -13,19 +16,7 @@ export const createDatabaseIdentity = (
 
 export const createProductionResourceIdentity = (
   input: JsonRecord,
-): JsonRecord => {
-  const required = [
-    "targetId",
-    "composeProject",
-    "database",
-    "app",
-    "caddy",
-    "releaseMarkerSha256",
-  ];
-  if (Object.keys(input).sort().join("\0") !== required.sort().join("\0"))
-    throw new Error("PRODUCTION_IDENTITY_FIELDS");
-  return structuredClone(input);
-};
+): JsonRecord => structuredClone(parseProductionResourceIdentity(input));
 
 export const verifyProductionUnchanged = (
   before: JsonRecord,

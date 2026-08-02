@@ -1,8 +1,15 @@
 import { spawn } from "node:child_process";
 
 import { assertPostDeployBackup } from "./backup-manifest.js";
-import { assertIsolatedTarget } from "./restore-evidence.js";
-import type { JsonRecord } from "../shared/contracts.js";
+import {
+  assertIsolatedTarget,
+  assertLiveIsolatedTarget,
+} from "./restore-evidence.js";
+import { inspectLiveIsolatedTarget } from "./restore-runtime.js";
+import {
+  parseIsolatedRestoreTarget,
+  type JsonRecord,
+} from "../shared/contracts.js";
 
 const wait = (child: ReturnType<typeof spawn>, code: string): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -21,7 +28,16 @@ export interface RestoreOptions {
   identityPath: string;
   isolatedTarget: JsonRecord;
   productionIdentity: JsonRecord;
-  restoreEnvironment: NodeJS.ProcessEnv;
+  restoreEnvironment: {
+    PATH?: string;
+    PGUSER: string;
+    PGPASSWORD: string;
+  };
+  inspectTarget?: (
+    target: JsonRecord,
+    credentials: { user: string; password: string; path?: string },
+  ) => Promise<JsonRecord>;
+  spawnProcess?: typeof spawn;
 }
 
 export const restoreEncryptedBackup = async (
@@ -29,13 +45,27 @@ export const restoreEncryptedBackup = async (
 ): Promise<void> => {
   assertPostDeployBackup(options.manifest, options.expected);
   assertIsolatedTarget(options.isolatedTarget, options.productionIdentity);
-  if (
-    options.restoreEnvironment.PGHOST === undefined ||
-    !["127.0.0.1", "localhost"].includes(options.restoreEnvironment.PGHOST)
-  ) {
-    throw new Error("RESTORE_DATABASE_NOT_LOOPBACK");
-  }
-  const decrypt = spawn(
+  const target = parseIsolatedRestoreTarget(options.isolatedTarget);
+  const credentials = {
+    user: options.restoreEnvironment.PGUSER,
+    password: options.restoreEnvironment.PGPASSWORD,
+    path: options.restoreEnvironment.PATH,
+  };
+  const observed = await (options.inspectTarget ?? inspectLiveIsolatedTarget)(
+    target,
+    credentials,
+  );
+  assertLiveIsolatedTarget(target, observed);
+  const databaseEnvironment: NodeJS.ProcessEnv = {
+    PATH: options.restoreEnvironment.PATH,
+    PGHOST: String(target.databaseHost),
+    PGPORT: String(target.databasePort),
+    PGUSER: options.restoreEnvironment.PGUSER,
+    PGPASSWORD: options.restoreEnvironment.PGPASSWORD,
+    PGDATABASE: String(target.databaseName),
+  };
+  const spawnProcess = options.spawnProcess ?? spawn;
+  const decrypt = spawnProcess(
     "age",
     ["--decrypt", "--identity", options.identityPath, options.ciphertextPath],
     {
@@ -43,17 +73,17 @@ export const restoreEncryptedBackup = async (
       stdio: ["ignore", "pipe", "ignore"],
     },
   );
-  const restore = spawn(
+  const restore = spawnProcess(
     "pg_restore",
     [
       "--exit-on-error",
       "--no-owner",
       "--no-privileges",
       "--dbname",
-      String(options.restoreEnvironment.PGDATABASE),
+      String(target.databaseName),
     ],
     {
-      env: options.restoreEnvironment,
+      env: databaseEnvironment,
       stdio: ["pipe", "ignore", "ignore"],
     },
   );

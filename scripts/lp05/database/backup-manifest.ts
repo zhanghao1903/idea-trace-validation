@@ -37,3 +37,19 @@ export const assertPostDeployBackup = (
     throw new Error("POST_DEPLOY_BACKUP_MISMATCH");
   return parsed;
 };
+
+export const backupReference = (value: unknown): JsonRecord => {
+  const manifest = verifyBackupManifest(value);
+  const sourceDatabase = manifest.sourceDatabase as JsonRecord;
+  const ciphertext = manifest.ciphertext as JsonRecord;
+  return {
+    backupId: manifest.backupId,
+    backupManifestSha256: manifest.backupManifestSha256,
+    ciphertextSha256: ciphertext.sha256,
+    purpose: manifest.purpose,
+    targetId: manifest.targetId,
+    databaseInstanceSha256: sourceDatabase.databaseInstanceSha256,
+    attemptId: manifest.attemptId,
+    candidateManifestSha256: manifest.candidateManifestSha256,
+  };
+};

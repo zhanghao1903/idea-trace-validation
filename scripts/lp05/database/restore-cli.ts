@@ -33,11 +33,8 @@ const main = async (): Promise<void> => {
     ),
     restoreEnvironment: {
       PATH: process.env.PATH,
-      PGHOST: requiredEnvironment("PGHOST"),
-      PGPORT: requiredEnvironment("PGPORT"),
       PGUSER: requiredEnvironment("PGUSER"),
       PGPASSWORD: requiredEnvironment("PGPASSWORD"),
-      PGDATABASE: requiredEnvironment("PGDATABASE"),
     },
   });
   process.stdout.write("LP05_ISOLATED_RESTORE_PASS\n");

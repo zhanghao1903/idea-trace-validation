@@ -22,6 +22,9 @@
   credential rotation, rollback and bounded operational diagnostics.
 - Versioned runbook for toolchain/DNS/secret preflight, first install, upgrade, migration, health, backup, restore,
   rotation, rollback and evidence verification.
+- Code Review Cycle 1 remediation makes external smoke an active observer, makes every deployment state consume a
+  closed authority-bound projection under a single-target lock with persisted rollback, and binds `pg_restore` to
+  the exact re-inspected isolated DB destination before either subprocess starts.
 
 ## Objective repository results
 
@@ -34,7 +37,7 @@
 | `npm run build` and frozen OpenAPI/report-type checks | PASS; Web bundle 97.35 KiB gzip |
 | repository unit/contract/integration/Web component tests | PASS; 82 + 23 + 31 + 8 tests |
 | LP-01–LP-04 acceptance tests | PASS; 13 tests on the isolated PostgreSQL database |
-| `npm run test:deployment:unit` | PASS; 5 files, 31 tests |
+| `npm run test:deployment:unit` | PASS; 6 files, 41 tests after Cycle 1 trust-boundary regressions |
 | `npm run deploy:lp05:validate` | PASS; `LP05_RELEASE_READINESS_PASS` |
 | Playwright LP-03/LP-04 stories | PASS; 7 + 1 scenarios |
 | `npm run verify` | PASS; complete ordered gate |

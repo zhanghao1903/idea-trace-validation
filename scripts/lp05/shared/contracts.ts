@@ -688,7 +688,7 @@ export const verifyDeploymentAuthorizationEnvelope = (
   return input;
 };
 
-const parseReleaseIdentity = (value: unknown): JsonRecord => {
+export const parseReleaseIdentity = (value: unknown): JsonRecord => {
   const input = record(value, "RELEASE_IDENTITY");
   exactKeys(
     input,
@@ -898,6 +898,11 @@ export const verifySmokeEvidence = (value: unknown): JsonRecord => {
     if (
       parsedOrigin.protocol !== "https:" ||
       parsedOrigin.pathname !== "/" ||
+      parsedOrigin.username !== "" ||
+      parsedOrigin.password !== "" ||
+      parsedOrigin.port !== "" ||
+      parsedOrigin.search !== "" ||
+      parsedOrigin.hash !== "" ||
       input.certificate === null
     )
       throw new Error("SMOKE_EXTERNAL_ORIGIN");
@@ -907,13 +912,28 @@ export const verifySmokeEvidence = (value: unknown): JsonRecord => {
       ["hostname", "notBefore", "notAfter", "issuerSha256", "trusted"],
       "SMOKE_CERTIFICATE",
     );
-    string(certificate.hostname, "SMOKE_CERT_HOST");
-    timestamp(certificate.notBefore, "SMOKE_CERT_NOT_BEFORE");
-    timestamp(certificate.notAfter, "SMOKE_CERT_NOT_AFTER");
+    const certificateHostname = string(
+      certificate.hostname,
+      "SMOKE_CERT_HOST",
+    ).toLowerCase();
+    const notBefore = timestamp(certificate.notBefore, "SMOKE_CERT_NOT_BEFORE");
+    const notAfter = timestamp(certificate.notAfter, "SMOKE_CERT_NOT_AFTER");
+    if (certificateHostname !== parsedOrigin.hostname.toLowerCase())
+      throw new Error("SMOKE_CERT_HOST_MISMATCH");
+    if (Date.parse(notBefore) > Date.parse(notAfter))
+      throw new Error("SMOKE_CERT_TIME_ORDER");
     digest(certificate.issuerSha256, "SMOKE_CERT_ISSUER");
     if (certificate.trusted !== true) throw new Error("SMOKE_CERT_TRUST");
   }
-  timestamp(input.observedAt, "SMOKE_TIME");
+  const observedAt = timestamp(input.observedAt, "SMOKE_TIME");
+  if (mode !== "LOCAL") {
+    const certificate = record(input.certificate, "SMOKE_CERTIFICATE");
+    if (
+      Date.parse(observedAt) < Date.parse(String(certificate.notBefore)) ||
+      Date.parse(observedAt) > Date.parse(String(certificate.notAfter))
+    )
+      throw new Error("SMOKE_CERT_NOT_CURRENT");
+  }
   digest(input.syntheticStorySha256, "SMOKE_STORY");
   digest(input.resourceIdsSha256, "SMOKE_RESOURCES");
   const assertions = input.assertions;
@@ -1058,7 +1078,7 @@ export const verifyBackupManifest = (value: unknown): JsonRecord => {
   return input;
 };
 
-const parseDatabaseIdentity = (value: unknown): JsonRecord => {
+export const parseDatabaseIdentity = (value: unknown): JsonRecord => {
   const input = record(value, "DATABASE_IDENTITY");
   exactKeys(
     input,
@@ -1090,6 +1110,128 @@ const parseDatabaseIdentity = (value: unknown): JsonRecord => {
   );
   if (canonicalSha256(input, ["databaseInstanceSha256"]) !== instanceSha)
     throw new Error("DATABASE_IDENTITY_DIGEST");
+  return input;
+};
+
+export const parseIsolatedRestoreTarget = (value: unknown): JsonRecord => {
+  const isolated = record(value, "RESTORE_ISOLATED_TARGET");
+  exactKeys(
+    isolated,
+    [
+      "kind",
+      "composeProject",
+      "systemIdentifier",
+      "volumeLabelSha256",
+      "containerLabelSha256",
+      "origin",
+      "databaseHost",
+      "databasePort",
+      "databaseName",
+    ],
+    "RESTORE_ISOLATED_TARGET",
+  );
+  literal(isolated.kind, "ISOLATED", "RESTORE_TARGET_KIND");
+  if (!String(isolated.composeProject).startsWith("lp05-restore-"))
+    throw new Error("RESTORE_PROJECT");
+  if (!/^\d+$/u.test(string(isolated.systemIdentifier, "RESTORE_SYSTEM_ID")))
+    throw new Error("RESTORE_SYSTEM_ID");
+  digest(isolated.volumeLabelSha256, "RESTORE_VOLUME_LABEL");
+  digest(isolated.containerLabelSha256, "RESTORE_CONTAINER_LABEL");
+  const origin = new URL(string(isolated.origin, "RESTORE_ORIGIN"));
+  if (
+    !["http:", "https:"].includes(origin.protocol) ||
+    !["127.0.0.1", "localhost", "::1"].includes(origin.hostname) ||
+    origin.pathname !== "/" ||
+    origin.username !== "" ||
+    origin.password !== "" ||
+    origin.search !== "" ||
+    origin.hash !== ""
+  )
+    throw new Error("RESTORE_ORIGIN");
+  const databaseHost = string(isolated.databaseHost, "RESTORE_DATABASE_HOST");
+  if (!["127.0.0.1", "::1"].includes(databaseHost))
+    throw new Error("RESTORE_DATABASE_NOT_LOOPBACK");
+  integer(isolated.databasePort, 1, 65_535, "RESTORE_DATABASE_PORT");
+  if (!String(isolated.databaseName).endsWith("_restore"))
+    throw new Error("RESTORE_DATABASE_NAME");
+  safe(isolated.databaseName, "RESTORE_DATABASE_NAME");
+  return isolated;
+};
+
+export const parseProductionResourceIdentity = (value: unknown): JsonRecord => {
+  const input = record(value, "PRODUCTION_IDENTITY");
+  exactKeys(
+    input,
+    [
+      "targetId",
+      "composeProject",
+      "database",
+      "app",
+      "caddy",
+      "releaseMarkerSha256",
+    ],
+    "PRODUCTION_IDENTITY",
+  );
+  string(input.targetId, "PRODUCTION_TARGET");
+  safe(input.composeProject, "PRODUCTION_PROJECT");
+  const database = record(input.database, "PRODUCTION_DATABASE");
+  exactKeys(
+    database,
+    [
+      "containerId",
+      "volumeName",
+      "volumeMountId",
+      "systemIdentifier",
+      "databaseName",
+      "postgresVersion",
+      "volumeLabelSha256",
+      "containerLabelSha256",
+      "databaseInstanceSha256",
+    ],
+    "PRODUCTION_DATABASE",
+  );
+  for (const field of ["containerId", "volumeName", "volumeMountId"] as const)
+    safe(database[field], `PRODUCTION_DATABASE_${field}`);
+  if (!/^\d+$/u.test(string(database.systemIdentifier, "PRODUCTION_SYSTEM_ID")))
+    throw new Error("PRODUCTION_SYSTEM_ID");
+  safe(database.databaseName, "PRODUCTION_DATABASE_NAME");
+  string(database.postgresVersion, "PRODUCTION_POSTGRES_VERSION");
+  for (const field of [
+    "volumeLabelSha256",
+    "containerLabelSha256",
+    "databaseInstanceSha256",
+  ] as const)
+    digest(database[field], `PRODUCTION_DATABASE_${field}`);
+  if (
+    canonicalSha256(database, ["databaseInstanceSha256"]) !==
+    database.databaseInstanceSha256
+  )
+    throw new Error("PRODUCTION_DATABASE_DIGEST");
+  const parseContainer = (
+    candidate: unknown,
+    name: "APP" | "CADDY",
+    extra: readonly string[],
+  ): void => {
+    const container = record(candidate, `PRODUCTION_${name}`);
+    const fields = [
+      "containerId",
+      "imageId",
+      "configSha256",
+      "containerLabelSha256",
+      ...extra,
+    ];
+    exactKeys(container, fields, `PRODUCTION_${name}`);
+    safe(container.containerId, `PRODUCTION_${name}_CONTAINER`);
+    imageDigest(container.imageId, `PRODUCTION_${name}_IMAGE`);
+    digest(container.configSha256, `PRODUCTION_${name}_CONFIG`);
+    digest(container.containerLabelSha256, `PRODUCTION_${name}_LABELS`);
+    extra.forEach((field) =>
+      digest(container[field], `PRODUCTION_${name}_${field}`),
+    );
+  };
+  parseContainer(input.app, "APP", []);
+  parseContainer(input.caddy, "CADDY", ["certificateSha256"]);
+  digest(input.releaseMarkerSha256, "PRODUCTION_RELEASE_MARKER");
   return input;
 };
 
@@ -1140,31 +1282,7 @@ export const verifyRestoreEvidence = (value: unknown): JsonRecord => {
     "RESTORE_BACKUP_PURPOSE",
   );
   digest(input.sourceDatabaseInstanceSha256, "RESTORE_SOURCE_DB");
-  const isolated = record(input.isolatedTarget, "RESTORE_ISOLATED_TARGET");
-  exactKeys(
-    isolated,
-    [
-      "kind",
-      "composeProject",
-      "systemIdentifier",
-      "volumeLabelSha256",
-      "containerLabelSha256",
-      "origin",
-      "databaseName",
-    ],
-    "RESTORE_ISOLATED_TARGET",
-  );
-  literal(isolated.kind, "ISOLATED", "RESTORE_TARGET_KIND");
-  if (!String(isolated.composeProject).startsWith("lp05-restore-"))
-    throw new Error("RESTORE_PROJECT");
-  string(isolated.systemIdentifier, "RESTORE_SYSTEM_ID");
-  digest(isolated.volumeLabelSha256, "RESTORE_VOLUME_LABEL");
-  digest(isolated.containerLabelSha256, "RESTORE_CONTAINER_LABEL");
-  const origin = new URL(string(isolated.origin, "RESTORE_ORIGIN"));
-  if (!["127.0.0.1", "localhost", "::1"].includes(origin.hostname))
-    throw new Error("RESTORE_ORIGIN");
-  if (!String(isolated.databaseName).endsWith("_restore"))
-    throw new Error("RESTORE_DATABASE_NAME");
+  parseIsolatedRestoreTarget(input.isolatedTarget);
   const startedAt = timestamp(input.startedAt, "RESTORE_STARTED_AT");
   const finishedAt = timestamp(input.finishedAt, "RESTORE_FINISHED_AT");
   if (Date.parse(finishedAt) < Date.parse(startedAt))
@@ -1185,6 +1303,8 @@ export const verifyRestoreEvidence = (value: unknown): JsonRecord => {
   digest(story.resourceIdsSha256, "RESTORE_RESOURCE_SHA");
   digest(story.assertionSetSha256, "RESTORE_ASSERTION_SHA");
   literal(story.status, "PASS", "RESTORE_STORY_STATUS");
+  parseProductionResourceIdentity(input.productionBefore);
+  parseProductionResourceIdentity(input.productionAfter);
   if (!deepEqual(input.productionBefore, input.productionAfter))
     throw new Error("RESTORE_PRODUCTION_CHANGED");
   const cleanup = record(input.cleanup, "RESTORE_CLEANUP");
@@ -1204,7 +1324,7 @@ export const verifyRestoreEvidence = (value: unknown): JsonRecord => {
   return input;
 };
 
-const parseMigrationEvidence = (value: unknown): JsonRecord => {
+export const parseMigrationEvidence = (value: unknown): JsonRecord => {
   const input = record(value, "MIGRATION_EVIDENCE");
   exactKeys(
     input,

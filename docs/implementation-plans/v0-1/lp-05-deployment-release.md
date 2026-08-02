@@ -76,12 +76,12 @@ Acceptance record:
 
 ## 9. Status
 
-`Ready for Acceptance`
+`In Progress`
 
 缺少生产部署授权或任一外部输入时，应改为 `Blocked` 并记录解除条件，而不是推断
 REQ-026 已满足。
 
 ## 10. Next step
 
-完成 exact-head Engineering Review。合并后，在获得绑定目标和精确候选的独立授权时，
+Code Review Cycle 1 三项信任边界修复及全量门禁已完成；重新送审 exact head。合并后，在获得绑定目标和精确候选的独立授权时，
 按运维手册执行真实 HTTPS 部署、生产备份到隔离恢复、核心演示与公网 re-smoke。

@@ -7,7 +7,12 @@ import {
   verifyAttemptRecord,
 } from "../deploy/attempt-record.js";
 import { transitionAttempt } from "../deploy/attempt-state.js";
+import { completeAttemptEvidenceSha256 } from "../deploy/attempt-state.js";
 import { finalizeSmokeEvidence } from "../smoke/smoke-evidence.js";
+import {
+  buildSmokeEvidence,
+  type SmokeObservationInput,
+} from "../smoke/run.js";
 import { canonicalJson, canonicalSha256, sha256 } from "./canonical-json.js";
 import {
   REQUIRED_EXCLUSIONS,
@@ -253,6 +258,180 @@ describe("LP-05 attempt journal", () => {
       ),
     ).toThrow("ATTEMPT_DATABASE_IDENTITY_REQUIRED");
   });
+
+  it("requires every closed evidence projection before DEPLOYED", () => {
+    const target = targetFixture();
+    const candidate = identity();
+    const attemptId = "deploy_complete123456";
+    const database: JsonRecord = {
+      targetId: target.targetId,
+      project: target.composeProject,
+      containerId: "postgres-1",
+      volumeName: "postgres-data",
+      volumeMountId: "mount-1",
+      systemIdentifier: "123456789",
+      databaseName: "idea_validation",
+      postgresVersion: "17.10",
+      databaseInstanceSha256: "",
+    };
+    database.databaseInstanceSha256 = canonicalSha256(database, [
+      "databaseInstanceSha256",
+    ]);
+    const fresh: JsonRecord = {
+      kind: "FRESH_TARGET",
+      targetId: target.targetId,
+      verifiedAt: "2026-08-03T00:02:00.000Z",
+      assertions: [
+        { id: "no_application_data", status: "PASS" },
+        { id: "no_prior_release", status: "PASS" },
+        { id: "no_production_volume", status: "PASS" },
+      ],
+    };
+    const migration: JsonRecord = {
+      catalogSha256: hex("1", 64),
+      appliedLedgerSha256: hex("2", 64),
+      entries: [
+        ["0001_lp01_core", "legacy"],
+        ["0002_lp02_execution_decisions", "feature"],
+        ["0003_lp03_reporting_experience", "feature"],
+      ].map(([id, ledger], index) => ({
+        id,
+        sha256: String(index + 3).repeat(64),
+        ledger,
+      })),
+      status: "PASS",
+      verifiedAt: "2026-08-03T00:03:00.000Z",
+    };
+    const smokeRef = (
+      mode: "EXTERNAL_INITIAL" | "EXTERNAL_POST_RESTORE",
+      smokeSha256: string,
+    ): JsonRecord => ({
+      smokeId: `smoke_${mode.toLowerCase()}`,
+      smokeSha256,
+      mode,
+      targetId: target.targetId,
+      candidateManifestSha256: candidate.manifestSha256,
+      attemptId,
+      observedAt: "2026-08-03T00:06:00.000Z",
+      origin: "https://demo.example.com/",
+      syntheticStorySha256: hex("6", 64),
+      resourceIdsSha256: hex("7", 64),
+      assertionSetSha256: hex("8", 64),
+      status: "PASS",
+    });
+    const initial = smokeRef("EXTERNAL_INITIAL", hex("9", 64));
+    const backup: JsonRecord = {
+      backupId: "backup_postdeploy",
+      backupManifestSha256: hex("a", 64),
+      ciphertextSha256: hex("b", 64),
+      purpose: "POST_DEPLOY_RECOVERABILITY",
+      targetId: target.targetId,
+      databaseInstanceSha256: database.databaseInstanceSha256,
+      attemptId,
+      candidateManifestSha256: candidate.manifestSha256,
+    };
+    const unchanged = hex("c", 64);
+    const restore: JsonRecord = {
+      restoreId: "restore_complete",
+      restoreEvidenceSha256: hex("d", 64),
+      attemptId,
+      targetId: target.targetId,
+      candidateManifestSha256: candidate.manifestSha256,
+      backupId: backup.backupId,
+      backupManifestSha256: backup.backupManifestSha256,
+      ciphertextSha256: backup.ciphertextSha256,
+      sourceDatabaseInstanceSha256: database.databaseInstanceSha256,
+      productionUnchangedSha256: unchanged,
+      syntheticStorySha256: initial.syntheticStorySha256,
+      resourceIdsSha256: initial.resourceIdsSha256,
+      assertionSetSha256: initial.assertionSetSha256,
+      status: "PASS",
+    };
+    const post = smokeRef("EXTERNAL_POST_RESTORE", hex("e", 64));
+    const transitions: {
+      to: Parameters<typeof transitionAttempt>[1]["to"];
+      evidenceSha256: string;
+      projection?: JsonRecord;
+    }[] = [
+      {
+        to: "PREFLIGHT_PASSED",
+        evidenceSha256: hex("f", 64),
+        projection: { sourceDatabase: database },
+      },
+      {
+        to: "SAFETY_BACKUP_RESOLVED",
+        evidenceSha256: canonicalSha256(fresh),
+        projection: { safetyBackup: fresh },
+      },
+      {
+        to: "MIGRATION_SUCCEEDED",
+        evidenceSha256: canonicalSha256(migration),
+        projection: { migration },
+      },
+      { to: "APP_READY", evidenceSha256: hex("1", 64) },
+      { to: "HTTPS_READY", evidenceSha256: hex("2", 64) },
+      {
+        to: "INITIAL_SMOKE_PASSED",
+        evidenceSha256: String(initial.smokeSha256),
+        projection: { initialSmoke: initial },
+      },
+      {
+        to: "POST_DEPLOY_BACKUP_VERIFIED",
+        evidenceSha256: String(backup.backupManifestSha256),
+        projection: { postDeployBackup: backup },
+      },
+      { to: "RESTORE_ENV_READY", evidenceSha256: hex("3", 64) },
+      {
+        to: "RESTORE_VERIFIED",
+        evidenceSha256: String(restore.restoreEvidenceSha256),
+        projection: { restoreEvidence: restore },
+      },
+      {
+        to: "PRODUCTION_UNCHANGED_VERIFIED",
+        evidenceSha256: unchanged,
+        projection: { productionUnchangedSha256: unchanged },
+      },
+      {
+        to: "POST_RESTORE_SMOKE_PASSED",
+        evidenceSha256: String(post.smokeSha256),
+        projection: { postRestoreSmoke: post },
+      },
+    ];
+    let current = createAttemptRecord({
+      attemptId,
+      envelopeId: `auth_${hex("a", 32)}`,
+      envelopeSha256: hex("a", 64),
+      candidate,
+      target,
+      previousRelease: null,
+      startedAt: "2026-08-03T00:00:00.000Z",
+    });
+    transitions.forEach((entry, index) => {
+      current = finalizeAttemptRecord(
+        transitionAttempt(current, {
+          ...entry,
+          occurredAt: `2026-08-03T00:${String(index + 1).padStart(2, "0")}:00.000Z`,
+          reasonCode: `STEP_${index + 1}`,
+        }),
+      );
+    });
+    current = finalizeAttemptRecord(
+      transitionAttempt(current, {
+        to: "DEPLOYED",
+        occurredAt: "2026-08-03T00:12:00.000Z",
+        reasonCode: "COMPLETE_EQUALITY_CHAIN_VERIFIED",
+        evidenceSha256: completeAttemptEvidenceSha256(current),
+      }),
+    );
+    expect(verifyAttemptRecord(current).currentState).toBe("DEPLOYED");
+
+    const forged = structuredClone(current) as JsonRecord;
+    forged.initialSmoke = null;
+    forged.attemptRecordSha256 = canonicalSha256(forged, [
+      "attemptRecordSha256",
+    ]);
+    expect(() => verifyAttemptRecord(forged)).toThrow("ATTEMPT_SMOKE_REF");
+  });
 });
 
 describe("LP-05 smoke contracts", () => {
@@ -274,6 +453,33 @@ describe("LP-05 smoke contracts", () => {
     const initial = smoke("EXTERNAL_INITIAL", "2026-08-03T00:10:00.000Z");
     const post = smoke("EXTERNAL_POST_RESTORE", "2026-08-03T00:20:00.000Z");
     expect(initial.assertionSetSha256).toBe(post.assertionSetSha256);
+  });
+
+  it("never upgrades imported observations into external evidence", () => {
+    expect(() =>
+      buildSmokeEvidence(
+        smoke(
+          "EXTERNAL_INITIAL",
+          "2026-08-03T00:10:00.000Z",
+        ) as unknown as SmokeObservationInput,
+      ),
+    ).toThrow("SMOKE_EXTERNAL_OBSERVATIONS_FORBIDDEN");
+  });
+
+  it("binds the trusted certificate to the exact host and observation time", () => {
+    const wrongHost = smoke("EXTERNAL_INITIAL", "2026-08-03T00:10:00.000Z");
+    (wrongHost.certificate as JsonRecord).hostname = "wrong.example.net";
+    wrongHost.smokeSha256 = canonicalSha256(wrongHost, ["smokeSha256"]);
+    expect(() => verifySmokeEvidence(wrongHost)).toThrow(
+      "SMOKE_CERT_HOST_MISMATCH",
+    );
+
+    const expired = smoke("EXTERNAL_INITIAL", "2026-08-03T00:10:00.000Z");
+    (expired.certificate as JsonRecord).notAfter = "2026-08-02T00:00:00.000Z";
+    expired.smokeSha256 = canonicalSha256(expired, ["smokeSha256"]);
+    expect(() => verifySmokeEvidence(expired)).toThrow(
+      "SMOKE_CERT_NOT_CURRENT",
+    );
   });
 });
 
