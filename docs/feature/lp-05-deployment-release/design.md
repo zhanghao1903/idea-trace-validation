@@ -108,7 +108,7 @@ recomputes it before reading any nested authority.
 | `schemaVersion` | literal `"1.0"` | Required | candidate generator | Exact match | Immutable; a future format is a new version, never in-place migration |
 | `manifestSha256` | lowercase SHA-256 | Required/derived | canonical serializer | Recomputed over all other fields | Immutable cross-record identity |
 | `releaseId` | safe string | Required/derived | source commit + platform | `lp05-<12 hex>-<amd64|arm64>` | Human-safe candidate name; cannot be caller-overridden |
-| `sourceCommit` | 40 lowercase hex | Required | clean checked-out Git HEAD | Must exist on feature branch and equal verification commit | Git authority |
+| `sourceCommit` | 40 lowercase hex | Required | clean checked-out Git HEAD or authoritative post-merge base | Pre-merge candidates equal the reviewed feature head; production candidates equal the authoritative merge commit and that commit must be reachable from the configured base ref | Git authority; a squash merge commit is never required to exist in feature-branch history |
 | `sourceTree` | 40 lowercase hex | Required | `HEAD^{tree}` | Re-read from `sourceCommit` | Detects rewritten content |
 | `createdAt` | RFC3339 UTC | Required | candidate generator clock | UTC, no fractional precision beyond milliseconds | Evidence time only |
 | `platform` | enum | Required | operator/CI explicit input | `linux/amd64` or `linux/arm64` | Must equal later authorization target |
@@ -345,7 +345,7 @@ candidate/operation change requires a new proposal and authorization. Interrupte
 | `startedAt` / `updatedAt` / `finishedAt` | RFC3339/null | Required; `finishedAt` default null | controller clock | Ordered, attempt maximum 4 hours excluding one interruption resume window | Audit time |
 | `resume` | `AttemptResumeV1` | Required/default `{count:0,...null}` | controller/operator | Max count 1; closed shape below | Bounded interrupted recovery |
 | `previousRelease` | `ReleaseIdentityV1` or null | Required | envelope + target read | Byte-equal; null only with fresh-target proof | App rollback authority |
-| `sourceDatabase` | `DatabaseIdentityV1` or null | Required/default null; non-null from `PREFLIGHT_PASSED` | PostgreSQL/Compose read | Closed shape below | Backup source identity |
+| `sourceDatabase` | `DatabaseIdentityV1` or null | Required/default null; may remain null through fresh-target `PREFLIGHT_PASSED`, then becomes non-null when the exact production DB is created and independently inspected before `SAFETY_BACKUP_RESOLVED`; upgrade paths bind it during preflight | PostgreSQL/Compose read | Closed shape below; never caller-supplied | Backup source identity |
 | `safetyBackup` | `BackupRefV1`, `FreshTargetProofV1` or null | Required/default null; non-null at `SAFETY_BACKUP_RESOLVED` | backup/preflight | Upgrade requires backup; fresh requires no prior volume/release/data | Pre-migration protection |
 | `migration` | `MigrationEvidenceV1` or null | Default null | migration/readiness reads | Closed shape below | Must match candidate catalog |
 | `initialSmoke` | `SmokeEvidenceRefV1` or null | Default null | external smoke engine | Mode `EXTERNAL_INITIAL`; exact target/candidate | Defines expected synthetic story digest |
@@ -382,7 +382,7 @@ Nested attempt contracts reject unknown fields:
 | `.interruptedState` / `.interruptedAt` / `.reasonCode` / `.lastTransitionSha256` / `.resumedAt` | nullable state/time/code/digest/time | Required/default nulls | controller/external reads | All null at count 0; all non-null and consistent at count 1 | Process interruption only |
 | `RollbackEvidenceV1.status` / `.reasonCode` | enum/code | Required/default `NOT_STARTED`/null | controller | Legal status graph | Projection/history traced |
 | `.previousRelease` / `.readinessSha256` / `.smokeSha256` / `.startedAt` / `.finishedAt` | nullable identity/digests/times | Required/default nulls | inspect/rollback verifier | State-dependent non-null rules; `NOT_APPLICABLE` only fresh+ingress disabled | No DB restore field |
-| `AttemptTransitionV1.sequence` / `.from` / `.to` | integer/states | Required | controller | Starts 0, increments 1, legal §5.4 edge | Append-only max 64 |
+| `AttemptTransitionV1.sequence` / `.from` / `.to` | integer / nullable state / state | Required | controller | Sequence 0 is exactly `from:null -> PREPARED`; later entries increment 1 and use only legal §5.4 edges | Append-only max 64 |
 | `.occurredAt` / `.reasonCode` / `.evidenceSha256` / `.previousTransitionSha256` / `.transitionSha256` | time/code/digests | Required; previous null only sequence 0 | controller/oracle | Hash-chain recomputation; evidence mandatory after PREPARED | Immutable journal entry |
 
 ### 5.4 Complete External Acceptance State Machine
@@ -587,6 +587,7 @@ domain and current DNS/IP equality.
 | `observedAt` | RFC3339 UTC | Required | engine clock | Within attempt and after preceding state | Freshness |
 | `certificate` | `{hostname,notBefore,notAfter,issuerSha256,trusted}` | Required external; null local | TLS peer | Exact host, currently valid, trusted literal true | No certificate private material |
 | `syntheticStorySha256` / `resourceIdsSha256` | digests | Required | canonical selected public reads | Same required resource set and bounded fields | Cross-environment story equality |
+| `assertionSetSha256` | lowercase SHA-256 | Required/derived | canonical smoke assertion projection | SHA-256 of canonical ordered `{id,status,httpStatus,valueSha256,reasonCode}` objects; excludes volatile time/request IDs and must equal initial smoke during post-restore re-smoke | Stable cross-run assertion-set identity |
 | `assertions` | ordered `SmokeAssertionV1[]` | Required | engine | Exact mandatory ID set, unique, all PASS | No omitted checks |
 | `status` | literal `PASS` | Required | verifier | Every required assertion PASS | No hand-written PASS |
 

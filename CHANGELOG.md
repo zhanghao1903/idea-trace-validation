@@ -16,9 +16,12 @@
 - Define the implementation-ready LP-04 design for a client-neutral AI Skill,
   deterministic synthetic demos, real HTTP recovery proof, and exact
   Codex/Claude validation evidence.
-- Add the LP-04 local demo guide and in-progress verification record, with
+- Add the LP-04 local demo guide and immutable verification record, with
   explicit synthetic-data, credential, human-handoff and exact cleanup
   boundaries.
+- Define LP-05's release-candidate, deployment authorization, backup/isolated
+  restore, rollback, public re-smoke and immutable evidence contracts, with a
+  versioned single-server operations runbook.
 
 ### Added
 
@@ -61,6 +64,15 @@
 - Add independently verified Codex CLI and Claude Desktop/Claude Code Skill
   execution records, bound to exact transcript digests and publicly readable
   synthetic API resources without committing credentials or raw transcripts.
+- Add a digest-pinned multi-stage application image, private PostgreSQL network,
+  Caddy HTTPS edge, read-only/non-root runtime and repository-outside secret
+  injection for the LP-05 production candidate.
+- Add fail-closed deployment authorization and attempt-state tooling, encrypted
+  streaming backups, seven-copy retention, isolated restores, credential
+  rotation, rollback, smoke/evidence verification and local production-topology
+  acceptance coverage.
+- Extend exact-head CI with the LP-05 immutable-candidate build, static release
+  validation, authority/restore/rotation/rollback tests and clean-tree proof.
 
 ### Changed
 
