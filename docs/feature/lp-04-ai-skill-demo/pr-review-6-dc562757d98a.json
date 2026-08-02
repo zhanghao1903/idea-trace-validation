@@ -1,0 +1,503 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 6,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/6",
+    "title": "LP-04: AI Skill and repeatable demo",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "818671c504c8b8b8cd41f8ebc096f341ece6b18f",
+    "head_ref": "codex/lp-04-ai-skill-demo",
+    "head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+    "reviewed_at": "2026-08-02T02:46:59Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "Cycle 2 PRR-001 remediation at the exact routed head",
+      "complete 4e05331cecf833858b2a11c22d9c59ceaaa34fb5..dc562757d98ab74adc54833c46286112c58d34de delta across all 11 changed files",
+      "complete 818671c504c8b8b8cd41f8ebc096f341ece6b18f..dc562757d98ab74adc54833c46286112c58d34de PR reconciliation",
+      "independent Codex and Claude transcript/live-proof validation, adversarial claim-correlation validation and exact-head GitHub state"
+    ],
+    "excluded_scope": [
+      "production deployment, production data, release publication, merge execution and feature-branch mutation"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "pr-review-6-4e05331cecf8.md",
+      "result_path": "docs/feature/lp-04-ai-skill-demo/pr-review-6-4e05331cecf8.json",
+      "result_sha256": "1aefd8c4cb4b9ecd57e07828b994d1a9ea8270b2510a2d4f9ce21e500f3d8f57",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 6,
+      "reviewed_at": "2026-08-02T02:06:28Z",
+      "base_sha": "818671c504c8b8b8cd41f8ebc096f341ece6b18f",
+      "head_sha": "4e05331cecf833858b2a11c22d9c59ceaaa34fb5",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": [
+        "PRR-001",
+        "PRR-002",
+        "PRR-003"
+      ],
+      "blocking_finding_ids": [
+        "PRR-001"
+      ]
+    },
+    "delta_review": {
+      "previous_base_sha": "818671c504c8b8b8cd41f8ebc096f341ece6b18f",
+      "previous_head_sha": "4e05331cecf833858b2a11c22d9c59ceaaa34fb5",
+      "current_base_sha": "818671c504c8b8b8cd41f8ebc096f341ece6b18f",
+      "current_head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+      "triggers": [
+        "HEAD_CHANGED",
+        "EVIDENCE_CHANGED"
+      ],
+      "commit_range": "4e05331cecf833858b2a11c22d9c59ceaaa34fb5..dc562757d98ab74adc54833c46286112c58d34de",
+      "commits_reviewed": [
+        "dc562757d98ab74adc54833c46286112c58d34de"
+      ],
+      "changed_files": [
+        "CHANGELOG.md",
+        "README.md",
+        "docs/demo/lp04.md",
+        "docs/feature/lp-04-ai-skill-demo/evidence/claude-client-proof.json",
+        "docs/feature/lp-04-ai-skill-demo/evidence/codex-client-proof.json",
+        "docs/feature/lp-04-ai-skill-demo/verification.md",
+        "docs/implementation-plans/v0-1/lp-04-ai-skill-demo.md",
+        "docs/project-management.md",
+        "scripts/lp04/contracts.ts",
+        "scripts/lp04/runtime.unit.test.ts",
+        "scripts/lp04/verify-client-evidence.ts"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "README.md",
+        "docs/demo/lp04.md",
+        "docs/feature/lp-04-ai-skill-demo/evidence/claude-client-proof.json",
+        "docs/feature/lp-04-ai-skill-demo/evidence/codex-client-proof.json",
+        "docs/feature/lp-04-ai-skill-demo/verification.md",
+        "docs/implementation-plans/v0-1/lp-04-ai-skill-demo.md",
+        "docs/project-management.md",
+        "scripts/lp04/contracts.ts",
+        "scripts/lp04/runtime.unit.test.ts",
+        "scripts/lp04/verify-client-evidence.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "The remediation replaces unstructured request-ID evidence with per-request claims and exact rejected-request transcript matching, refreshes both client proof records, and updates the LP-04 documentation.",
+      "evidence": "Every delta file and the full base-to-head behavior were reconciled; targeted regressions, both committed client proofs, exact-head CI and a same-resource wrong-operation/status counterexample were executed."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "Mixed valid/invented request IDs and rejected Claude claims now fail, but COMMITTED claims are still authorized only by requestId membership in the selected aggregate history. At the exact head, a real IDEA_CREATED request ID relabeled as POST /promotions with status 299 was accepted.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "No Cycle 3 change weakens exact child-resource readback; the full PR reconciliation and exact-head CI remain green.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-003",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "No Cycle 3 change weakens bounded same-body/key recovery or resumable OUTCOME_UNKNOWN exhaustion; the full PR reconciliation and exact-head CI remain green.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Client request-claim and objective proof trust boundary",
+        "risk_triggers": [
+          "trust-boundary",
+          "test-adequacy",
+          "data-integrity"
+        ],
+        "reason": "AC-15 forbids a hand-written/static compatibility substitute, so each claimed operation, response and objective must be bound to independently checkable execution evidence.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "README.md",
+          "docs/demo/lp04.md",
+          "docs/feature/lp-04-ai-skill-demo/evidence/claude-client-proof.json",
+          "docs/feature/lp-04-ai-skill-demo/evidence/codex-client-proof.json",
+          "docs/feature/lp-04-ai-skill-demo/verification.md",
+          "docs/implementation-plans/v0-1/lp-04-ai-skill-demo.md",
+          "docs/project-management.md",
+          "scripts/lp04/contracts.ts",
+          "scripts/lp04/runtime.unit.test.ts",
+          "scripts/lp04/verify-client-evidence.ts"
+        ],
+        "checks": [
+          "verify both committed records against their exact ignored transcripts and the live proof API",
+          "relabel a real same-resource IDEA_CREATED request ID as a promotion operation with an impossible success status",
+          "inspect objective-result binding and committed-claim transcript parsing"
+        ],
+        "finding_ids": [
+          "PRR-001"
+        ],
+        "result": "FAIL"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "NOT_AVAILABLE",
+        "reviewer": null,
+        "summary": "A fresh-context sub-agent was unavailable because the active developer policy prohibits delegation unless the user explicitly requests it; the Review task performed a separate second full/delta pass and executable adversarial reproduction."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "The remediation closes the mixed-ID and rejected-request gaps, and both actual client proofs pass independent verification. PRR-001 remains blocking because a COMMITTED claim can still relabel one real same-resource request as a different operation and status, while objective results remain self-declared labels.",
+    "blocking_finding_ids": [
+      "PRR-001"
+    ]
+  },
+  "summary": "Cycle 3 materially narrows PRR-001 but does not close its trust-boundary root cause. Approval remains withheld only because COMMITTED request method/path/status and objective results are not bound to the operation that actually produced the authoritative request ID.",
+  "change_map": [
+    {
+      "area": "Client request claims",
+      "change": "Adds method, path, status and outcome to each proof request and validates rejected Claude requests against parsed tool execution.",
+      "external_behavior": "Actual Codex and Claude proof records can be replayed with a clearer per-request evidence shape.",
+      "risk": "High",
+      "validation": "Both actual records pass, but a same-resource wrong-operation/status COMMITTED claim also passes."
+    },
+    {
+      "area": "Evidence records and documentation",
+      "change": "Refreshes both client records and states that every committed claim is independently correlated.",
+      "external_behavior": "The LP-04 verification narrative reports the proof gate as closed.",
+      "risk": "High",
+      "validation": "The executable counterexample contradicts the claimed exact correlation."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Committed client claims still accept the wrong operation and status",
+      "location": {
+        "path": "scripts/lp04/verify-client-evidence.ts",
+        "line_start": 566,
+        "line_end": 571,
+        "symbol": "verifyClientEvidence",
+        "side": "RIGHT",
+        "commit_sha": "dc562757d98ab74adc54833c46286112c58d34de"
+      },
+      "observation": "For a COMMITTED claim, the verifier derives only an aggregate resource from the path and checks that claim.requestId occurs somewhere in that aggregate's public audit IDs. It never compares method, exact path or status with the authoritative event or a parsed transcript request. CODEX produces no parsed transcript requests, transcript binding is substring presence, and objective results remain labels.",
+      "trigger": "Use a real request ID from a synthetic Idea or project, then describe a different endpoint or response status on the same aggregate; keep the required IDs and objective labels in a structurally valid transcript.",
+      "impact": "The verifier returns PASS for client actions and objective claims that did not occur. A hand-written proof can therefore transform one real audit event into another claimed workflow step, defeating AC-15's no-static-substitution requirement.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "At the exact head, a real authoritative IDEA_CREATED request ID was claimed as POST /api/v1/ideas/{sameIdeaId}/promotions with status 299 and outcome COMMITTED. The verifier returned accepted=true and reported the underlying authoritative event as IDEA_CREATED.",
+          "reference": "reviewer same-resource wrong-operation/status counterexample at dc562757d98ab74adc54833c46286112c58d34de"
+        },
+        {
+          "kind": "code",
+          "description": "The COMMITTED branch checks only authoritativeRequestIds.get(resourceId).has(requestId) and immediately continues; claim.method, exact claim.path and claim.status are unused.",
+          "reference": "scripts/lp04/verify-client-evidence.ts:566-571"
+        },
+        {
+          "kind": "code",
+          "description": "The transcript binding checks only whether run/resource/request ID strings occur in transcriptText, so it does not establish the committed operation or objective result.",
+          "reference": "scripts/lp04/verify-client-evidence.ts:490-501"
+        },
+        {
+          "kind": "test",
+          "description": "The new wrong-path negative changes an Idea claim into an unrelated Project path without a projectId; it tests resource classification, not a different operation/status on the same resource.",
+          "reference": "scripts/lp04/runtime.unit.test.ts:633-655"
+        },
+        {
+          "kind": "analysis",
+          "description": "The exact committed Codex and Claude records both pass against their real ignored transcripts and the live proof API, confirming the positive path while leaving the discriminator bypass.",
+          "reference": "reviewer exact-head demo:lp04:verify-client runs"
+        },
+        {
+          "kind": "spec",
+          "description": "AC-15 and the approved plan require actual client execution and prohibit static substitution without live request/resource correlation.",
+          "reference": "docs/feature/lp-04-ai-skill-demo/requirements.md:111-113; docs/implementation-plans/v0-1/lp-04-ai-skill-demo.md"
+        }
+      ],
+      "remediation": "For every COMMITTED claim, bind method, exact path and status to a parsed client request/response event or to authoritative public audit fields with an explicit event-to-operation mapping; retain the aggregate request-ID check. Parse the committed Codex operations as well as Claude operations, and derive each objective result from explicit matched evidence instead of accepting labels. Add same-resource wrong-endpoint, wrong-status and unsupported-objective negatives.",
+      "verification": "Both current real client records still pass; an IDEA_CREATED request ID cannot be presented as promotion/status 299; any same-resource wrong endpoint or status fails; and removing the transcript operation needed by an objective makes that objective fail.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "evidence:lp04-client-proof:uncorrelated-self-assertion"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "Child-resource writes are committed without matching public reads",
+      "location": {
+        "path": "scripts/lp04/public-verification.ts",
+        "line_start": 106,
+        "line_end": 145,
+        "symbol": "verifyPublicResources",
+        "side": "RIGHT",
+        "commit_sha": "dc562757d98ab74adc54833c46286112c58d34de"
+      },
+      "observation": "The current implementation maps every scenario result ref to a direct or paginated public read and requires an exact ID match.",
+      "trigger": "A normal, recovered or terminal-replayed journal entry contains a child resource reference.",
+      "impact": "The exact child must be publicly present before COMMITTED/PASS; missing or mismatched children now fail closed.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "Exact report/progress reads pass, mismatched progress fails, and terminal replay performs zero writes while reading reports and progress.",
+          "reference": "scripts/lp04/runtime.unit.test.ts:572-630; apps/api/test/lp04-demo.acceptance.test.ts:302-334"
+        }
+      ],
+      "remediation": "Completed at the current head.",
+      "verification": "Targeted unit tests and exact-head CI verify normal, recovery and terminal readback behavior.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "recovery:lp04-public-verify:child-refs-ignored"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "concurrency",
+      "title": "IDEMPOTENCY_IN_PROGRESS is persisted as terminal rejection",
+      "location": {
+        "path": "scripts/lp04/http-client.ts",
+        "line_start": 132,
+        "line_end": 183,
+        "symbol": "executeStoredEntryWithInProgressRetry",
+        "side": "RIGHT",
+        "commit_sha": "dc562757d98ab74adc54833c46286112c58d34de"
+      },
+      "observation": "The current recovery helper recognizes the bounded retry contract, preserves exact bytes/key and leaves exhaustion OUTCOME_UNKNOWN.",
+      "trigger": "Recovery receives one or more 409 IDEMPOTENCY_IN_PROGRESS responses.",
+      "impact": "Temporary concurrency no longer becomes terminal local rejection and the original intent remains resumable.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The exact-head regression proves retry-success after two sends and OUTCOME_UNKNOWN after three bounded in-progress responses, with identical body and key.",
+          "reference": "scripts/lp04/runtime.unit.test.ts:632-730"
+        }
+      ],
+      "remediation": "Completed at the current head.",
+      "verification": "Targeted unit tests and exact-head CI pass.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "concurrency:lp04-recovery:in-progress-terminal-rejected"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Bind every COMMITTED claim's method, exact path and status—and each objective result—to parsed execution or authoritative event evidence, with discriminating same-resource negative tests.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Publicly reconcile each exact child resource before COMMITTED/PASS and on terminal replay.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-003",
+      "action": "Implement and test bounded IDEMPOTENCY_IN_PROGRESS recovery with frozen bytes and key.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "data-integrity",
+      "level": "High",
+      "description": "A real aggregate request ID can still be relabeled as a different operation/status and used to support an unexecuted objective in a PASS record.",
+      "mitigation": "Resolve PRR-001 before merge.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Low",
+      "description": "Previously resolved child readback and in-progress retry behavior remain covered by exact-head CI.",
+      "mitigation": "Preserve the current exact-ID reads, frozen retry bytes/key and resumable exhaustion.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "Both ignored transcripts passed exact digest and sanitization checks without being committed.",
+      "mitigation": "Keep raw client material local and rerun the validator after evidence changes.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "LP-04 remains additive tooling, documentation and tests with no production schema or accepted API mutation.",
+      "mitigation": "Revert the LP-04 feature commits if delivery is abandoned.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm ci --ignore-scripts with engine-strict disabled",
+        "environment": "macOS; Node.js 24.14.0; npm 11.12.1; exact head",
+        "head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 locked packages; npm differs from the declared 11.16.0 and is not exact-runtime approval evidence.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run build",
+        "environment": "macOS; Node.js 24.14.0; exact head",
+        "head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "TypeScript and production Web builds passed; JavaScript gzip size was 97.35 KiB.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npx vitest run --config vitest.unit.config.ts scripts/lp04/runtime.unit.test.ts scripts/lp04/check-skill.unit.test.ts",
+        "environment": "macOS; Node.js 24.14.0; exact head",
+        "head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Both targeted files and all 18 tests passed, including mixed-ID rejection and exact rejected-Claude-request matching.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx scripts/lp04/check-skill.ts",
+        "environment": "macOS; Node.js 24.14.0; exact head",
+        "head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Skill structure, canonical references, public routes/errors and secret/human-boundary checks passed.",
+        "required_for_approval": true,
+        "evidence_ref": "skills/idea-validation-workflow"
+      },
+      {
+        "command": "demo:lp04:verify-client for committed Codex proof with exact ignored transcript and live proof API",
+        "environment": "macOS; exact head; loopback proof API at 127.0.0.1:53919",
+        "head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The committed Codex proof passed transcript digest/envelope, Skill tree, public audit and resource validation.",
+        "required_for_approval": true,
+        "evidence_ref": "docs/feature/lp-04-ai-skill-demo/evidence/codex-client-proof.json"
+      },
+      {
+        "command": "demo:lp04:verify-client for committed Claude proof with exact ignored transcript and live proof API",
+        "environment": "macOS; exact head; loopback proof API at 127.0.0.1:53919",
+        "head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The committed Claude proof passed transcript digest/envelope, Skill tree, public audit, rejected-request matching and resource validation.",
+        "required_for_approval": true,
+        "evidence_ref": "docs/feature/lp-04-ai-skill-demo/evidence/claude-client-proof.json"
+      },
+      {
+        "command": "same-resource wrong-operation/status committed-claim counterexample",
+        "environment": "exact-head verifier with deterministic synthetic transcript and public Idea history",
+        "head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "Verifier returned accepted=true for an authoritative IDEA_CREATED request ID relabeled as a promotion request with status 299 on the same Idea.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "git diff --check for full PR and Cycle 3 delta",
+        "environment": "exact local git objects",
+        "head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors in the complete base-to-head diff or Cycle 3 delta.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-02T02:46:59Z",
+        "head_sha": "dc562757d98ab74adc54833c46286112c58d34de",
+        "status": "PASS",
+        "summary": "GitHub Actions workflow run 30728931789 and verify job 91445597835 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30728931789/job/91445597835"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local full npm run verify",
+        "reason": "Exact-head GitHub CI completed the full configured suite; reviewer-local work focused on remediation regressions, live client proofs and the discriminating adversarial negative."
+      },
+      {
+        "check": "Production deployment, load and real-user study",
+        "reason": "No production or publication target is in LP-04 scope or Review authority."
+      }
+    ]
+  },
+  "limitations": [
+    "Reviewer-local npm was 11.12.1 rather than the declared 11.16.0; exact configured-runtime authority comes from successful exact-head GitHub CI.",
+    "A fresh-context independent sub-agent pass was unavailable under the active no-delegation policy; the Review task performed a separate full/delta pass and executable adversarial reproduction.",
+    "Client transcript provenance is operator-observed rather than cryptographically attested; the validator must therefore make every checkable operation/resource correlation exact."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #6 points to the accepted exact base and Cycle 3 head and remains ready for review.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh authoritative GitHub PR metadata for the routed snapshot.",
+      "evidence": "GitHub reports open, draft=false, mergeable=true, base 818671c504c8b8b8cd41f8ebc096f341ece6b18f and head dc562757d98ab74adc54833c46286112c58d34de.",
+      "impact_if_false": "The report would be stale and could not authorize any outcome."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed CI run belongs to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Fetch commit-associated workflow runs and jobs for the routed head SHA.",
+      "evidence": "Workflow run 30728931789 and verify job 91445597835 completed successfully for dc562757d98ab74adc54833c46286112c58d34de.",
+      "impact_if_false": "The platform check could not support this review snapshot."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The supplied ignored transcript paths and loopback proof API support an independent read-only client-proof replay.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Run the exact-head validator independently for both committed records.",
+      "evidence": "Both client commands returned PASS and did not modify the review worktree.",
+      "impact_if_false": "PRR-001 could not be separated from an evidence-availability problem."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
