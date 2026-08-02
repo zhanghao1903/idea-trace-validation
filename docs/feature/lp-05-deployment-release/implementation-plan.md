@@ -10,6 +10,9 @@
 - Current phase: F3 — Implementation planning
 - Delivery mode: repository release-readiness first; separately authorized target deployment after merge; no default
   tag, Release, package, registry or marketplace publication
+- Cycle 1 plan review: `TPR-001`–`TPR-003` from result
+  `fc791d2a6b5e86b80bd655e5f87878be7a8be568da171fe56f055e6ad0287464`; closed by Design
+  §§3.2, 5–7, 12 and Implementation Plan §§3–7, 10 before Cycle 2 re-review
 
 ## 1. Entry Gate And Scope Control
 
@@ -130,6 +133,7 @@ Trace: AC 1, 3, 7, 13–14, 20.
 - `deploy/Caddyfile.test`
 - `deploy/secrets/README.md`
 - `scripts/lp05/deploy/config.ts`
+- `scripts/lp05/deploy/toolchain.ts`
 - `scripts/lp05/deploy/preflight.ts`
 - `scripts/lp05/deploy/compose.ts`
 - `scripts/lp05/smoke/http.ts`
@@ -150,6 +154,13 @@ The entrypoint reads only the declared `/run/secrets` files, rejects symlink/emp
 URL without logging it and `exec`s Node. Tests cover missing/malformed/same AI-human credentials and ensure Compose
 render/log output never contains canary values.
 
+`toolchain.ts` parses and verifies Design §5.2 `HostToolchainV1`: Linux only; Docker Engine
+`>=27.5.0 <30.0.0`; Docker Compose plugin `>=2.32.0 <3.0.0`; age `>=1.2.0 <2.0.0`; Docker/Compose from official
+Docker packages and age from an OS-vendor package or checksum-verified official release. The runbook gives those
+installation sources. Missing/unparseable/out-of-range versions, standalone legacy `docker-compose`, rootless
+network behavior that cannot publish the authorized ports, or unsupported Compose secret/dependency behavior exits
+before mutation with stable `TOOLCHAIN_UNSUPPORTED`/`COMPOSE_CAPABILITY_MISSING` reason codes.
+
 `compose.test.yaml` is additive and disposable: unique project/volumes, loopback high ports, synthetic credentials,
 local Caddy CA and explicit safe labels. It cannot be used as production evidence and cleanup rejects resources
 without its exact project/attempt labels.
@@ -164,6 +175,8 @@ without its exact project/attempt labels.
 - prove Authorization, Idempotency-Key and scoped cookie behavior remains intact without logging values;
 - stop DB in the disposable project and prove ready/business fail while live still represents process liveness;
 - inspect listeners and networks to prove app/DB/admin/backup are not host-published.
+- unit/CI fixtures cover the lower/upper supported tool versions, unsupported installation source, malformed output,
+  missing Compose secrets/dependency conditions and host/candidate platform mismatch.
 
 ### 4.4 Slice Gate And Rollback
 
@@ -181,6 +194,8 @@ scope. Trace: AC 2–8, 11, 13–14, 18, 20.
 - `scripts/lp05/database/backup-manifest.ts`
 - `scripts/lp05/database/retention.ts`
 - `scripts/lp05/database/restore.ts`
+- `scripts/lp05/database/restore-evidence.ts`
+- `scripts/lp05/database/production-identity.ts`
 - `scripts/lp05/database/restore-smoke.ts`
 - `scripts/lp05/deploy/rotate-credentials.ts`
 - `scripts/lp05/deploy/ops-status.ts`
@@ -191,25 +206,40 @@ scope. Trace: AC 2–8, 11, 13–14, 18, 20.
 
 ### 5.2 Backup And Retention
 
-Implement `BackupManifestV1` from Design §6.1. The command requires resolved approved backup root, current candidate
-manifest and age recipient fingerprint; sets restrictive permissions; streams custom-format `pg_dump` directly to
-age; atomically publishes ciphertext+manifest only after digest and list verification. Failures leave no accepted
-manifest and never delete the prior valid backup.
+Implement the closed `BackupManifestV1` parser/serializer/verifier from Design §6.1, including canonical digest,
+purpose, envelope/attempt/target, `DatabaseIdentityV1`, source release/candidate/migration/story, ciphertext,
+encryption/tool and verification shapes. The command requires the resolved authorized backup root and exact active
+attempt; sets restrictive permissions; streams custom-format `pg_dump` directly to age; atomically publishes
+ciphertext+manifest only after digest and list verification. Failures leave no accepted manifest and never delete
+the prior valid backup.
+
+Expose two non-interchangeable calls: `PRE_MIGRATION_SAFETY` before migration for an upgrade, and
+`POST_DEPLOY_RECOVERABILITY` only after `EXTERNAL_INITIAL` smoke PASS. The latter requires candidate source release,
+current production DB identity and `syntheticStorySha256` equal the initial smoke. No caller-supplied purpose or
+story override is accepted.
 
 Retention sorts verified manifest pairs, retains newest seven and deletes only files named by valid manifests under
-the exact root. Unit fixtures include symlink escape, root/home/workspace target, incomplete pairs, newest failure,
-duplicate ID and concurrent lock rejection. The systemd examples contain placeholders and are not enabled by tests.
+the exact root. Any backup referenced by an active attempt/final evidence remains pinned even if older than seven.
+Unit fixtures include symlink escape, root/home/workspace target, incomplete pairs, newest failure, duplicate ID,
+active-reference deletion and concurrent lock rejection. The systemd examples contain placeholders and are not
+enabled by tests.
 
 ### 5.3 Isolated Restore
 
-The restore controller implements every Design §6.2 guard before decrypting: generated `lp05-restore-` project,
-distinct volume/container labels, loopback-only port, no production domain/name/volume, exact backup digest and
-identity reference. It streams into a new DB, verifies three migration ledgers/checksums, starts exact app image and
-uses public API to read selected LP-04 synthetic Idea/project/report resources.
+The restore controller implements closed `RestoreEvidenceV1`, `IsolatedRestoreTargetV1` and
+`ProductionResourceIdentityV1` from Design §6.2. Before decrypting it requires a
+`POST_DEPLOY_RECOVERABILITY` manifest from the same envelope/attempt/target/candidate/production DB and initial story;
+generated `lp05-restore-` project; distinct volume/container/system identifiers; loopback-only port; no production
+domain/name/volume; and exact backup/ciphertext digests. It streams into a new DB, verifies three migration
+ledgers/checksums, starts exact app image and uses public API to compute the restored LP-04 synthetic story/resource
+digests.
 
-Acceptance captures production-resource identity before/after and asserts unchanged. Negative fixtures attempt a
-production project/volume, wrong key, corrupt backup, migration drift, missing synthetic record and cleanup-label
-mismatch; every case fails without touching production-labelled resources.
+Acceptance captures production-resource identity before/after as canonical closed objects and requires byte
+equality before emitting PASS. Negative fixtures attempt a safety/pre-migration/empty/local/stale/wrong-target/
+wrong-DB/wrong-attempt backup, wrong key, corrupt ciphertext/manifest digest, migration drift, changed synthetic
+story, production project/volume/system ID, missing synthetic record and cleanup-label mismatch; every case fails
+without touching production-labelled resources. Tests prove a hand-written or cross-record-mismatched
+`RestoreEvidenceV1` cannot pass the verifier.
 
 ### 5.4 Rotation And Operational Status
 
@@ -234,9 +264,11 @@ test or automatic rollback action. Trace: AC 7–13, 16–18, 20.
 
 - `scripts/lp05/deploy/authorization-envelope.ts`
 - `scripts/lp05/deploy/attempt-record.ts`
+- `scripts/lp05/deploy/attempt-state.ts`
 - `scripts/lp05/deploy/controller.ts`
 - `scripts/lp05/deploy/rollback.ts`
 - `scripts/lp05/smoke/demo.ts`
+- `scripts/lp05/smoke/smoke-evidence.ts`
 - `scripts/lp05/smoke/evidence.ts`
 - matching state-machine, fault-injection and end-to-end tests
 - `package.json` commands `deploy:lp05`, `deploy:lp05:rollback`, `deploy:lp05:smoke`,
@@ -244,38 +276,62 @@ test or automatic rollback action. Trace: AC 7–13, 16–18, 20.
 
 ### 6.2 Authority And State Enforcement
 
-The controller consumes an operator-created, sanitized authorization-envelope file whose candidate, target, domain,
-backup root, operation allowlist and evidence digest equal the user-approved proposal. It does not accept SSH/DNS
-credentials or infer approval from Requirements/Review/merge. The external operator decides how the command reaches
-the already authorized server; repository code does not implement a generic SSH client.
+Implement the closed parsers/canonical serializers from Design §§5–7 for `DeploymentProposalV1`,
+`DeploymentAuthorizationEnvelopeV1`, every nested target/toolchain/backup-policy/authority shape,
+`DeploymentAttemptV1`, transition journal, `SmokeEvidenceV1` and `DeploymentEvidenceV1`. Unknown fields,
+unsupported versions and mismatched canonical digests fail before any external read/mutation. The final envelope's
+proposal digest must be explicitly identified by the user authorization; Requirements/Review/merge cannot fill or
+infer it.
 
-Implement `DeploymentAttemptV1` and exact transition table from Design §5.2 using mode-0600 atomic replacement and a
-single-target lock. Before every resume, re-read candidate/image/container/backup/migration external facts. A record
-cannot authorize a skipped step, a different candidate or a second concurrent attempt.
+The controller consumes only that immutable sanitized envelope. Candidate, target, domain, backup root, operations,
+exclusions, consent, prior release and host toolchain must deep-equal preflight facts. It accepts no SSH/DNS
+credential and does not implement a generic SSH client; the authorized operator chooses how the command is invoked
+on the already approved server.
+
+Implement `DeploymentAttemptV1` as the append-only, hash-chained transition journal and projection from Design
+§5.3–5.4 using mode-0600 atomic replacement and a single-target lock. Before every transition/resume, re-read the
+exact candidate/image/container/database/backup/smoke facts and recompute the full journal. One envelope binds one
+attempt. Oracle failure is terminal and requires a new proposal/authorization; only one process/transport
+interruption may resume within the stated time bounds after full equality revalidation.
 
 Ordered execution is:
 
-1. read-only target/DNS/ports/runtime/disk/secret-file/config/image preflight;
-2. verified encrypted pre-deploy backup;
+1. read-only target/DNS/ports/runtime/disk/secret/config/image/toolchain preflight;
+2. resolve `SAFETY_BACKUP_RESOLVED`: upgrade requires an exact `PRE_MIGRATION_SAFETY` backup; fresh install requires
+   `FreshTargetProofV1` and no prior release/volume/data identity;
 3. exact migration job and ledger verification;
-4. exact app replacement and readiness;
-5. Caddy validation/start, trusted HTTPS and header/contract smoke;
-6. LP-04 synthetic story and operational smoke;
-7. atomic `DEPLOYED` evidence only after every oracle passes.
+4. exact app replacement/readiness, then Caddy/trusted HTTPS;
+5. `EXTERNAL_INITIAL` smoke over the authorized domain, including the complete LP-04 synthetic story digest;
+6. create a new target/attempt/candidate-bound `POST_DEPLOY_RECOVERABILITY` encrypted backup after that story exists;
+7. restore that exact backup to a new isolated DB/app, verify migration catalog and equal synthetic core reads;
+8. prove production resources byte-equal before/after the restore and remove only exact restore-labelled resources;
+9. rerun `EXTERNAL_POST_RESTORE` smoke against the real domain and require equal target/candidate/story/assertion set;
+10. append `POST_RESTORE_SMOKE_PASSED -> DEPLOYED` and emit final evidence only after the full equality chain passes.
 
-Fault injection at every boundary proves no later step runs after failure. Interrupted runs reconcile state without
-blindly repeating migration. Failure captures previous image/config; app rollback restores it and reruns
-readiness/core reads. DB restore remains impossible from this command.
+Fault injection at every boundary proves no later step runs after failure. Restore/post-restore failures disable
+public ingress and cannot leave the attempt operationally accepted. Interrupted runs reconcile state without blindly
+repeating migration/backup. Upgrade app rollback restores the prior image/config and reruns readiness/core reads;
+fresh-install failure leaves ingress stopped. DB restore remains impossible from this command.
 
 ### 6.3 Evidence Contract
 
-Emit and verify `DeploymentEvidenceV1` from Design §7.3. The verifier independently re-reads candidate manifest,
-attempt transitions, backup/restore manifests and live HTTPS assertions, then validates bounded sanitized content.
-Hand-written PASS, missing restore proof, stale URL/candidate, secret-bearing evidence or incomplete synthetic story
-must fail.
+Emit and verify closed `DeploymentEvidenceV1` from Design §7.3. The verifier independently loads exact canonical
+records/digests, recomputes attempt transition chain, re-reads the current live candidate/target, and enforces Design
+§6.3 equality from authorization through candidate, target/source DB, initial smoke, post-deploy backup, exact
+restore, production unchanged and post-restore public smoke. Only the final transition tail may authorize PASS.
 
-Local end-to-end tests run the controller only against the labelled loopback Compose environment and a local TLS
-mode. They prove orchestration and rollback but explicitly mark trusted public certificate/DNS assertions unproved.
+Counter-tests must reject hand-written PASS; missing/duplicate/skipped transitions; expired/wrong authorization;
+pre-migration empty, local, old, stale, wrong-target/source-DB/attempt/candidate backup; restore of a different
+ciphertext; local or pre-restore smoke; changed story/resource/assertion digests; changed production identity;
+secret-bearing evidence; and incomplete cleanup. Fresh-install and upgrade happy paths each execute the entire
+post-deploy chain.
+
+Local end-to-end tests run the controller only against the labelled loopback Compose environment and typed `LOCAL`
+evidence. They prove orchestration/state/equality and rollback but cannot populate either external smoke state or
+emit final deployment PASS. A dedicated external-mode fixture uses a controlled trusted-TLS test host only in an
+authorized release rehearsal; mocks/internal CA can never satisfy external states. Pure state/verifier tests may
+construct closed external-shaped fixtures to cover fresh/upgrade transition and equality negatives, but fixtures
+are marked `TEST_FIXTURE` outside the production parser and are never persisted as deployment evidence.
 
 ### 6.4 Slice Gate And Rollback
 
@@ -306,6 +362,11 @@ repository-external secrets, first deploy, upgrade, migration, health, logs, dai
 credential rotation, disk/certificate/backup failures, app rollback and the separate production-restore authority.
 Every command uses placeholders or safe references; no real target/token/URL/password is committed.
 
+`evidence-schema.md` reproduces the exact Design §§3.2, 5–7 closed field matrices, canonicalization/digest
+algorithm, state graph, retention/expiration rules and cross-record equality chain. It is a public implementation
+contract, not an alternate authorization source; generated TypeScript validators and documentation examples are
+checked against the same v1 definitions.
+
 It clearly distinguishes:
 
 - local/CI production-like PASS from real public deployment PASS;
@@ -333,6 +394,8 @@ npm ci
 npm run db:migrate:test
 npm run verify
 npm run test:deployment:unit
+npm run test:deployment:authority
+npm run test:deployment:restore-chain
 npm run deploy:lp05:validate
 npm run release:lp05:candidate -- --platform <ci-platform> --output .lp05-release/ci
 npm run release:lp05:verify-candidate -- --manifest .lp05-release/ci/manifest.json
@@ -350,6 +413,10 @@ Also prove:
 - non-root/read-only/no-extra-port runtime inspection;
 - candidate archive/image/history/log/evidence secret absence;
 - three migration checksum equality and isolated restored public reads;
+- fresh-install and upgrade traces through post-deploy backup, exact isolated restore, production-unchanged proof
+  and post-restore smoke; typed local evidence remains disqualified from external PASS;
+- counter-fixtures for expired/wrong envelope, pre-migration empty/local/stale/wrong-target/source-DB backup,
+  mismatched restore/ciphertext/story/resource/production identity, missing re-smoke and canonical digest drift;
 - LP-01–LP-04 API/browser/demo/client-evidence regression;
 - no `.lp04-demo`, `.lp05-release`, secret, backup, TLS data, raw logs or Playwright artifact is staged.
 
@@ -393,12 +460,20 @@ verify no forbidden path or secret entered the PR and confirm that no real serve
 
 After authoritative merge proof, Main does not immediately deploy. It gathers the external inputs listed in
 Requirements, runs only read-only target preflight, builds/transfers a platform-matching exact candidate, and
-presents the full Design §5.1 authorization envelope. Only the user's exact authorization permits the listed target
-operations.
+presents the canonical `DeploymentProposalV1` and `proposalSha256` from Design §5.2. Only a user response that
+explicitly binds that exact proposal can produce `DeploymentAuthorizationEnvelopeV1` and permit the listed target
+operations. The attempt must start before envelope expiry; any terminal failure/new target/candidate/operation set
+requires a fresh proposal and authorization.
 
-On success, Main presents sanitized `DeploymentEvidenceV1`, candidate/attempt/backup/restore digests, trusted HTTPS
-URL, smoke result and known limitations to the user and Lifecycle roles. On failure it reports the exact stopped
-state and rollback proof; the feature stays open and no acceptance is recorded.
+The authorized external run executes the complete Design §5.4 graph. In particular, initial public smoke and LP-04
+story precede a new `POST_DEPLOY_RECOVERABILITY` backup; the exact backup is restored into a distinct isolated
+database/app; migration and equal synthetic core reads pass; production identity remains byte-equal; and the real
+domain is re-smoked afterward. Only then may the attempt enter `DEPLOYED` and emit `DeploymentEvidenceV1`.
+
+On success, Main presents the sanitized final evidence plus envelope/candidate/attempt/initial-smoke/post-deploy-
+backup/restore/production-unchanged/post-restore-smoke digests, trusted HTTPS URL and known limitations to the user
+and Lifecycle roles. On failure it reports the exact terminal state and rollback/disabled-ingress proof; the feature
+stays open and no acceptance is recorded. Local, pre-migration, stale or cross-target proof is never substituted.
 
 Because default confirmed scope publishes no tag, GitHub Release, package, registry image or marketplace asset, a
 successful deployment is followed by a separate explicit acceptance-only/no-publish authorization bound to the

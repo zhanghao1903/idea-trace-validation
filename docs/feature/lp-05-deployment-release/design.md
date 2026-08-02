@@ -7,6 +7,9 @@
 - Requirements authority: `d273a79212723513d8ac7150fb141949f6b19472`
 - Requirements: [requirements.md](./requirements.md)
 - Current phase: F2 — Deployment contract and feature design
+- Cycle 1 plan review: `TPR-001`–`TPR-003` from result
+  `fc791d2a6b5e86b80bd655e5f87878be7a8be568da171fe56f055e6ad0287464`; closed in this
+  revision by §§3.2, 5–7, 12 and the revised Implementation Plan before Cycle 2 re-review
 
 ## 1. Scope And Delivery Boundary
 
@@ -94,27 +97,64 @@ candidate whose manifest/source/platform/image ID does not match.
 
 ### 3.2 `ReleaseCandidateManifestV1`
 
-The generator emits canonical JSON and rejects unknown fields.
+The generator emits canonical JSON, rejects unknown fields and writes an immutable mode-0644 manifest beside the
+ignored archive. Object keys use Unicode-code-point lexical order, arrays preserve the order defined below, strings
+are NFC, integers use base-10 JSON and the UTF-8 output has no insignificant whitespace or trailing newline
+(`canonical-json-v1`). `manifestSha256` is SHA-256 of the canonical object with that field omitted. A verifier
+recomputes it before reading any nested authority.
 
-| Field | Type | Required / validation | Authority and persistence |
-| --- | --- | --- | --- |
-| `schemaVersion` | literal `"1.0"` | Required | Versioned tooling contract |
-| `releaseId` | `lp05-<12 hex>-<platform>` | Derived from source commit and platform | Human-safe candidate name |
-| `sourceCommit` | 40 lowercase hex | Exact clean checked-out HEAD | Git authority |
-| `sourceTree` | 40 lowercase hex | `HEAD^{tree}` | Detects rewritten content |
-| `createdAt` | RFC3339 UTC | Required | Evidence timestamp only |
-| `platform` | `linux/amd64` or `linux/arm64` | Explicit input | Must equal authorized target |
-| `applicationVersion` | `0.1.0+<12 hex>` | Derived | Safe runtime label |
-| `imageName` / `imageId` | safe name / `sha256:<64 hex>` | Exact inspected local image | Runtime authority |
-| `ociArchive` | basename, byte size, SHA-256 | Regular file inside exact ignored output dir | Transfer integrity; no absolute path |
-| `baseImages` | Node, PostgreSQL, Caddy refs and digests | Exact lock-file values; no `latest` | Supply-chain trace |
-| `migrationCatalog` | ordered ID/checksum array | Exactly current three migration definitions | Readiness compatibility |
-| `webAssetsSha256` | SHA-256 | Deterministic digest of built Web tree | Build-content trace |
-| `openapiSha256` | SHA-256 | Current `openapi/lp03.v1.json` | Contract trace |
-| `verification` | command, commit, status | `npm run verify` PASS on same commit | Candidate gate |
-| `syntheticDataOnly` | literal `true` | Required | Public-demo safety declaration |
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `schemaVersion` | literal `"1.0"` | Required | candidate generator | Exact match | Immutable; a future format is a new version, never in-place migration |
+| `manifestSha256` | lowercase SHA-256 | Required/derived | canonical serializer | Recomputed over all other fields | Immutable cross-record identity |
+| `releaseId` | safe string | Required/derived | source commit + platform | `lp05-<12 hex>-<amd64|arm64>` | Human-safe candidate name; cannot be caller-overridden |
+| `sourceCommit` | 40 lowercase hex | Required | clean checked-out Git HEAD | Must exist on feature branch and equal verification commit | Git authority |
+| `sourceTree` | 40 lowercase hex | Required | `HEAD^{tree}` | Re-read from `sourceCommit` | Detects rewritten content |
+| `createdAt` | RFC3339 UTC | Required | candidate generator clock | UTC, no fractional precision beyond milliseconds | Evidence time only |
+| `platform` | enum | Required | operator/CI explicit input | `linux/amd64` or `linux/arm64` | Must equal later authorization target |
+| `applicationVersion` | string | Required/derived | root package version + commit | `0.1.0+<12 hex>` for v0.1 | Safe runtime label |
+| `imageName` | safe OCI local name | Required/derived | generator | Exact `idea-trace-validation:<releaseId>`; never `latest` | Alias only; `imageId` is authority |
+| `imageId` | `sha256:<64 hex>` | Required | container-engine inspect | Loaded/built image ID and expected labels/files match | Exact runtime identity |
+| `ociArchive` | `CandidateArchiveV1` | Required | exported regular file | Closed shape below | Retained with manifest until explicit exact-ID cleanup |
+| `baseImages` | array of `CandidateBaseImageV1` | Required/exactly 3 | committed image lock | Unique ordered roles `builder`, `database`, `proxy` | Supply-chain trace; no floating ref |
+| `migrationCatalog` | ordered array of `{id, sha256, ledger}` | Required/exactly current catalog | repository migration catalog | Safe IDs, lowercase digests, ledger `legacy|feature`, order equals runtime catalog | Frozen readiness compatibility |
+| `webAssetsSha256` | lowercase SHA-256 | Required | canonical built Web tree | Recomputed from sorted relative paths+bytes | Build-content trace |
+| `openapiSha256` | lowercase SHA-256 | Required | current frozen OpenAPI | Exact LP-03 baseline digest | Contract trace |
+| `verification` | `CandidateVerificationV1` | Required | exact-head gate | Closed shape below and `PASS` | No raw log; log digest only |
+| `syntheticDataOnly` | literal `true` | Required | confirmed requirements | Exact match | Public-demo safety declaration |
 
-The manifest contains no host, username, token, cookie, database URL, request body or business private text.
+`CandidateArchiveV1`:
+
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `basename` | safe filename | Required | generator | `<releaseId>.oci.tar`; no slash/dot-segment | Resolved only under exact candidate directory |
+| `sizeBytes` | integer | Required | filesystem stat | `1..10 GiB` bound | Recomputed before transfer/load |
+| `sha256` | lowercase SHA-256 | Required | exact archive bytes | Recomputed before every consume | Transfer integrity |
+| `mediaType` | literal `application/vnd.oci.image.layout.v1+tar` | Required | generator | Exact match | v1 accepts no Docker-save ambiguity |
+
+`CandidateBaseImageV1`:
+
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `role` | enum | Required | image lock | `builder`, `database`, `proxy` | Array order is this enum order |
+| `repository` | string | Required | image lock | Approved registry/repository allowlist | No credentials/userinfo |
+| `versionTag` | string | Required | image lock | Exact non-`latest` version | Human trace only |
+| `digest` | `sha256:<64 hex>` | Required | authoritative registry resolution | Manifest exists for candidate platform | Immutable pull authority |
+| `platform` | platform enum | Required | registry manifest | Equals candidate platform | No implicit host-platform selection |
+
+`CandidateVerificationV1`:
+
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `command` | literal `npm run verify` | Required | repository gate | Exact match | v1 gate identity |
+| `commit` | 40 lowercase hex | Required | Git HEAD at gate start/end | Equals candidate `sourceCommit`; tree remains clean | Prevents stale proof |
+| `status` | literal `PASS` | Required | command exit | Exit 0 and every sub-gate present | No inferred/partial PASS |
+| `completedAt` | RFC3339 UTC | Required | verifier clock | At/after candidate build start | Evidence time |
+| `logSha256` | lowercase SHA-256 | Required | sanitized bounded gate log | Exact secret scan PASS; raw log remains ignored | Digest only in manifest |
+
+The manifest contains no host, username, token, cookie, database URL, request body or business private text. It is
+retained with final deployment evidence until separate explicit archival/deletion authority; failed or superseded
+candidates remain distinguishable and are never silently rewritten to v1.
 
 ## 4. Production Topology And Configuration
 
@@ -190,143 +230,411 @@ Compose output and logs against exact in-memory fixture secrets.
 - Fastify remains the only request-size/schema authority. The proxy must not decompress, rewrite, lower or bypass the
   existing 64 KiB ordinary and 256 KiB report behavior. Boundary smoke asserts the existing API statuses/envelopes.
 
-## 5. Deployment Attempt State Machine
+## 5. Durable Authority Records And Deployment State
 
-### 5.1 Authorized Input Envelope
+### 5.1 Common Record Protocol
 
-Before any external mutation, Main presents an exact proposal containing:
+All LP-05 authority records reject unknown fields and use `canonical-json-v1` from §3.2. A `*Sha256` identity is
+computed over canonical UTF-8 bytes with only that record's own digest field omitted. Records never contain raw
+authorization text, secret paths with usernames, secret values, full database URLs, cookies, response bodies or raw
+logs.
 
-- merge commit, candidate-manifest SHA-256, OCI archive SHA-256/image ID and platform;
-- sanitized target host alias/fingerprint, domain, resolved IPs, OS/runtime versions and approved deploy root;
-- backup root, age recipient fingerprint, retention responsibility and available capacity;
-- explicit confirmation that only LP-04 synthetic data may be publicly readable;
-- exact operations permitted: transfer/load candidate, Compose/migration, backup, HTTPS, smoke and optionally
-  credential rotation;
-- excluded operations: DNS changes unless separately listed, production restore, tags/Releases/packages/registry;
-- rollback image ID and stop conditions.
+Immutable records (`DeploymentAuthorizationEnvelopeV1`, `BackupManifestV1`, `RestoreEvidenceV1`,
+`DeploymentEvidenceV1`) are created once with mode 0600, fsynced and atomically renamed. They are retained through
+feature closure and afterward until separate explicit archival/deletion authorization. A future incompatible schema
+uses a new version and new record ID; no v1 record is silently migrated or rewritten.
 
-Authorization evidence is bound to that envelope. A different target, candidate, domain or operation set requires
-new authorization.
+`DeploymentAttemptV1` is an append-only transition journal plus a current-state projection. Every update appends one
+`AttemptTransitionV1`, recomputes `attemptRecordSha256`, fsyncs and atomically replaces the projection. Existing
+transition entries are byte-equal on every rewrite. Consumers recompute the journal chain before trusting
+`currentState`.
 
-### 5.2 `DeploymentAttemptV1`
+### 5.2 `DeploymentAuthorizationEnvelopeV1`
 
-The controller writes an atomic mode-0600 record below an approved host state directory, not Git/Web/backup roots.
+Main first presents the exact `proposal` object and its `proposalSha256`. The user authorization must identify that
+digest or repeat every candidate/target/operation binding without conflict. Main then creates this immutable
+envelope; requirements confirmation, plan/code approval and merge cannot populate `authorization`.
 
-| Field | Type | Rule |
-| --- | --- | --- |
-| `schemaVersion` | literal `"1.0"` | Reject unknown fields |
-| `attemptId` | safe ID | Unique per authorized attempt |
-| `candidateManifestSha256` / `sourceCommit` / `imageId` | digests/SHA | Exact authorized values |
-| `target` | domain, host fingerprint, platform | Sanitized; no login secret/IP credential |
-| `state` | state enum below | Only legal transitions |
-| `startedAt` / `updatedAt` / `finishedAt` | RFC3339 UTC/null | Monotonic |
-| `previousRelease` | release ID, source commit, image ID or null | Required before replacement |
-| `backupRef` | backup ID, manifest SHA-256 or null | Required after backup gate |
-| `migration` | expected/applied checksum digest, status | No SQL/body output |
-| `health` / `smoke` | bounded assertion summaries | Request IDs/statuses/URLs only; no bodies/secrets |
-| `rollback` | status, previous image ID, reason code | No automatic DB restore |
-| `knownLimitations` | bounded string array | Must include any unproved external condition |
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `schemaVersion` | literal `"1.0"` | Required | controller | Exact match | Immutable v1 |
+| `envelopeId` | `auth_<32 lowercase hex>` | Required/derived | serializer | Prefix + first 32 hex of `envelopeSha256` | Stable human-safe ID |
+| `envelopeSha256` | lowercase SHA-256 | Required/derived | serializer | Recomputed over canonical fields with both digest and derived ID omitted | Cross-record authorization identity |
+| `proposal` | `DeploymentProposalV1` | Required | Main exact proposal | Closed shape below | Immutable authorized operations |
+| `proposalSha256` | lowercase SHA-256 | Required | canonical proposal bytes | Recomputed and equals user-referenced digest | Prevents prose drift |
+| `authorization` | `DeploymentAuthorityV1` | Required | explicit user response | Closed shape below; source task is current Main | Evidence binding only; no raw response |
+| `createdAt` | RFC3339 UTC | Required | Main clock | At/after authorization time | Evidence time |
 
-States and legal forward transitions:
+`DeploymentProposalV1`:
 
-```text
-PREPARED
-  -> PREFLIGHT_PASSED
-  -> BACKUP_VERIFIED
-  -> MIGRATION_SUCCEEDED
-  -> APP_READY
-  -> HTTPS_READY
-  -> SMOKE_PASSED
-  -> DEPLOYED
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `workflowId` / `featureId` | exact IDs | Required | durable Lifecycle | Equal current LP-05 workflow/feature | Prevents cross-feature reuse |
+| `mergeCommitSha` | 40 lowercase hex | Required | authoritative merged Review proof | Exact reviewed/merged LP-05 commit | Exact delivery authority |
+| `candidate` | `{manifestSha256, releaseId, sourceCommit, sourceTree, imageId, archiveSha256, platform}` | Required | verified candidate manifest | Every value byte-equal to candidate; production `sourceCommit` equals `mergeCommitSha` | No post-merge source drift or partial substitution |
+| `target` | `DeploymentTargetV1` | Required | read-only target preflight | Closed shape below | Exact host/domain authority |
+| `backupPolicy` | `BackupPolicyV1` | Required | user + requirements | Closed shape below | Exact backup root/recipient/retention |
+| `operations` | sorted unique operation enum array | Required | Main proposal + user | Subset of `LOAD_CANDIDATE`, `START_DATABASE`, `SAFETY_BACKUP`, `MIGRATE`, `START_APP`, `START_HTTPS`, `INITIAL_SMOKE`, `POST_DEPLOY_BACKUP`, `ISOLATED_RESTORE`, `POST_RESTORE_SMOKE`, optional `ROTATE_CREDENTIALS`, `APP_ROLLBACK`; all except optional rotation required | No implied DNS/DB restore/publication |
+| `excludedOperations` | sorted enum array | Required | confirmed scope | Must include `DNS_CHANGE` unless separately authorized, `PRODUCTION_DB_RESTORE`, `TAG`, `GITHUB_RELEASE`, `PACKAGE_PUBLISH`, `REGISTRY_PUBLISH`, `SKILL_PUBLISH` | Fail closed on ambiguity |
+| `syntheticPublicReadConsent` | literal `true` | Required | explicit user consent | Exact match | Real-data deployment prohibited |
+| `previousRelease` | `ReleaseIdentityV1` or null | Required/default null | target preflight | Null only for proven fresh target | Rollback binding |
+| `toolchain` | `HostToolchainV1` | Required | target preflight | Closed compatibility shape below | Prevents host-version guessing |
+| `proposedAt` | RFC3339 UTC | Required | Main clock | Before authorization | Proposal evidence time |
 
-Any non-terminal state -> FAILED
-FAILED + known previous application -> ROLLING_BACK -> ROLLED_BACK | ROLLBACK_FAILED
+`DeploymentTargetV1`:
+
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `targetId` | `target_<32 hex>` | Required/derived | host fingerprint+domain+deploy root | Recomputed canonical digest prefix | Used by every backup/restore/smoke record |
+| `hostFingerprintSha256` | lowercase SHA-256 | Required | read-only SSH/host-key preflight or local-console host identity | No raw key/login secret | A changed host requires new authorization |
+| `domain` | DNS hostname | Required | user + DNS read | Lowercase IDNA ASCII, no wildcard/userinfo/path | Exact public origin host |
+| `expectedIps` | sorted unique IP array | Required | authoritative DNS read | 1–8 public IPv4/IPv6; no private/loopback | Re-read before mutation/smoke |
+| `platform` | platform enum | Required | host runtime | Equals candidate platform | No emulation as production proof |
+| `os` | `{id, versionId}` | Required | `/etc/os-release` read | Supported allowlist/version | Sanitized host compatibility |
+| `deployRoot` | absolute path | Required | user + preflight | Not `/`, home, repo, Web or backup root; resolved no symlink escape | Only its digest/approved value enters record |
+| `composeProject` | safe string | Required/derived | controller | Exact `idea-validation-prod` unless user authorizes another safe name | Production label identity |
+
+`BackupPolicyV1`:
+
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `backupRoot` | absolute path | Required | user + preflight | Resolved, no symlink escape; distinct from root/home/repo/Web/deploy root | Exact authorized root |
+| `retentionCount` / `schedule` | literal `7` / literal `daily` | Required | requirements | Exact | v1 policy |
+| `ageRecipientFingerprint` | lowercase SHA-256 | Required | public age recipient | Recomputed; private identity absent | Encryption binding |
+| `minimumFreeBytes` | positive integer | Required | user/preflight | At least twice expected backup size and configured floor | Preflight capacity gate |
+| `responsibleOperator` | bounded non-secret label | Required | user | 1–120 chars, no credential/path | Operations ownership only |
+
+`HostToolchainV1`:
+
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `dockerEngineVersion` | semver | Required | `docker version` read | `>=27.5.0 <30.0.0` | Exact attempt compatibility |
+| `composeVersion` | semver | Required | `docker compose version` read | `>=2.32.0 <3.0.0`; legacy standalone rejected | Exact Compose behavior |
+| `ageVersion` | semver | Required | `age --version` read | `>=1.2.0 <2.0.0` | Backup-format compatibility |
+| `dockerInstallationSource` | literal `OFFICIAL_DOCKER_PACKAGE` | Required | package-manager/runtime read | Exact | No unknown engine build |
+| `ageInstallationSource` | enum | Required | package metadata/operator checksum proof | `OS_VENDOR_PACKAGE` or `OFFICIAL_RELEASE_CHECKSUM_VERIFIED` | Auditable install source |
+| `observedAt` | RFC3339 UTC | Required | preflight clock | Same proposal/preflight window | Stale tool facts rejected |
+
+Version parse failure, unsupported source/range, non-Linux host, missing Compose secrets/dependency capability or
+platform mismatch fails preflight with `TOOLCHAIN_UNSUPPORTED`/`COMPOSE_CAPABILITY_MISSING` before mutation.
+
+`DeploymentAuthorityV1`:
+
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `authorizedBy` | bounded string | Required | explicit user response | 1–120 chars; no credential | Human trace label |
+| `sourceThreadId` | task/thread ID | Required | Codex task routing | Exact current Main task | No cross-task authority |
+| `authorizedAt` | RFC3339 UTC | Required | message/runtime clock | At/after proposal | Start window origin |
+| `expiresAt` | RFC3339 UTC | Required | proposal + user authority | After authorization, at most 24 hours | Expired envelope cannot start/resume |
+| `authorizationEvidenceSha256` | lowercase SHA-256 | Required | exact raw user response bytes | Recomputed by Main transport; raw response not persisted here | Evidence binding |
+
+The attempt must start before expiry. One envelope may bind exactly one `attemptId`; terminal failure or target/
+candidate/operation change requires a new proposal and authorization. Interrupted work may resume only under §5.4.
+
+### 5.3 `DeploymentAttemptV1` And Nested Shapes
+
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `schemaVersion` | literal `"1.0"` | Required | controller | Exact match | Append-only v1 journal |
+| `attemptId` | `deploy_<26 safe chars>` | Required/generated once | controller | Unique under target state root | One envelope/one attempt |
+| `attemptRecordSha256` | lowercase SHA-256 | Required/derived | serializer | Recomputed over current projection excluding itself | Detects rewrite/corruption |
+| `envelopeId` / `envelopeSha256` | ID/digest | Required | exact authorization envelope | Byte-equal and envelope unexpired at start | Authorization chain root |
+| `candidate` | `CandidateIdentityV1` | Required | envelope+candidate manifest | All values equal both records | Immutable during attempt |
+| `target` | `DeploymentTargetV1` | Required | envelope | Deep byte equality | Immutable during attempt |
+| `currentState` | state enum | Required/default `PREPARED` | transition projection | Equals last transition `to` | Never caller-written |
+| `startedAt` / `updatedAt` / `finishedAt` | RFC3339/null | Required; `finishedAt` default null | controller clock | Ordered, attempt maximum 4 hours excluding one interruption resume window | Audit time |
+| `resume` | `AttemptResumeV1` | Required/default `{count:0,...null}` | controller/operator | Max count 1; closed shape below | Bounded interrupted recovery |
+| `previousRelease` | `ReleaseIdentityV1` or null | Required | envelope + target read | Byte-equal; null only with fresh-target proof | App rollback authority |
+| `sourceDatabase` | `DatabaseIdentityV1` or null | Required/default null; non-null from `PREFLIGHT_PASSED` | PostgreSQL/Compose read | Closed shape below | Backup source identity |
+| `safetyBackup` | `BackupRefV1`, `FreshTargetProofV1` or null | Required/default null; non-null at `SAFETY_BACKUP_RESOLVED` | backup/preflight | Upgrade requires backup; fresh requires no prior volume/release/data | Pre-migration protection |
+| `migration` | `MigrationEvidenceV1` or null | Default null | migration/readiness reads | Closed shape below | Must match candidate catalog |
+| `initialSmoke` | `SmokeEvidenceRefV1` or null | Default null | external smoke engine | Mode `EXTERNAL_INITIAL`; exact target/candidate | Defines expected synthetic story digest |
+| `postDeployBackup` | `BackupRefV1` or null | Default null | backup command | Purpose `POST_DEPLOY_RECOVERABILITY`; exact attempt/target/source DB | AC 10/16 backup authority |
+| `restoreEvidence` | `RestoreEvidenceRefV1` or null | Default null | isolated restore verifier | Exact post-deploy backup and attempt | AC 10/16 restore authority |
+| `postRestoreSmoke` | `SmokeEvidenceRefV1` or null | Default null | external smoke engine | Mode `EXTERNAL_POST_RESTORE`; story digest equals initial/restore | Final public re-smoke |
+| `rollback` | `RollbackEvidenceV1` | Required/default `NOT_STARTED` | controller | Closed shape below; no DB restore | Failure recovery projection |
+| `transitionLog` | ordered `AttemptTransitionV1[]` | Required/default initial transition | controller | Sequence starts 0, chained hashes, legal graph only, max 64 | Immutable history |
+| `knownLimitations` | unique bounded strings | Default `[]` | controller/operator | Max 20 × 240 chars; cannot excuse missing mandatory proof | Final truth record |
+
+Nested attempt contracts reject unknown fields:
+
+| Object.field(s) | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `CandidateIdentityV1.manifestSha256` / `archiveSha256` | lowercase digests | Required | candidate manifest | Deep-equal verified manifest/envelope | Immutable refs |
+| `.releaseId` / `.sourceCommit` / `.sourceTree` / `.imageId` / `.platform` | candidate identity scalars | Required | candidate manifest | Exact §3.2 validation; production source equals merge | Immutable refs |
+| `ReleaseIdentityV1.releaseId` / `.sourceCommit` / `.imageId` | identity scalars | Required | host release marker + container inspect | All observed independently; no default | Immutable observation |
+| `.configSha256` | lowercase digest | Required | rendered sanitized production config | Recomputed excluding secret values | Rollback/config authority |
+| `DatabaseIdentityV1.targetId` / `.project` | target/safe string | Required | attempt/Compose inspect | Equal authorized target/project | Immutable observation per phase |
+| `.containerId` / `.volumeName` / `.volumeMountId` | safe runtime identities | Required | engine inspect | Existing exact labelled production resources | No caller values |
+| `.systemIdentifier` / `.databaseName` / `.postgresVersion` | numeric string/safe strings | Required | `pg_control_system()`/server read | Expected DB/version; no URL | Exact source DB authority |
+| `.databaseInstanceSha256` | lowercase digest | Required/derived | serializer | Covers target, system, DB name, volume mount | Cross-record DB identity |
+| `MigrationEvidenceV1.catalogSha256` / `.appliedLedgerSha256` | lowercase digests | Required | candidate/runtime ledgers | Recomputed | Immutable phase evidence |
+| `.entries` | ordered `{id,sha256,ledger}[]` | Required | expected+applied catalog | Exactly three; expected/applied byte-equal | v1 catalog order |
+| `.status` / `.verifiedAt` | literal `PASS` / RFC3339 | Required | readiness verifier | PASS only after equality | Immutable phase evidence |
+| `SmokeEvidenceRefV1.smokeId` / `.smokeSha256` | ID/digest | Required | accepted smoke record | Record exists and digest recomputes | Immutable ref |
+| `.mode` / `.targetId` / `.candidateManifestSha256` / `.attemptId` | enums/refs | Required | smoke+attempt | Deep-equal expected phase | No mode coercion |
+| `.observedAt` / `.origin` / `.syntheticStorySha256` / `.resourceIdsSha256` / `.assertionSetSha256` / `.status` | time/origin/digests/literal PASS | Required | smoke record | Closed §7.1 rules | Immutable ref projection |
+| `BackupRefV1.backupId` / `.backupManifestSha256` / `.ciphertextSha256` | ID/digests | Required | backup manifest/file | Exact manifest/file equality | Immutable ref |
+| `.purpose` / `.targetId` / `.databaseInstanceSha256` / `.attemptId` / `.candidateManifestSha256` | enum/refs | Required | backup manifest | Deep-equal expected phase/source | No cross-purpose/attempt reuse |
+| `FreshTargetProofV1.kind` / `.targetId` / `.verifiedAt` | literal `FRESH_TARGET` / ID/time | Required | preflight | Exact target/current time | Immutable safety decision |
+| `.assertions` | exact three PASS IDs | Required | host/engine/DB reads | No prior release marker, production volume label or app data; any contrary fact rejects proof | Cannot replace upgrade backup |
+| `AttemptResumeV1.count` | integer | Required/default `0` | controller | `0..1` | Projection/history traced |
+| `.interruptedState` / `.interruptedAt` / `.reasonCode` / `.lastTransitionSha256` / `.resumedAt` | nullable state/time/code/digest/time | Required/default nulls | controller/external reads | All null at count 0; all non-null and consistent at count 1 | Process interruption only |
+| `RollbackEvidenceV1.status` / `.reasonCode` | enum/code | Required/default `NOT_STARTED`/null | controller | Legal status graph | Projection/history traced |
+| `.previousRelease` / `.readinessSha256` / `.smokeSha256` / `.startedAt` / `.finishedAt` | nullable identity/digests/times | Required/default nulls | inspect/rollback verifier | State-dependent non-null rules; `NOT_APPLICABLE` only fresh+ingress disabled | No DB restore field |
+| `AttemptTransitionV1.sequence` / `.from` / `.to` | integer/states | Required | controller | Starts 0, increments 1, legal §5.4 edge | Append-only max 64 |
+| `.occurredAt` / `.reasonCode` / `.evidenceSha256` / `.previousTransitionSha256` / `.transitionSha256` | time/code/digests | Required; previous null only sequence 0 | controller/oracle | Hash-chain recomputation; evidence mandatory after PREPARED | Immutable journal entry |
+
+### 5.4 Complete External Acceptance State Machine
+
+Pre-migration safety and post-deploy recoverability are distinct. `DEPLOYED` is unreachable until the exact
+post-deploy backup has been restored and the real public service has been re-smoked afterward.
+
+```mermaid
+stateDiagram-v2
+  [*] --> PREPARED
+  PREPARED --> PREFLIGHT_PASSED
+  PREFLIGHT_PASSED --> SAFETY_BACKUP_RESOLVED
+  SAFETY_BACKUP_RESOLVED --> MIGRATION_SUCCEEDED
+  MIGRATION_SUCCEEDED --> APP_READY
+  APP_READY --> HTTPS_READY
+  HTTPS_READY --> INITIAL_SMOKE_PASSED
+  INITIAL_SMOKE_PASSED --> POST_DEPLOY_BACKUP_VERIFIED
+  POST_DEPLOY_BACKUP_VERIFIED --> RESTORE_ENV_READY
+  RESTORE_ENV_READY --> RESTORE_VERIFIED
+  RESTORE_VERIFIED --> PRODUCTION_UNCHANGED_VERIFIED
+  PRODUCTION_UNCHANGED_VERIFIED --> POST_RESTORE_SMOKE_PASSED
+  POST_RESTORE_SMOKE_PASSED --> DEPLOYED
+  PREPARED --> INTERRUPTED
+  PREFLIGHT_PASSED --> INTERRUPTED
+  SAFETY_BACKUP_RESOLVED --> INTERRUPTED
+  MIGRATION_SUCCEEDED --> INTERRUPTED
+  APP_READY --> INTERRUPTED
+  HTTPS_READY --> INTERRUPTED
+  INITIAL_SMOKE_PASSED --> INTERRUPTED
+  POST_DEPLOY_BACKUP_VERIFIED --> INTERRUPTED
+  RESTORE_ENV_READY --> INTERRUPTED
+  RESTORE_VERIFIED --> INTERRUPTED
+  PRODUCTION_UNCHANGED_VERIFIED --> INTERRUPTED
+  POST_RESTORE_SMOKE_PASSED --> INTERRUPTED
+  INTERRUPTED --> RESUMING
+  RESUMING --> PREFLIGHT_PASSED
+  RESUMING --> SAFETY_BACKUP_RESOLVED
+  RESUMING --> MIGRATION_SUCCEEDED
+  RESUMING --> APP_READY
+  RESUMING --> HTTPS_READY
+  RESUMING --> INITIAL_SMOKE_PASSED
+  RESUMING --> POST_DEPLOY_BACKUP_VERIFIED
+  RESUMING --> RESTORE_ENV_READY
+  RESUMING --> RESTORE_VERIFIED
+  RESUMING --> PRODUCTION_UNCHANGED_VERIFIED
+  RESUMING --> POST_RESTORE_SMOKE_PASSED
+  PREPARED --> FAILED
+  PREFLIGHT_PASSED --> FAILED
+  SAFETY_BACKUP_RESOLVED --> FAILED
+  MIGRATION_SUCCEEDED --> FAILED
+  APP_READY --> FAILED
+  HTTPS_READY --> FAILED
+  INITIAL_SMOKE_PASSED --> FAILED
+  POST_DEPLOY_BACKUP_VERIFIED --> FAILED
+  RESTORE_ENV_READY --> FAILED
+  RESTORE_VERIFIED --> FAILED
+  PRODUCTION_UNCHANGED_VERIFIED --> FAILED
+  POST_RESTORE_SMOKE_PASSED --> FAILED
+  FAILED --> ROLLING_BACK
+  ROLLING_BACK --> ROLLED_BACK
+  ROLLING_BACK --> ROLLBACK_FAILED
 ```
 
-Each transition is persisted only after its independent oracle passes. `DEPLOYED` is operational evidence, not
-formal Lifecycle acceptance. The script has bounded timeouts, no unbounded retry, and refuses a second active
-attempt for the same target. An interrupted attempt resumes from persisted facts only after re-validating external
-state; it never repeats migration or claims success from the record alone.
+Every oracle failure is terminal `FAILED`; it is not retried under the same envelope. A process/transport
+interruption may enter `INTERRUPTED` and resume once, within two hours and before the four-hour attempt limit, only
+if the envelope is unexpired at resume and every completed external fact still deep-equals its evidence. The
+controller skips proven idempotent steps, re-runs read-only oracles, and never blindly repeats migration/backup.
+Otherwise a new proposal/authorization/attempt is required.
 
-## 6. Backup, Restore And Rollback
+An upgrade must have a verified `PRE_MIGRATION_SAFETY` backup. A fresh install may use `FreshTargetProofV1` only
+before any production volume/release marker/data exists. After initial external smoke has created or verified the
+LP-04 synthetic story, every attempt creates a new `POST_DEPLOY_RECOVERABILITY` backup from that exact production
+DB. A pre-migration/fresh/old/local/other-target backup can never satisfy the post-deploy state.
 
-### 6.1 Encrypted Backup
+If any phase after app replacement fails, public ingress is disabled before recovery. Upgrade rollback restores the
+previous exact app/config and re-runs readiness/core reads; fresh install keeps DB/backup evidence but leaves Caddy/
+app ingress stopped. A restore failure never invokes production DB restore.
 
-`backup` uses the exact running PostgreSQL container's `pg_dump --format=custom` and streams directly through `age`
-to a same-directory temporary encrypted file under the authorized backup root. It uses `umask 077`, fsync/rename,
-then verifies non-zero size, ciphertext SHA-256, `age` envelope readability and a bounded `pg_restore --list`
-through a decrypt stream. Plaintext is not written to disk.
+## 6. Backup And Isolated Restore Contracts
 
-`BackupManifestV1` records: schema version, backup ID/time, source release/commit/image, database name (not URL),
-PostgreSQL version, migration-catalog digest, ciphertext basename/size/SHA-256, age recipient fingerprint, backup
-command version and verification status. It contains no password, URL, row data or key. Retention deletes only
-verified backup+manifest pairs older than the newest seven, only inside the resolved approved root, and never
-deletes the newly created backup after a failed run.
+### 6.1 `BackupManifestV1`
 
-### 6.2 Isolated Restore Proof
+`pg_dump --format=custom` streams directly through `age` to an atomic encrypted file. Plaintext is never written to
+disk. The immutable manifest is accepted only after ciphertext digest and bounded decrypted `pg_restore --list`
+verification.
 
-Restore requires an explicit backup path, age identity reference and generated Compose project name prefixed
-`lp05-restore-`. The controller rejects the production Compose project name, production DB container/volume labels,
-production domain and any non-loopback app port. It creates a new DB volume, decrypts into `pg_restore`, runs the
-exact candidate migration/readiness, starts an isolated app on loopback and replays only LP-04 public synthetic
-reads. It compares the expected three migration IDs/checksums and selected Idea/project/report IDs from public API
-results.
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `schemaVersion` | literal `"1.0"` | Required | backup command | Exact | Immutable v1 |
+| `backupId` | `backup_<26 safe chars>` | Required/generated | backup command | Unique under backup root | Manifest/ciphertext pair identity |
+| `backupManifestSha256` | lowercase SHA-256 | Required/derived | serializer | Recomputed excluding self | Cross-record identity |
+| `purpose` | enum | Required | attempt phase | `PRE_MIGRATION_SAFETY` or `POST_DEPLOY_RECOVERABILITY` | Purpose cannot be relabelled |
+| `envelopeId` / `attemptId` | exact IDs | Required | attempt | Equal active authorization/attempt | No cross-attempt reuse |
+| `targetId` | exact target ID | Required | attempt target | Deep equality | No local/wrong-target proof |
+| `sourceDatabase` | `DatabaseIdentityV1` | Required | live production DB read | Deep-equals attempt DB identity at backup time | Exact source instance |
+| `sourceRelease` | `ReleaseIdentityV1` | Required | live release marker/container | Post-deploy purpose must equal candidate; safety purpose equals prior release or fresh candidate DB bootstrap state | Version binding |
+| `candidateManifestSha256` | digest | Required | attempt | Equal attempt candidate | Candidate binding |
+| `migrationCatalogSha256` | digest | Required | live readiness/catalog | Equal candidate migration digest for post-deploy backup | Schema binding |
+| `syntheticStorySha256` | digest or null | Required/default null | initial external smoke | Required/equal initial smoke for post-deploy; null for safety backup | Proves demo data timing |
+| `createdAt` | RFC3339 UTC | Required | backup clock | Within active attempt | Freshness |
+| `ciphertext` | `{basename,sizeBytes,sha256}` | Required | atomic encrypted file | Safe basename, positive bounded size, recomputed digest | Retained encrypted pair |
+| `encryption` | `{algorithm,recipientFingerprint}` | Required | age command/policy | Algorithm literal `age-v1`; fingerprint equals envelope policy | No private key field |
+| `tool` | `{pgDumpVersion,ageVersion,format}` | Required | observed binaries | Supported versions; format literal `custom` | Reproducibility |
+| `verification` | `{status,verifiedAt,pgRestoreListSha256}` | Required | bounded decrypt/list oracle | Status literal `PASS`; digest non-empty canonical list | No data body in record |
 
-Cleanup may remove only resources carrying the exact restore attempt labels after the evidence is persisted.
-Production DB/network/volume are inspected before and after and must have unchanged identity. A restore failure
-never falls back to production.
+Retention operates only on verified manifest/ciphertext pairs under the exact authorized root, keeps the newest
+seven, and must retain every pair referenced by an active attempt or final `DeploymentEvidenceV1` even if older.
+Symlink/root/workspace/Web path escape fails. A failed new backup never triggers retention.
 
-### 6.3 Application Rollback
+### 6.2 `RestoreEvidenceV1`
 
-The deploy state captures the previous exact image ID and config digest before replacement. On migration, startup,
-readiness or smoke failure, the operator can restore the previous app image/config, wait for readiness and rerun
-core reads. Additive migrations remain. No automatic down or DB restore occurs. Production DB restore is a separate
-destructive operation requiring a verified pre-deploy backup, demonstrated incompatibility and new explicit
-authorization.
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `schemaVersion` | literal `"1.0"` | Required | restore verifier | Exact | Immutable v1 |
+| `restoreId` | `restore_<26 safe chars>` | Required/generated | controller | Unique and bound to attempt | Evidence identity |
+| `restoreEvidenceSha256` | lowercase SHA-256 | Required/derived | serializer | Recomputed excluding self | Final chain identity |
+| `envelopeId` / `attemptId` / `targetId` | exact IDs | Required | attempt | Deep-equal active records | No stale/local/wrong-target proof |
+| `candidateManifestSha256` | digest | Required | attempt | Equal candidate | Exact runtime |
+| `backup` | `{backupId,backupManifestSha256,ciphertextSha256,purpose}` | Required | post-deploy backup | Purpose literal `POST_DEPLOY_RECOVERABILITY`; all values deep-equal `BackupManifestV1` | Exact backup consume |
+| `sourceDatabaseInstanceSha256` | digest | Required | backup manifest | Equal backup source and attempt production DB | Source trace |
+| `isolatedTarget` | `IsolatedRestoreTargetV1` | Required | restore controller | Closed shape below and distinct from production | Safety boundary |
+| `startedAt` / `finishedAt` | RFC3339 UTC | Required | controller clock | Ordered and within attempt | Fresh proof |
+| `migration` | `MigrationEvidenceV1` | Required | restored DB/app readiness | Equal candidate and production expected catalog | Schema proof |
+| `restoredStory` | `{syntheticStorySha256,resourceIdsSha256,assertionSetSha256,status}` | Required | public loopback reads | Digests equal initial smoke/post-deploy backup; status `PASS` | Core read proof |
+| `productionBefore` / `productionAfter` | `ProductionResourceIdentityV1` | Required | independent inspections | Canonical objects byte-equal | Proves production untouched |
+| `cleanup` | `{status,completedAt,resourceLabelSha256}` | Required | restore controller | PASS only after exact labelled project removal; failure retains diagnostic state safely | No broad cleanup |
+| `status` | literal `PASS` | Required | verifier | Every prior field/oracle PASS | No partial proof |
 
-## 7. Smoke, Rotation And Evidence
+`IsolatedRestoreTargetV1` contains required generated Compose project prefixed `lp05-restore-`, unique DB system
+identifier, volume/container label digests, loopback-only origin, restore DB name ending `_restore`, and target kind
+literal `ISOLATED`. It must differ from production project, DB system identifier, volume/container identity, domain
+and published ports.
 
-### 7.1 Smoke Matrix
+`ProductionResourceIdentityV1` contains target ID, production Compose project, DB container/volume/system/database
+identity, app container/image/config identity, Caddy container/config identity and current release marker digest. It
+contains no status that can be hand-written; every value comes from an independent inspect/read. Before/after
+canonical byte equality is required before `PRODUCTION_UNCHANGED_VERIFIED`.
 
-The same TypeScript smoke engine supports `local` and `external` modes. Local mode uses loopback/internal TLS and
-cannot satisfy public DNS/certificate criteria. External mode requires an HTTPS origin with no userinfo/path/query,
-rejects private/loopback targets unless explicitly running local mode, and performs only declared synthetic actions.
+### 6.3 Cross-record Equality Chain And Restore Flow
 
-| Assertion family | Oracle |
-| --- | --- |
-| Candidate identity | candidate manifest, loaded image ID, container labels, release log marker |
-| Network | only 80/443 published; DB/app/admin/backup paths absent from host listeners |
-| TLS/redirect | HTTP same-host redirect; trusted certificate hostname/validity; TLS and HSTS |
-| Health | live 200; ready 200; controlled DB-unready fixture makes ready/business fail in local test |
-| Security/cache | CSP, content type, frame/referrer, no-store dynamic, no-cache shell, immutable hashed asset |
-| Request boundaries | existing ordinary/report below/above-limit status and error envelope through proxy |
-| Public contract | `/openapi.json`, proposer/executor, project details, confirmation SPA and core public API reads |
-| Synthetic story | exact LP-04 synthetic IDs show Idea pool, project, progress/items, two reports and completion |
-| Secret absence | logs/evidence/history/image/config scan against injected fixture values and secret patterns |
-| Operational state | Compose health/restart counts, disk/certificate/backup status, no failed active attempt |
+```mermaid
+sequenceDiagram
+  participant E as Authorized envelope
+  participant A as Deployment attempt
+  participant P as Production target
+  participant B as Post-deploy backup
+  participant R as Isolated restore
+  E->>A: exact envelope/candidate/target equality
+  A->>P: deploy + initial external smoke
+  P-->>A: initial syntheticStorySha256
+  A->>B: backup exact target DB after initial smoke
+  B-->>A: manifest + ciphertext digests + same story digest
+  A->>R: restore exact post-deploy backup
+  R->>R: migration/catalog + public synthetic core reads
+  R-->>A: RestoreEvidenceV1 with equal story digest
+  A->>P: inspect resources again and compare before/after
+  A->>P: rerun external HTTPS smoke
+  P-->>A: same candidate/target/story + PASS
+  A->>A: verify complete equality chain
+  A-->>E: DEPLOYED + DeploymentEvidenceV1
+```
 
-Smoke output is bounded JSON; failures use stable assertion IDs and sanitized reason codes. It never dumps complete
-response bodies, environment, headers, cookies or database URLs.
+Fail-closed equality requirements:
+
+1. envelope candidate = candidate manifest = attempt candidate = every smoke/backup/restore/final candidate;
+2. envelope target = attempt target; every external record has the same `targetId`;
+3. post-deploy backup `sourceDatabase` = production DB identity after candidate initial smoke;
+4. backup purpose is `POST_DEPLOY_RECOVERABILITY`, attempt/target/candidate equal, and story digest equals initial
+   external smoke; safety/local/old/stale backup is rejected;
+5. restore exact backup IDs/digests equal the accepted manifest/ciphertext and isolated target is provably distinct;
+6. restore migration catalog equals candidate and restored story/resource digests equal initial smoke/backup;
+7. production before/after identities are byte-equal;
+8. post-restore external smoke uses same public target/candidate/attempt and returns the same story digest;
+9. final evidence references the exact digests from steps 1–8 and the final attempt transition.
+
+### 6.4 Application Rollback And Restore Failure
+
+The attempt captures previous exact app/config before replacement. Any oracle failure is terminal and disables public
+ingress. Upgrade rollback restores the prior application, waits for readiness and reruns core reads; additive
+migrations remain. Fresh install stops ingress and preserves the DB and encrypted evidence for diagnosis. No
+automatic down or production DB restore occurs.
+
+Failed isolated restore cleanup resolves only the exact restore labels; its failure cannot connect to or remove
+production resources. Production DB restore is a separate destructive operation requiring a verified safety backup,
+demonstrated incompatibility, a new proposal and explicit authorization outside this deployment attempt.
+
+## 7. Smoke, Rotation And Final Evidence
+
+### 7.1 `SmokeEvidenceV1` And Assertion Matrix
+
+The same engine supports `LOCAL`, `EXTERNAL_INITIAL` and `EXTERNAL_POST_RESTORE`. Local evidence is permanently
+typed `LOCAL` and cannot satisfy either external state. External origins require trusted HTTPS, exact authorized
+domain and current DNS/IP equality.
+
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `schemaVersion` | literal `"1.0"` | Required | smoke engine | Exact | Immutable evidence |
+| `smokeId` / `smokeSha256` | safe ID/digest | Required/derived | serializer | Canonical recomputation | Attempt ref authority |
+| `mode` | enum | Required | attempt state | `LOCAL`, `EXTERNAL_INITIAL`, `EXTERNAL_POST_RESTORE` | Modes never coerce |
+| `attemptId` / `targetId` / `candidateManifestSha256` | exact refs | Required | attempt | Deep equality | No stale proof |
+| `origin` | HTTPS origin | Required | authorization target | External exact domain/no path; local loopback only | Sanitized URL |
+| `observedAt` | RFC3339 UTC | Required | engine clock | Within attempt and after preceding state | Freshness |
+| `certificate` | `{hostname,notBefore,notAfter,issuerSha256,trusted}` | Required external; null local | TLS peer | Exact host, currently valid, trusted literal true | No certificate private material |
+| `syntheticStorySha256` / `resourceIdsSha256` | digests | Required | canonical selected public reads | Same required resource set and bounded fields | Cross-environment story equality |
+| `assertions` | ordered `SmokeAssertionV1[]` | Required | engine | Exact mandatory ID set, unique, all PASS | No omitted checks |
+| `status` | literal `PASS` | Required | verifier | Every required assertion PASS | No hand-written PASS |
+
+`SmokeAssertionV1` contains stable ID, `PASS`, observedAt, optional public request ID, HTTP status or inspected value
+digest, and sanitized reason code. Required IDs cover candidate identity, only 80/443 exposure, redirect/TLS/HSTS,
+live/ready, security/cache headers, request-size contracts, OpenAPI, proposer/executor/project/confirmation routes,
+LP-04 Idea/project/progress/items/two reports/completion, secret absence and operations health. Complete bodies,
+headers, cookies, environment and database URLs are forbidden.
+
+`EXTERNAL_POST_RESTORE` runs only after `RestoreEvidenceV1` PASS and production-unchanged equality. Its candidate,
+target, story/resource digests and mandatory assertion-set digest must equal `EXTERNAL_INITIAL`; only time/request/
+certificate validity observations may differ.
 
 ### 7.2 Credential Rotation
 
-Rotation is a separately selected operation within an authorized deployment envelope. The operator writes new
-secret files atomically, validates AI and human values remain distinct, replaces only app, waits for readiness and:
-
-- uses an existing synthetic idempotent write/replay to prove old AI bearer is 401 and new bearer succeeds;
-- uses an existing synthetic confirmation ID read to prove old human-control token is 401 and new token succeeds;
-- proves neither credential appears in logs or evidence.
-
-If validation fails, the previous secret files are restored atomically and the app is restarted; no confirmation
-decision is made and no capability cookie is exposed to AI tooling.
+Rotation remains an optional separately listed operation. It atomically replaces secret files, keeps AI/human
+values distinct, restarts only app and proves old/new behavior with an existing synthetic AI replay and existing
+confirmation read. Its evidence is an additional ordered smoke assertion set bound to the same attempt. Failure
+restores prior secret files and app, marks the attempt failed and never decides a confirmation or exposes a cookie.
 
 ### 7.3 `DeploymentEvidenceV1`
 
-The final sanitized record includes candidate/source/image digests, target domain and host fingerprint, attempt ID,
-deployment time, migration digest, backup/restore manifest digests, public URL, certificate summary, assertion IDs,
-LP-04 synthetic resource IDs, rollback availability, known limitations and overall `PASS`/`FAIL`. `PASS` requires
-all required external assertions and an isolated restore proof. Evidence stays in the approved host state directory;
-its SHA-256 and bounded sanitized content may be sent to Lifecycle roles. Raw logs and secrets are never committed.
+| Field | Type | Required/default | Owner/source | Validation | Persistence/compatibility |
+| --- | --- | --- | --- | --- | --- |
+| `schemaVersion` | literal `"1.0"` | Required | final verifier | Exact | Immutable v1 |
+| `deploymentEvidenceId` | `deployment_<26 safe chars>` | Required/generated | verifier | Unique | Final record identity |
+| `deploymentEvidenceSha256` | lowercase SHA-256 | Required/derived | serializer | Recomputed excluding self | Lifecycle/user proof digest |
+| `workflowId` / `featureId` / `mergeCommitSha` | exact authority IDs | Required | Lifecycle/envelope | Exact current LP-05/merge | Closure trace |
+| `envelopeId` / `envelopeSha256` / `attemptId` / `attemptRecordSha256` | exact refs | Required | accepted records | Byte-equal final records | Complete authority chain |
+| `candidate` | `CandidateIdentityV1` | Required | attempt | Deep-equal manifest/envelope | Exact deployed build |
+| `target` | `{targetId,domain,hostFingerprintSha256}` | Required | envelope | Deep-equal target | No secret/login data |
+| `migration` | `MigrationEvidenceV1` | Required | attempt | PASS/equal candidate | Schema proof |
+| `initialSmoke` | `SmokeEvidenceRefV1` | Required | external initial smoke | Exact mode/attempt/target/candidate, PASS | Initial public proof |
+| `postDeployBackup` | `BackupRefV1` | Required | exact post-deploy manifest | Correct purpose/story/source equality | Recoverability source |
+| `restoreEvidence` | `RestoreEvidenceRefV1` | Required | exact restore record | PASS and exact backup equality | Isolated recovery proof |
+| `productionUnchangedSha256` | digest | Required | restore before/after canonical identity | Recomputed byte equality digest | Production safety proof |
+| `postRestoreSmoke` | `SmokeEvidenceRefV1` | Required | external re-smoke | PASS/equal initial story and target | AC 16 public recheck |
+| `transitionTailSha256` | digest | Required | attempt journal | Final transition is `POST_RESTORE_SMOKE_PASSED -> DEPLOYED` | No skipped state |
+| `operationsPerformed` | sorted enum array | Required | attempt log | Subset/equal envelope operations actually used | No hidden action |
+| `startedAt` / `completedAt` | RFC3339 UTC | Required | attempt | Ordered | Evidence time |
+| `knownLimitations` | bounded unique strings | Default `[]` | attempt/operator | Cannot include missing mandatory proof | Truth record |
+| `status` | literal `PASS` | Required | final verifier | All equality chain/oracles/states pass | No partial/local/stale PASS |
+
+The final verifier loads records by exact digest from the approved state/backup roots, revalidates canonical bytes,
+journal chain, current live candidate/target and the complete §6.3 equality chain. A hand-written PASS, missing
+post-deploy backup/restore/re-smoke, pre-migration empty backup, local evidence, expired/wrong envelope, stale
+attempt, wrong target/DB/candidate, changed resource digest or missing cleanup/production equality fails before
+`DeploymentEvidenceV1` is emitted.
 
 ## 8. Minimal Operations And Failure Detection
 
@@ -386,17 +694,21 @@ report Schema, LP-04 Skill/fixtures/client evidence, Web product behavior and un
 
 | Layer | Required proof |
 | --- | --- |
-| Unit | manifest/config/path/state transitions, atomic records, retention, redaction, rollback selection |
+| Authority unit | every closed v1 field/default/bound, canonical digest, append-only journal, expiry/single-use and cross-record equality |
+| State model | fresh/upgrade complete graph, one bounded interruption resume, oracle failure terminal, ingress disable and app rollback |
 | Static contract | pinned images, no `latest`, no host DB/app port, non-root/read-only/cap-drop, invalid placeholders |
 | Container | clean build, exact labels/files, non-root UID, read-only root, secret/layer/history absence |
 | Local production acceptance | Compose ordering, migration, readiness, proxy headers/cache/body limits, app rollback |
-| Database safety | encrypted backup, manifest, isolated restore, migration checksum and public synthetic reads |
+| Database safety | safety vs post-deploy backup purpose, encrypted manifest, exact isolated restore, migration/story equality and production unchanged |
 | Rotation | old/new AI and human credentials, distinct secrets, no log leakage |
+| Adversarial evidence | reject expired/wrong envelope, empty/local/stale/wrong-target/DB backup, mismatched restore/story/resources, skipped state and missing re-smoke |
 | Regression | complete `npm run verify`, LP-01–LP-04 acceptance and browser stories |
-| External release | authorized target, trusted HTTPS, smoke, backup/restore, synthetic demo, evidence digest |
+| External release | authorized target, initial trusted HTTPS story, post-deploy backup, exact restore/core reads, production unchanged, public re-smoke, final digest |
 
 Implementation tests use disposable loopback projects and databases with exact safe labels. They never require or
-touch a production target. External assertions remain visibly unproved until the separate authorized release phase.
+touch a production target. Typed local evidence and fixture records test the complete verifier/state graph but can
+never satisfy an external smoke mode or generate a production PASS. External assertions remain visibly unproved
+until the separately authorized release phase.
 
 ## 13. Traceability
 
