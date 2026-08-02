@@ -8,14 +8,17 @@
 - Approved composite digest:
   `24d41fd9b5a5f10e07daa9c2a941f0fe411833663ba9ccb7d1ecc3035cb76f6b`
 - Exact Skill commit: `55fefc83f02ada8a0310bacc7402faf72642d726`
-- Evidence status: ready for Engineering Review on 2026-08-02 (Asia/Shanghai)
+- Evidence status: Cycle 1 findings remediated; ready for exact-head Cycle 2 Engineering Review on
+  2026-08-02 (Asia/Shanghai)
 
 ## Exact-head and status boundary
 
-This record distinguishes implemented automation from external-client acceptance. Both actual
-client records now pass independent evidence verification. The immutable `CodeReviewRequest` and
-PR checks still bind the final commands to the exact PR head. `Ready for Acceptance` is not formal
-acceptance, merge approval or publication authority.
+This record distinguishes implemented automation from external-client acceptance. Cycle 1 Review
+requested changes for client-proof fabrication, child-resource readback and terminal handling of
+`IDEMPOTENCY_IN_PROGRESS`. All three findings are remediated below. Both actual client records now
+pass the strengthened independent verifier. A new immutable `CodeReviewRequest` and PR checks must
+bind the remediation commands to the exact PR head. `Ready for Acceptance` is not formal acceptance,
+merge approval or publication authority.
 
 ## Delivered behavior
 
@@ -28,6 +31,11 @@ acceptance, merge approval or publication authority.
   run record, loopback/environment guards and real HTTP scenario runner.
 - Cross-process crash/restart proof for post-upstream unknown results, same-process dropped-response
   regression, PREPARED recovery, exact body/key replay and public uniqueness reconciliation.
+- Shared exact public-resource verifier for every committed Idea, project, progress update,
+  attention item, Evidence item, conclusion, transition, confirmation and report. Terminal replay
+  performs those reads again and sends zero writes.
+- Bounded `IDEMPOTENCY_IN_PROGRESS` recovery reuses the frozen bytes and key for at most three
+  attempts; exhausted entries remain `OUTCOME_UNKNOWN` and resumable instead of becoming rejected.
 - Separate human facilitator that requires exact manifest binding and explicit synthetic-demo opt-in,
   without writing or printing human-control material.
 - Real-data Chromium story over the production Web build and actual API/database, plus isolation from
@@ -44,7 +52,7 @@ acceptance, merge approval or publication authority.
 | `npm run typecheck` | PASS, including Playwright sources |
 | `npm run build` | PASS; production Web JavaScript 97.35 KiB gzip |
 | `npm run openapi:check` | PASS; LP-01/LP-02 immutable digests and LP-03 current artifact |
-| `npm run test:unit` | PASS; 50/50 |
+| `npm run test:unit` | PASS; 54/54 |
 | `npm run test:contract` | PASS; 23/23, including current management projection |
 | `npm run test:integration` | PASS; 31/31 |
 | `npm run test:acceptance:lp01` | PASS; 2/2 on the isolated database |
@@ -81,13 +89,26 @@ the exact final PR head. The PR check and immutable review request will bind tha
 | Codex | PASS | [`codex-client-proof.json`](./evidence/codex-client-proof.json): actual `codex-cli 0.146.0-alpha.9.2` run, exact Skill tree, unknown-result replay, request/resource IDs, ignored transcript digest and live public re-read |
 | Claude | PASS | [`claude-client-proof.json`](./evidence/claude-client-proof.json): actual Claude Desktop/Claude Code local session, ready-Idea promotion, one execution fact, invalid/corrected report flow, both role views and stop before human confirmation |
 
-Main independently re-read every referenced Idea/project/report through the loopback public API and
-verified the exact Skill tree at commit `55fefc83f02ada8a0310bacc7402faf72642d726` is byte-identical
-to the current tree. The Claude project database projection contains exactly one AI/EXECUTOR progress
-update, exactly one accepted report revision, and zero human confirmations. Its invalid report did
-not create a submission-key or revision row. Both raw transcripts and the authorized minimal Claude
-workspace passed exact-token, live bearer, AWS key and private-key scans; neither transcript is
-committed.
+The verifier reads the operator-supplied raw transcript, checks its exact digest, requires the run,
+request and resource identifiers to occur in that transcript, verifies the exact Skill tree and
+correlates the claimed request IDs with public Idea/project audit history. It then performs exact
+synthetic Idea, project and report reads; arbitrary PASS labels or unrelated live resources fail.
+Main additionally re-read every referenced resource through the loopback public API. The Claude
+projection contains exactly one AI/EXECUTOR progress update, exactly one accepted report revision
+and zero human confirmations. Its invalid report did not create a submission-key or revision row.
+Both raw transcripts and the authorized minimal Claude workspace passed exact-token, live bearer,
+AWS key and private-key scans; neither transcript is committed.
+
+The client-proof database is isolated from the acceptance-test database so the full suite cannot
+erase its evidence. Independent re-verification uses the committed evidence record plus the ignored
+local transcript explicitly:
+
+```bash
+npm run demo:lp04:verify-client -- \
+  --base-url http://127.0.0.1:<proof-port> \
+  --file docs/feature/lp-04-ai-skill-demo/evidence/<client>-client-proof.json \
+  --transcript <ignored-raw-client-transcript.jsonl>
+```
 
 ## Delivery disposition
 
@@ -97,5 +118,6 @@ LP-03 is durably accepted without publication at merge
 `25fd479b6c7663d41920bc50935c5bd1fd5efb7f2d4a3e14252015a889e360f8`, with release targets `[]`.
 
 LP-04 is `Ready for Acceptance`. Its acceptance record is still `None`; no merge, tag, GitHub Release,
-package, deployment or other publication has been performed. Engineering Review must approve the
-exact PR head before any separately authorized merge and later acceptance-only/no-publish closure.
+package, deployment or other publication has been performed. Cycle 1 was not approved. Engineering
+Review must approve the exact remediation head before any separately authorized merge and later
+acceptance-only/no-publish closure.

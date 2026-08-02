@@ -84,3 +84,6 @@
 - Preserve the exact LP-02 migration ledger while tracking LP-03 in a strict
   feature ledger, so the accepted LP-02 binary remains a tested application
   rollback target after the additive upgrade.
+- Bind LP-04 client proof to the exact raw transcript, public request history
+  and exact synthetic resources; require per-child public readback and preserve
+  resumable journal state after bounded `IDEMPOTENCY_IN_PROGRESS` retries.

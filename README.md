@@ -4,8 +4,9 @@ LP-01～LP-03 组成当前已验收的可运行纵向切片：登记和澄清 Id
 Web 读取同一份 PostgreSQL 权威数据。汇报只负责展示，不能覆盖项目状态、确认或审计事实。
 
 LP-04 正在增加仓库版本化 AI
-Skill、只使用合成数据的确定性真实 HTTP 演示、崩溃恢复证据和真实数据浏览器故事。实际 Codex/Claude 客户端证据尚未全部通过，因此 LP-04 仍为
-`In Progress`，不能写成已验收兼容。生产部署属于 LP-05，不在当前实现范围。
+Skill、只使用合成数据的确定性真实 HTTP 演示、崩溃恢复证据和真实数据浏览器故事。实际 Codex/Claude 客户端证据已通过加强后的 transcript、公开审计和资源读回验证；LP-04 当前为
+`Ready for Acceptance`，但 Cycle 2
+Review、合并和正式验收尚未完成。生产部署属于 LP-05，不在当前实现范围。
 
 ## 运行要求
 
@@ -167,4 +168,5 @@ TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/ide
 [LP-02 verification](./docs/feature/lp-02-execution-decisions/verification.md)
 与
 [LP-03 verification](./docs/feature/lp-03-reporting-role-experience/verification.md)。LP-04 的进行中证据见
-[LP-04 verification](./docs/feature/lp-04-ai-skill-demo/verification.md)；其中明确区分自动化通过与尚未完成的实际客户端门禁。
+[LP-04 verification](./docs/feature/lp-04-ai-skill-demo/verification.md)；其中明确区分客户端证据通过、Engineering
+Review 批准、合并与正式验收。

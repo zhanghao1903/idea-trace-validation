@@ -304,6 +304,32 @@ describe("LP-04 real HTTP demo and recovery", () => {
         skillCommitSha,
       });
       expect(verified.requestCount).toBeGreaterThan(10);
+      const terminalReads: string[] = [];
+      let terminalWrites = 0;
+      const terminalRunner = await DemoScenarioRunner.create({
+        repoRoot,
+        proofRoot,
+        baseOrigin: proxyOrigin,
+        runId,
+        skillCommitSha,
+        aiToken,
+        fetchImpl: async (url, init) => {
+          if ((init?.method ?? "GET") === "POST") terminalWrites += 1;
+          else terminalReads.push(new URL(String(url)).pathname);
+          return fetch(url, init);
+        },
+      });
+      await expect(terminalRunner.run()).resolves.toMatchObject({
+        phase: "VERIFIED",
+        result: "PASS",
+      });
+      expect(terminalWrites).toBe(0);
+      expect(terminalReads).toContainEqual(
+        expect.stringMatching(/\/reports\/current$/u),
+      );
+      expect(terminalReads).toContainEqual(
+        expect.stringMatching(/\/progress-updates$/u),
+      );
       const governed = await loadCommittedEntry({
         proofRoot,
         runId,

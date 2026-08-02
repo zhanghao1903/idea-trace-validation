@@ -5,8 +5,40 @@ import path from "node:path";
 import type { ClientValidationRecordV1 } from "./contracts.js";
 import { normalizeLoopbackOrigin } from "./environment.js";
 import { readJson } from "./http-client.js";
+import { exactValuePresent } from "./public-verification.js";
 import { sha256 } from "./request-identity.js";
 import { assertSanitizedEvidence } from "./security.js";
+
+const expectedChecks = {
+  CODEX: [
+    "exact-skill-loaded",
+    "unknown-result-replayed",
+    "exact-body-key-reused",
+    "live-idea-read-reconciled",
+    "proposer-collection-unique",
+    "human-boundary-respected",
+    "transcript-secret-scan",
+  ],
+  CLAUDE: [
+    "exact-skill-loaded",
+    "ready-idea-read",
+    "promotion-attribution",
+    "single-execution-fact",
+    "invalid-report-rejected",
+    "report-remained-empty",
+    "corrected-report-accepted",
+    "proposer-experience-reconciled",
+    "executor-experience-reconciled",
+    "database-authority-reconciled",
+    "human-boundary-respected",
+    "transcript-secret-scan",
+  ],
+} as const;
+
+const expectedResourceKeys = {
+  CODEX: ["ideaId"],
+  CLAUDE: ["ideaId", "projectId", "reportId"],
+} as const;
 
 const object = (value: unknown, code: string): Record<string, unknown> => {
   if (typeof value !== "object" || value === null || Array.isArray(value))
@@ -113,6 +145,25 @@ export const parseClientValidationRecord = (
       result: "PASS" as const,
     };
   });
+  const client = input.client as "CODEX" | "CLAUDE";
+  const checkIds = objectiveChecks.map((check) => check.id);
+  if (
+    new Set(checkIds).size !== checkIds.length ||
+    checkIds.length !== expectedChecks[client].length ||
+    expectedChecks[client].some((check) => !checkIds.includes(check))
+  )
+    throw new Error("CLIENT_EVIDENCE_OBJECTIVES");
+  const resourceKeys = Object.keys(resourceRefs).sort();
+  if (
+    resourceKeys.length !== expectedResourceKeys[client].length ||
+    expectedResourceKeys[client].some((key) => !resourceKeys.includes(key))
+  )
+    throw new Error("CLIENT_EVIDENCE_RESOURCE_SHAPE");
+  if (
+    (client === "CODEX" && input.executionMode !== "CLI") ||
+    (client === "CLAUDE" && input.executionMode !== "DESKTOP")
+  )
+    throw new Error("CLIENT_EVIDENCE_MODE");
   const record: ClientValidationRecordV1 = {
     schemaVersion: "1.0",
     client: input.client,
@@ -146,13 +197,134 @@ const skillTree = (repoRoot: string, revision: string): string =>
     { cwd: repoRoot, encoding: "utf8" },
   ).trim();
 
+const auditRequestIds = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.flatMap(auditRequestIds);
+  if (typeof value !== "object" || value === null) return [];
+  const input = value as Record<string, unknown>;
+  const own =
+    typeof input.requestId === "string" &&
+    typeof input.aggregateId === "string" &&
+    typeof input.eventType === "string"
+      ? [input.requestId]
+      : [];
+  return [...own, ...Object.values(input).flatMap(auditRequestIds)];
+};
+
+const assertTranscriptEnvelope = (
+  record: ClientValidationRecordV1,
+  transcriptText: string,
+): void => {
+  const lines = transcriptText.trim().split("\n");
+  if (lines.length === 0 || lines.length > 10_000)
+    throw new Error("CLIENT_EVIDENCE_TRANSCRIPT_ENVELOPE");
+  const events = lines.map((line) => {
+    try {
+      return object(
+        JSON.parse(line) as unknown,
+        "CLIENT_EVIDENCE_TRANSCRIPT_ENVELOPE",
+      );
+    } catch {
+      throw new Error("CLIENT_EVIDENCE_TRANSCRIPT_ENVELOPE");
+    }
+  });
+  const started = Date.parse(record.startedAt);
+  const finished = Date.parse(record.finishedAt);
+  const hasBoundedEvent = events.some((event) => {
+    const timestamp = event.timestamp;
+    if (typeof timestamp !== "string") return false;
+    const observed = Date.parse(timestamp);
+    return (
+      Number.isFinite(observed) && observed >= started && observed <= finished
+    );
+  });
+  const hasClientEnvelope = events.some((event) => {
+    if (record.client === "CODEX") {
+      if (event.type !== "session_meta") return false;
+      const payload = event.payload;
+      if (
+        typeof payload !== "object" ||
+        payload === null ||
+        Array.isArray(payload)
+      )
+        return false;
+      const version = (payload as Record<string, unknown>).cli_version;
+      const sessionId = (payload as Record<string, unknown>).session_id;
+      return (
+        typeof version === "string" &&
+        record.clientVersion.includes(version) &&
+        typeof sessionId === "string" &&
+        sessionId.length > 0
+      );
+    }
+    const version = event.version;
+    return (
+      (event.type === "user" || event.type === "assistant") &&
+      typeof version === "string" &&
+      record.clientVersion.includes(version) &&
+      typeof event.sessionId === "string" &&
+      event.sessionId.length > 0
+    );
+  });
+  if (!hasBoundedEvent || !hasClientEnvelope)
+    throw new Error("CLIENT_EVIDENCE_TRANSCRIPT_ENVELOPE");
+};
+
+const readProjectAuditIds = async (input: {
+  baseOrigin: string;
+  projectId: string;
+  fetchImpl?: typeof fetch | undefined;
+}): Promise<string[]> => {
+  const ids: string[] = [];
+  let cursor: string | undefined;
+  const seen = new Set<string>();
+  for (let pageNumber = 0; pageNumber < 100; pageNumber += 1) {
+    const query = new URLSearchParams({ limit: "100" });
+    if (cursor !== undefined) query.set("cursor", cursor);
+    const response = await readJson({
+      baseOrigin: input.baseOrigin,
+      path: `/api/v1/projects/${input.projectId}/history?${query.toString()}`,
+      fetchImpl: input.fetchImpl,
+    });
+    if (response.status !== 200)
+      throw new Error(`CLIENT_EVIDENCE_HISTORY:${input.projectId}`);
+    ids.push(...auditRequestIds(response.json));
+    const data = object(response.json.data, "CLIENT_EVIDENCE_HISTORY");
+    const page = object(data.page, "CLIENT_EVIDENCE_HISTORY");
+    if (page.nextCursor === null) return ids;
+    if (
+      typeof page.nextCursor !== "string" ||
+      page.nextCursor.length === 0 ||
+      seen.has(page.nextCursor)
+    )
+      throw new Error(`CLIENT_EVIDENCE_HISTORY_CURSOR:${input.projectId}`);
+    seen.add(page.nextCursor);
+    cursor = page.nextCursor;
+  }
+  throw new Error(`CLIENT_EVIDENCE_HISTORY_LIMIT:${input.projectId}`);
+};
+
 export const verifyClientEvidence = async (input: {
   repoRoot: string;
   baseOrigin: string;
+  transcriptFile: string;
   value: unknown;
   fetchImpl?: typeof fetch | undefined;
 }): Promise<ClientValidationRecordV1> => {
   const record = parseClientValidationRecord(input.value);
+  const transcript = await readFile(input.transcriptFile);
+  if (sha256(transcript) !== record.rawTranscriptSha256)
+    throw new Error("CLIENT_EVIDENCE_TRANSCRIPT_DIGEST");
+  const transcriptText = transcript.toString("utf8");
+  assertSanitizedEvidence(transcriptText, [], 8_388_608);
+  assertTranscriptEnvelope(record, transcriptText);
+  for (const expected of [
+    record.runId,
+    ...record.requestIds,
+    ...Object.values(record.resourceRefs),
+  ]) {
+    if (!transcriptText.includes(expected))
+      throw new Error(`CLIENT_EVIDENCE_TRANSCRIPT_BINDING:${expected}`);
+  }
   execFileSync(
     "git",
     ["merge-base", "--is-ancestor", record.skillCommitSha, "HEAD"],
@@ -166,7 +338,7 @@ export const verifyClientEvidence = async (input: {
     skillTree(input.repoRoot, "HEAD")
   )
     throw new Error("CLIENT_EVIDENCE_SKILL_TREE");
-  const projectBodies: string[] = [];
+  const authoritativeRequestIds = new Set<string>();
   for (const id of Object.values(record.resourceRefs)) {
     const route = id.startsWith("idea_")
       ? `/api/v1/ideas/${id}`
@@ -180,34 +352,52 @@ export const verifyClientEvidence = async (input: {
       fetchImpl: input.fetchImpl,
     });
     const body = JSON.stringify(response.json);
-    if (response.status !== 200 || !body.includes(id))
+    if (response.status !== 200 || !exactValuePresent(response.json, id))
       throw new Error(`CLIENT_EVIDENCE_RESOURCE:${id}`);
     if (!body.includes("SYNTHETIC_DEMO_DATA"))
       throw new Error(`CLIENT_EVIDENCE_NOT_SYNTHETIC:${id}`);
-    if (id.startsWith("proj_")) projectBodies.push(body);
+    if (id.startsWith("idea_")) {
+      const ids = auditRequestIds(response.json);
+      if (!ids.some((requestId) => record.requestIds.includes(requestId)))
+        throw new Error(`CLIENT_EVIDENCE_IDEA_HISTORY:${id}`);
+      ids.forEach((requestId) => authoritativeRequestIds.add(requestId));
+    }
+    if (id.startsWith("proj_")) {
+      const ids = await readProjectAuditIds({
+        baseOrigin: input.baseOrigin,
+        projectId: id,
+        fetchImpl: input.fetchImpl,
+      });
+      if (!ids.some((requestId) => record.requestIds.includes(requestId)))
+        throw new Error(`CLIENT_EVIDENCE_PROJECT_HISTORY:${id}`);
+      ids.forEach((requestId) => authoritativeRequestIds.add(requestId));
+    }
   }
   for (const id of Object.values(record.resourceRefs).filter((value) =>
     value.startsWith("rpt_"),
   )) {
-    if (!projectBodies.some((body) => body.includes(id))) {
-      let found = false;
-      for (const projectId of Object.values(record.resourceRefs).filter(
-        (value) => value.startsWith("proj_"),
-      )) {
-        const response = await readJson({
-          baseOrigin: input.baseOrigin,
-          path: `/api/v1/projects/${projectId}/reports/current`,
-          fetchImpl: input.fetchImpl,
-        });
-        if (
-          response.status === 200 &&
-          JSON.stringify(response.json).includes(id)
-        )
-          found = true;
-      }
-      if (!found) throw new Error(`CLIENT_EVIDENCE_REPORT:${id}`);
-    }
+    const projectId = record.resourceRefs.projectId;
+    if (projectId === undefined)
+      throw new Error(`CLIENT_EVIDENCE_REPORT_PROJECT:${id}`);
+    const response = await readJson({
+      baseOrigin: input.baseOrigin,
+      path: `/api/v1/projects/${projectId}/reports/current`,
+      fetchImpl: input.fetchImpl,
+    });
+    const body = JSON.stringify(response.json);
+    if (
+      response.status !== 200 ||
+      !exactValuePresent(response.json, id) ||
+      !body.includes("SYNTHETIC_DEMO_DATA")
+    )
+      throw new Error(`CLIENT_EVIDENCE_REPORT:${id}`);
   }
+  if (
+    !record.requestIds.some((requestId) =>
+      authoritativeRequestIds.has(requestId),
+    )
+  )
+    throw new Error("CLIENT_EVIDENCE_REQUEST_AUTHORITY");
   return record;
 };
 
@@ -225,6 +415,7 @@ if (process.argv[1]?.endsWith("verify-client-evidence.ts") === true) {
   const record = await verifyClientEvidence({
     repoRoot,
     baseOrigin: normalizeLoopbackOrigin(argument("--base-url")),
+    transcriptFile: path.resolve(argument("--transcript")),
     value: JSON.parse(await readFile(file, "utf8")),
   });
   console.log(

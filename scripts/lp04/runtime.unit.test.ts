@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -6,7 +7,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { canonicalJson } from "./canonical-json.js";
 import { parseManifest } from "./contracts.js";
 import { loadDemoEnvironment, normalizeLoopbackOrigin } from "./environment.js";
-import { executeStoredEntry } from "./http-client.js";
+import {
+  executeStoredEntry,
+  executeStoredEntryWithInProgressRetry,
+  resolveExecutedEntry,
+} from "./http-client.js";
 import {
   assertJournalBinding,
   createPreparedEntry,
@@ -17,6 +22,7 @@ import {
   writeJournalEntry,
 } from "./request-journal.js";
 import { collectCursorPages } from "./pagination.js";
+import { verifyPublicResources } from "./public-verification.js";
 import { deriveRequestId, sha256 } from "./request-identity.js";
 import {
   createRunRecord,
@@ -28,7 +34,10 @@ import {
 import { assertSanitizedEvidence } from "./security.js";
 import { expandTemplate, loadScenarioAssets } from "./scenario.js";
 import { assertStructuredReport } from "./structured-report.js";
-import { parseClientValidationRecord } from "./verify-client-evidence.js";
+import {
+  parseClientValidationRecord,
+  verifyClientEvidence,
+} from "./verify-client-evidence.js";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const temporaryRoots: string[] = [];
@@ -350,7 +359,15 @@ describe("LP-04 deterministic runtime contracts", () => {
       requestIds: ["req_01ARZ3NDEKTSV4RRFFQ69G5FAV"],
       resourceRefs: { ideaId: "idea_01ARZ3NDEKTSV4RRFFQ69G5FAV" },
       webPaths: ["/ideas/idea_01ARZ3NDEKTSV4RRFFQ69G5FAV"],
-      objectiveChecks: [{ id: "live-read", result: "PASS" }],
+      objectiveChecks: [
+        { id: "exact-skill-loaded", result: "PASS" },
+        { id: "unknown-result-replayed", result: "PASS" },
+        { id: "exact-body-key-reused", result: "PASS" },
+        { id: "live-idea-read-reconciled", result: "PASS" },
+        { id: "proposer-collection-unique", result: "PASS" },
+        { id: "human-boundary-respected", result: "PASS" },
+        { id: "transcript-secret-scan", result: "PASS" },
+      ],
       result: "PASS",
     } as const;
     const evidenceSha256 = sha256(assertSanitizedEvidence(digestInput));
@@ -360,9 +377,355 @@ describe("LP-04 deterministic runtime contracts", () => {
     expect(() =>
       parseClientValidationRecord({
         ...digestInput,
-        client: "CLAUDE",
+        observedBy: "different observer",
         evidenceSha256,
       }),
     ).toThrow("CLIENT_EVIDENCE_DIGEST");
+  });
+
+  it("gates both committed client records with mandatory objective sets", async () => {
+    for (const file of [
+      "codex-client-proof.json",
+      "claude-client-proof.json",
+    ]) {
+      const value = JSON.parse(
+        await readFile(
+          path.join(
+            repoRoot,
+            "docs/feature/lp-04-ai-skill-demo/evidence",
+            file,
+          ),
+          "utf8",
+        ),
+      ) as unknown;
+      expect(parseClientValidationRecord(value).result).toBe("PASS");
+    }
+  });
+
+  it("binds client PASS to the exact transcript, request history and resource", async () => {
+    const proofRoot = await temporaryRoot();
+    const transcriptFile = path.join(proofRoot, "transcript.jsonl");
+    const requestId = "req_01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    const ideaId = "idea_01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    const transcript = `${JSON.stringify({
+      timestamp: "2026-08-01T00:00:30.000Z",
+      type: "session_meta",
+      payload: {
+        session_id: "codex-test-session",
+        cli_version: "codex-test",
+      },
+    })}\n${JSON.stringify({
+      timestamp: "2026-08-01T00:00:31.000Z",
+      type: "event_msg",
+      payload: { runId: "codex-proof", requestId, ideaId },
+    })}\n`;
+    await writeFile(transcriptFile, transcript);
+    const digestInput = {
+      schemaVersion: "1.0",
+      client: "CODEX",
+      clientVersion: "codex-test",
+      executionMode: "CLI",
+      observedBy: "LP-04 acceptance",
+      skillCommitSha: execFileSync("git", ["rev-parse", "HEAD"], {
+        cwd: repoRoot,
+        encoding: "utf8",
+      }).trim(),
+      runId: "codex-proof",
+      inputIntent: "SYNTHETIC_DEMO_DATA create and read one Idea",
+      startedAt: "2026-08-01T00:00:00.000Z",
+      finishedAt: "2026-08-01T00:01:00.000Z",
+      rawTranscriptSha256: sha256(transcript),
+      requestIds: [requestId],
+      resourceRefs: { ideaId },
+      webPaths: [`/ideas/${ideaId}`],
+      objectiveChecks: [
+        { id: "exact-skill-loaded", result: "PASS" },
+        { id: "unknown-result-replayed", result: "PASS" },
+        { id: "exact-body-key-reused", result: "PASS" },
+        { id: "live-idea-read-reconciled", result: "PASS" },
+        { id: "proposer-collection-unique", result: "PASS" },
+        { id: "human-boundary-respected", result: "PASS" },
+        { id: "transcript-secret-scan", result: "PASS" },
+      ],
+      result: "PASS",
+    } as const;
+    const value = {
+      ...digestInput,
+      evidenceSha256: sha256(assertSanitizedEvidence(digestInput)),
+    };
+    const fetchImpl: typeof fetch = async (url) => {
+      expect(String(url)).toContain(`/api/v1/ideas/${ideaId}`);
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          data: {
+            idea: {
+              authority: {
+                id: ideaId,
+                intentSummary: "SYNTHETIC_DEMO_DATA proof",
+              },
+              history: [
+                {
+                  aggregateId: ideaId,
+                  eventType: "IDEA_CREATED",
+                  requestId,
+                },
+              ],
+            },
+          },
+          meta: { requestId: "req_01ARZ3NDEKTSV4RRFFQ69G5FAW" },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value,
+        fetchImpl,
+      }),
+    ).resolves.toMatchObject({ client: "CODEX", resourceRefs: { ideaId } });
+
+    const arbitraryChecksInput = {
+      ...digestInput,
+      objectiveChecks: [
+        ...digestInput.objectiveChecks.slice(0, -1),
+        { id: "invented-check", result: "PASS" as const },
+      ],
+    };
+    expect(() =>
+      parseClientValidationRecord({
+        ...arbitraryChecksInput,
+        evidenceSha256: sha256(assertSanitizedEvidence(arbitraryChecksInput)),
+      }),
+    ).toThrow("CLIENT_EVIDENCE_OBJECTIVES");
+
+    const unrelatedIdeaId = "idea_01ARZ3NDEKTSV4RRFFQ69G5FAW";
+    const unrelatedResourceInput = {
+      ...digestInput,
+      resourceRefs: { ideaId: unrelatedIdeaId },
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...unrelatedResourceInput,
+          evidenceSha256: sha256(
+            assertSanitizedEvidence(unrelatedResourceInput),
+          ),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow(`CLIENT_EVIDENCE_TRANSCRIPT_BINDING:${unrelatedIdeaId}`);
+
+    const unrelatedRequestId = "req_01ARZ3NDEKTSV4RRFFQ69G5FAX";
+    const unrelatedTranscript = `${JSON.stringify({
+      timestamp: "2026-08-01T00:00:30.000Z",
+      type: "session_meta",
+      payload: {
+        session_id: "codex-test-session",
+        cli_version: "codex-test",
+      },
+    })}\n${JSON.stringify({
+      timestamp: "2026-08-01T00:00:31.000Z",
+      type: "event_msg",
+      payload: {
+        runId: "codex-proof",
+        requestId: unrelatedRequestId,
+        ideaId,
+      },
+    })}\n`;
+    await writeFile(transcriptFile, unrelatedTranscript);
+    const unrelatedInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(unrelatedTranscript),
+      requestIds: [unrelatedRequestId],
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...unrelatedInput,
+          evidenceSha256: sha256(assertSanitizedEvidence(unrelatedInput)),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow(`CLIENT_EVIDENCE_IDEA_HISTORY:${ideaId}`);
+    await writeFile(transcriptFile, "different transcript");
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value,
+        fetchImpl,
+      }),
+    ).rejects.toThrow("CLIENT_EVIDENCE_TRANSCRIPT_DIGEST");
+  });
+
+  it("re-reads exact report and execution children and rejects mismatches", async () => {
+    const projectId = "proj_01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    const reportId = "rpt_01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    const progressId = "prog_01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    const paths: string[] = [];
+    const fetchImpl: typeof fetch = async (url) => {
+      const pathname = new URL(String(url)).pathname;
+      paths.push(pathname);
+      if (pathname.endsWith("/reports/current"))
+        return new Response(JSON.stringify({ data: { projectId, reportId } }), {
+          status: 200,
+        });
+      if (pathname.endsWith("/progress-updates"))
+        return new Response(
+          JSON.stringify({
+            data: {
+              items: [{ id: progressId }],
+              page: { nextCursor: null },
+            },
+          }),
+          { status: 200 },
+        );
+      return new Response(
+        JSON.stringify({ data: { project: { id: projectId } } }),
+        {
+          status: 200,
+        },
+      );
+    };
+    await expect(
+      verifyPublicResources({
+        baseOrigin: "http://127.0.0.1:3000",
+        resourceRefs: { activeProjectId: projectId, activeReportId: reportId },
+        fetchImpl,
+      }),
+    ).resolves.toEqual({ readCount: 2 });
+    await expect(
+      verifyPublicResources({
+        baseOrigin: "http://127.0.0.1:3000",
+        resourceRefs: {
+          activeProjectId: projectId,
+          activeProgressId: progressId,
+        },
+        fetchImpl,
+      }),
+    ).resolves.toEqual({ readCount: 2 });
+    expect(paths).toContain(`/api/v1/projects/${projectId}/reports/current`);
+    expect(paths).toContain(`/api/v1/projects/${projectId}/progress-updates`);
+    await expect(
+      verifyPublicResources({
+        baseOrigin: "http://127.0.0.1:3000",
+        resourceRefs: {
+          activeProjectId: projectId,
+          activeProgressId: "prog_01ARZ3NDEKTSV4RRFFQ69G5FAW",
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow("PUBLIC_VERIFY_MISSING");
+  });
+
+  it("retries IDEMPOTENCY_IN_PROGRESS with exact bytes and keeps exhaustion unresolved", async () => {
+    const proofRoot = await temporaryRoot();
+    const entry = createPreparedEntry({
+      runId: "retry-proof",
+      stepId: "create-idea",
+      semanticAttempt: 0,
+      path: "/api/v1/ideas",
+      body: { marker: "SYNTHETIC_DEMO_DATA" },
+      manifestSha256: "6".repeat(64),
+      skillCommitSha: "7".repeat(40),
+    });
+    await writeJournalEntry(proofRoot, entry);
+    const sends: { body: string; key: string }[] = [];
+    let responseNumber = 0;
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      sends.push({
+        body: String(init?.body),
+        key: new Headers(init?.headers).get("idempotency-key") ?? "",
+      });
+      responseNumber += 1;
+      if (responseNumber === 1)
+        return new Response(
+          JSON.stringify({
+            error: {
+              code: "IDEMPOTENCY_IN_PROGRESS",
+              retryable: true,
+              details: { retryAfterMs: 1, recovery: "RETRY_SAME_KEY" },
+            },
+            meta: { requestId: "req_wait" },
+          }),
+          { status: 409 },
+        );
+      return new Response(
+        JSON.stringify({ data: {}, meta: { requestId: "req_done" } }),
+        { status: 201 },
+      );
+    };
+    const recovered = await executeStoredEntryWithInProgressRetry({
+      proofRoot,
+      entry,
+      baseOrigin: "http://127.0.0.1:3000",
+      aiToken: "a".repeat(32),
+      fetchImpl,
+      sleepImpl: async () => undefined,
+    });
+    const committed = await resolveExecutedEntry({
+      proofRoot,
+      entry: recovered.entry,
+      response: recovered.response,
+      accepted: true,
+    });
+    expect(committed.state).toBe("COMMITTED");
+    expect(sends).toHaveLength(2);
+    expect(new Set(sends.map((send) => send.body))).toEqual(
+      new Set([entry.canonicalBody]),
+    );
+    expect(new Set(sends.map((send) => send.key))).toEqual(
+      new Set([entry.idempotencyKey]),
+    );
+
+    const exhaustedRoot = await temporaryRoot();
+    await writeJournalEntry(exhaustedRoot, entry);
+    let attempts = 0;
+    await expect(
+      executeStoredEntryWithInProgressRetry({
+        proofRoot: exhaustedRoot,
+        entry,
+        baseOrigin: "http://127.0.0.1:3000",
+        aiToken: "a".repeat(32),
+        fetchImpl: async (_url, init) => {
+          attempts += 1;
+          expect(String(init?.body)).toBe(entry.canonicalBody);
+          expect(new Headers(init?.headers).get("idempotency-key")).toBe(
+            entry.idempotencyKey,
+          );
+          return new Response(
+            JSON.stringify({
+              error: {
+                code: "IDEMPOTENCY_IN_PROGRESS",
+                retryable: true,
+                details: { retryAfterMs: 1, recovery: "RETRY_SAME_KEY" },
+              },
+              meta: { requestId: "req_wait" },
+            }),
+            { status: 409 },
+          );
+        },
+        sleepImpl: async () => undefined,
+      }),
+    ).rejects.toThrow("IDEMPOTENCY_IN_PROGRESS_EXHAUSTED:create-idea");
+    expect(attempts).toBe(3);
+    expect(
+      (
+        await readJournalEntry(
+          journalPath(exhaustedRoot, "retry-proof", "create-idea", 0),
+        )
+      ).state,
+    ).toBe("OUTCOME_UNKNOWN");
   });
 });

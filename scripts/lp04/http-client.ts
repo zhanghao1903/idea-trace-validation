@@ -18,6 +18,31 @@ export interface HttpJsonResponse {
   observation: SanitizedObservation;
 }
 
+const errorCode = (response: HttpJsonResponse): string | null => {
+  const error = asObject(response.json.error);
+  return typeof error.code === "string" ? error.code : null;
+};
+
+const inProgressDelay = (response: HttpJsonResponse): number | null => {
+  if (
+    response.status !== 409 ||
+    errorCode(response) !== "IDEMPOTENCY_IN_PROGRESS"
+  )
+    return null;
+  const error = asObject(response.json.error);
+  const details = asObject(error.details);
+  const retryAfterMs = details.retryAfterMs;
+  if (
+    error.retryable !== true ||
+    details.recovery !== "RETRY_SAME_KEY" ||
+    !Number.isSafeInteger(retryAfterMs) ||
+    Number(retryAfterMs) < 1 ||
+    Number(retryAfterMs) > 1_000
+  )
+    throw new Error("IDEMPOTENCY_RETRY_AFTER_INVALID");
+  return Number(retryAfterMs);
+};
+
 export class UnknownResultError extends Error {
   readonly entry: DurableRequestJournalEntryV1;
 
@@ -115,6 +140,54 @@ export const executeStoredEntry = async (input: {
     if (error instanceof UnknownResultError) throw error;
     throw new UnknownResultError(unknown);
   }
+};
+
+export const executeStoredEntryWithInProgressRetry = async (input: {
+  proofRoot: string;
+  entry: DurableRequestJournalEntryV1;
+  baseOrigin: string;
+  aiToken: string;
+  fetchImpl?: typeof fetch | undefined;
+  sleepImpl?: ((milliseconds: number) => Promise<void>) | undefined;
+  maximumAttempts?: number | undefined;
+}): Promise<{
+  entry: DurableRequestJournalEntryV1;
+  response: HttpJsonResponse;
+}> => {
+  const maximumAttempts = input.maximumAttempts ?? 3;
+  if (
+    !Number.isSafeInteger(maximumAttempts) ||
+    maximumAttempts < 1 ||
+    maximumAttempts > 3
+  )
+    throw new Error("IDEMPOTENCY_RETRY_LIMIT_INVALID");
+  const sleep =
+    input.sleepImpl ??
+    (async (milliseconds: number) =>
+      new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  let entry = input.entry;
+  for (let attempt = 1; attempt <= maximumAttempts; attempt += 1) {
+    const result = await executeStoredEntry({
+      proofRoot: input.proofRoot,
+      entry,
+      baseOrigin: input.baseOrigin,
+      aiToken: input.aiToken,
+      fetchImpl: input.fetchImpl,
+    });
+    const delay = inProgressDelay(result.response);
+    if (delay === null) return result;
+    const unresolved = transitionJournalEntry(result.entry, "OUTCOME_UNKNOWN", {
+      observation: result.response.observation,
+    });
+    await writeJournalEntry(input.proofRoot, unresolved);
+    if (attempt === maximumAttempts)
+      throw new Error(
+        `IDEMPOTENCY_IN_PROGRESS_EXHAUSTED:${result.entry.stepId}`,
+      );
+    await sleep(delay);
+    entry = unresolved;
+  }
+  throw new Error("IDEMPOTENCY_RETRY_UNREACHABLE");
 };
 
 export const prepareAndExecute = async (input: {

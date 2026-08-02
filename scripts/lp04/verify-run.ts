@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 
 import { normalizeLoopbackOrigin } from "./environment.js";
-import { readJson } from "./http-client.js";
+import { verifyPublicResources } from "./public-verification.js";
 import {
   listJournalEntries,
   unresolvedJournalEntries,
@@ -67,22 +67,28 @@ export const verifyRun = async (input: {
       )
     )
       throw new Error(`RUN_TRACE_DRIFT:${entry.stepId}`);
+    if (entry.state === "COMMITTED") {
+      const verified = await verifyPublicResources({
+        baseOrigin: input.baseOrigin,
+        resourceRefs: entry.resultResourceRefs,
+        fetchImpl: input.fetchImpl,
+      });
+      if (verified.readCount !== Object.keys(entry.resultResourceRefs).length)
+        throw new Error(`RUN_RESOURCE_COUNT:${entry.stepId}`);
+    } else if (
+      entry.state !== "REJECTED" ||
+      Object.keys(entry.resultResourceRefs).length > 0
+    ) {
+      throw new Error(`RUN_JOURNAL_TERMINAL:${entry.stepId}`);
+    }
   }
-  for (const [name, id] of Object.entries(record.resourceRefs)) {
-    const resourcePath = name.endsWith("IdeaId")
-      ? `/api/v1/ideas/${id}`
-      : name.endsWith("ProjectId")
-        ? `/api/v1/projects/${id}`
-        : null;
-    if (resourcePath === null) continue;
-    const response = await readJson({
-      baseOrigin: input.baseOrigin,
-      path: resourcePath,
-      fetchImpl: input.fetchImpl,
-    });
-    if (response.status !== 200 || !JSON.stringify(response.json).includes(id))
-      throw new Error(`RUN_RESOURCE_MISSING:${name}`);
-  }
+  const recordVerification = await verifyPublicResources({
+    baseOrigin: input.baseOrigin,
+    resourceRefs: record.resourceRefs,
+    fetchImpl: input.fetchImpl,
+  });
+  if (recordVerification.readCount !== Object.keys(record.resourceRefs).length)
+    throw new Error("RUN_RESOURCE_COUNT");
   assertSanitizedEvidence(record);
   return {
     requestCount: entries.length,

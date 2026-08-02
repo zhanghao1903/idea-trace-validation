@@ -12,12 +12,13 @@ import type {
 } from "./contracts.js";
 import { parseManifest } from "./contracts.js";
 import {
-  executeStoredEntry,
+  executeStoredEntryWithInProgressRetry,
   prepareAndExecute,
   readJson,
   resolveExecutedEntry,
   type HttpJsonResponse,
 } from "./http-client.js";
+import { verifyPublicResources } from "./public-verification.js";
 import {
   assertJournalBinding,
   createPreparedEntry,
@@ -97,11 +98,15 @@ const responseRefs = (
   const projectId =
     authority !== undefined && typeof authority.id === "string"
       ? authority.id
-      : undefined;
+      : typeof data.projectId === "string"
+        ? data.projectId
+        : undefined;
   const evidenceId = idAt(data, "evidence");
+  const progressId = idAt(data, "progressUpdate");
   const attentionId = idAt(data, "attentionItem");
   const conclusionId = idAt(data, "conclusion");
   const confirmationId = idAt(data, "confirmation");
+  const transitionId = idAt(data, "transition");
   const reportId =
     typeof data.reportId === "string" ? data.reportId : undefined;
   const prefix = stepId.includes("governed") ? "governed" : "active";
@@ -111,6 +116,7 @@ const responseRefs = (
     refs[`${prefix}IdeaId`] = ideaId;
   if (projectId !== undefined) refs[`${prefix}ProjectId`] = projectId;
   if (evidenceId !== undefined) refs[`${prefix}EvidenceId`] = evidenceId;
+  if (progressId !== undefined) refs[`${prefix}ProgressId`] = progressId;
   if (attentionId !== undefined) {
     if (stepId.includes("blocker")) refs.blockerAttentionId = attentionId;
     if (stepId.includes("decision")) refs.decisionAttentionId = attentionId;
@@ -119,6 +125,7 @@ const responseRefs = (
   if (conclusionId !== undefined) refs[`${prefix}ConclusionId`] = conclusionId;
   if (confirmationId !== undefined)
     refs[`${prefix}ConfirmationId`] = confirmationId;
+  if (transitionId !== undefined) refs[`${prefix}TransitionId`] = transitionId;
   if (reportId !== undefined) refs[`${prefix}ReportId`] = reportId;
   return refs;
 };
@@ -260,25 +267,11 @@ export class DemoScenarioRunner {
   }
 
   private async publicVerify(refs: Record<string, string>): Promise<void> {
-    const checks: { path: string; expected: string }[] = [];
-    for (const [name, value] of Object.entries(refs)) {
-      if (name.endsWith("IdeaId"))
-        checks.push({ path: `/api/v1/ideas/${value}`, expected: value });
-      if (name.endsWith("ProjectId"))
-        checks.push({ path: `/api/v1/projects/${value}`, expected: value });
-    }
-    for (const check of checks) {
-      const response = await readJson({
-        baseOrigin: this.options.baseOrigin,
-        path: check.path,
-        fetchImpl: this.options.fetchImpl,
-      });
-      if (
-        response.status !== 200 ||
-        !canonicalJson(response.json).includes(check.expected)
-      )
-        throw new Error(`PUBLIC_VERIFY_FAILED:${check.path}`);
-    }
+    await verifyPublicResources({
+      baseOrigin: this.options.baseOrigin,
+      resourceRefs: refs,
+      fetchImpl: this.options.fetchImpl,
+    });
   }
 
   private mergeEntry(entry: DurableRequestJournalEntryV1): void {
@@ -318,7 +311,7 @@ export class DemoScenarioRunner {
       await writeRunRecord(this.options.proofRoot, this.record);
     }
     for (const pending of unresolved) {
-      const result = await executeStoredEntry({
+      const result = await executeStoredEntryWithInProgressRetry({
         proofRoot: this.options.proofRoot,
         entry: pending,
         baseOrigin: this.options.baseOrigin,

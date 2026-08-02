@@ -5,33 +5,33 @@
   "executionMode": "DESKTOP",
   "observedBy": "Engineering Main task 019fa641-0154-70f3-9d06-4905baa7e186",
   "skillCommitSha": "55fefc83f02ada8a0310bacc7402faf72642d726",
-  "runId": "claude-client-proof",
-  "inputIntent": "SYNTHETIC_DEMO_DATA: read and promote one explicitly ready Idea, start its project, record exactly one progress fact, reject then correct a structured report, reconcile both role views, and stop before the human-confirmation boundary.",
-  "startedAt": "2026-08-01T21:51:50.571Z",
-  "finishedAt": "2026-08-01T22:13:57.191Z",
-  "rawTranscriptSha256": "4c3acbbc256aa25337e5cad8fdb644a398d713b815dba96c11190e3ba1b8e08c",
+  "runId": "claude-client-proof-v2",
+  "inputIntent": "SYNTHETIC_DEMO_DATA: read and promote one explicitly ready Idea, start its project, record exactly one progress fact, reject then correct one structured report field, reconcile both role views, and stop before the human-confirmation boundary.",
+  "startedAt": "2026-08-02T01:30:23.036Z",
+  "finishedAt": "2026-08-02T01:32:21.425Z",
+  "rawTranscriptSha256": "a5b44a72d91cfbb030ab5ebadaf9e7bf44b45704e0455fa6fa995d996b89b171",
   "requestIds": [
-    "req_01KYZN2ZCQXAQSD3NPSCGYWR2S",
-    "req_01KYZN4ZQ3RFTYP9WFSPXKZ9CX",
-    "req_01KYZP4KGGWHG9HP8M172GZPNV",
-    "req_01KYZP5T5NWSY7T6HTGE28F3HT",
-    "req_01KYZP6S4HV7P2SXVP5VS0DG0Z",
-    "req_01KYZP79JEZC1A84GVJ623FVN7",
-    "req_01KYZP7FA6HQAXEHT191E6DCNA",
-    "req_01KYZP7FGTBZS0A89Y2GZ77P41",
-    "req_01KYZP7FNE4GJ22CT6ED3GSWY8"
+    "req_01KZ01GFZ13ZAF2P9W817RM2YK",
+    "req_01KZ01GTA67YRBWM24XQ6JW0FM",
+    "req_01KZ01H8ZHCHKZA8RE7JDTPGEK",
+    "req_01KZ01HVQQBDW81KHVYF4C7FF2",
+    "req_01KZ01JCH1PAA8JB6P3GZPKHFX",
+    "req_01KZ01JXHNFXN6S8GKM96RR0NJ",
+    "req_01KZ01K3SWCB5WFZ09W2J1SMNF",
+    "req_01KZ01K41AQV2YA7RR730SMY11",
+    "req_01KZ01K46DQ5Y61DGJ3959S3SX"
   ],
   "resourceRefs": {
-    "ideaId": "idea_01KYZMC5YD76BMCGXBCPERA3M1",
-    "projectId": "proj_01KYZN4ZRBCYRC8JEFDY8KS65B",
-    "reportId": "rpt_01KYZP79KXJ9P6AT5DX6W1E17Q"
+    "ideaId": "idea_01KZ01CKR30NAV6E3HWMVR878Y",
+    "projectId": "proj_01KZ01GTB0A2W79DA8KVG2NYTC",
+    "reportId": "rpt_01KZ01JXKQJ6B009XBFEN3G074"
   },
   "webPaths": [
     "/proposer",
     "/executor",
-    "/proposer/projects/proj_01KYZN4ZRBCYRC8JEFDY8KS65B",
-    "/executor/projects/proj_01KYZN4ZRBCYRC8JEFDY8KS65B",
-    "/api/v1/projects/proj_01KYZN4ZRBCYRC8JEFDY8KS65B/reports/current"
+    "/proposer/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC",
+    "/executor/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC",
+    "/api/v1/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC/reports/current"
   ],
   "objectiveChecks": [
     {
@@ -84,5 +84,5 @@
     }
   ],
   "result": "PASS",
-  "evidenceSha256": "b6bd0df5b37833384dd0960fc092e0a08af5cf1fd44c01ff4a21e008d85aa13f"
+  "evidenceSha256": "23699615a0baa56cc408f9ff10638cec2598ade730c9b640a6425cf7fed9cd21"
 }

@@ -5,22 +5,22 @@
   "executionMode": "CLI",
   "observedBy": "Engineering Main task 019fa641-0154-70f3-9d06-4905baa7e186",
   "skillCommitSha": "55fefc83f02ada8a0310bacc7402faf72642d726",
-  "runId": "codex-client-proof",
-  "inputIntent": "SYNTHETIC_DEMO_DATA: create and re-read one incomplete Idea, preserve unknowns, recover an unknown POST result with exact body and key, and stop before human-only operations.",
-  "startedAt": "2026-08-01T20:55:18.839Z",
-  "finishedAt": "2026-08-01T20:58:02.694Z",
-  "rawTranscriptSha256": "dcf417a09e9e802c3b724a55fce462127b0f0b8f9285bc42ea4c82616e978f34",
+  "runId": "codex-client-proof-v2",
+  "inputIntent": "SYNTHETIC_DEMO_DATA: create and re-read one incomplete Idea, preserve unknown outcome and proposer identity, recover an upstream-committed unknown POST result with exact body and key, and stop before human-only operations.",
+  "startedAt": "2026-08-02T01:23:26.187Z",
+  "finishedAt": "2026-08-02T01:27:10.295Z",
+  "rawTranscriptSha256": "c3e836193dd1eb8c563c0840412fd3f5f5a6e9f21e946cec2413add7acd30bd4",
   "requestIds": [
-    "req_01KYZHT4C4FP850HH1MH9JKTXA",
-    "req_01KYZHVDEDPCR02ASDAHZ9A3N7",
-    "req_01KYZHVDKW7DD35AGHSBQP1PNP"
+    "req_01KZ016KGXGQMWAFM4JBC0DMMP",
+    "req_01KZ017AF97QP09HFC0WCQ3MR5",
+    "req_01KZ017AM1J4CTH5RHETZB6DZW"
   ],
   "resourceRefs": {
-    "ideaId": "idea_01KYZHT4DDEV5D0FA5V1QPF73D"
+    "ideaId": "idea_01KZ016KJFXCNEA323Y0YMMF98"
   },
   "webPaths": [
     "/proposer",
-    "/api/v1/ideas/idea_01KYZHT4DDEV5D0FA5V1QPF73D",
+    "/api/v1/ideas/idea_01KZ016KJFXCNEA323Y0YMMF98",
     "/api/v1/experience/proposer/ideas"
   ],
   "objectiveChecks": [
@@ -54,5 +54,5 @@
     }
   ],
   "result": "PASS",
-  "evidenceSha256": "82b9497bab91ce77efa3aadc333b023e5e61935f30455e3f83637c6aef1f1979"
+  "evidenceSha256": "17fda044a0803c107f4cac225c95002fd8169a6cbaa5164b23224348ada24a7d"
 }
