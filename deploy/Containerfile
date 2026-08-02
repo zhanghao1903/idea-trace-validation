@@ -15,7 +15,11 @@ COPY apps ./apps
 COPY packages ./packages
 COPY openapi ./openapi
 COPY scripts/generate-openapi.ts scripts/openapi-support.ts scripts/generate-report-types.ts scripts/report-types-support.ts ./scripts/
-RUN npm run build && npm ci --omit=dev
+# npm 11 can omit the workspace's AJV 8 root install when the root dev graph also contains AJV 6 via ESLint.
+# Reassert the exact lockfile version without lifecycle scripts or a lockfile mutation.
+RUN npm run build \
+    && npm ci --omit=dev \
+    && npm install --omit=dev --ignore-scripts --no-save --package-lock=false ajv@8.20.0
 
 FROM docker.io/library/node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS runtime
 ARG SOURCE_COMMIT

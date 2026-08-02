@@ -52,6 +52,12 @@ export const verifyStaticCandidateConfiguration = async (
     /\b(?:ARG|ENV)\s+[^\n]*(?:TOKEN|PASSWORD|SECRET)/iu.test(containerfile)
   )
     throw new Error("CONTAINERFILE_HARDENING");
+  if (
+    !containerfile.includes(
+      "npm install --omit=dev --ignore-scripts --no-save --package-lock=false ajv@8.20.0",
+    )
+  )
+    throw new Error("CONTAINERFILE_RUNTIME_AJV_PIN");
   const dockerignore = await readFile(join(root, ".dockerignore"), "utf8");
   for (const required of [
     ".git",
