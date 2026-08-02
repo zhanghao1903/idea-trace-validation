@@ -111,6 +111,13 @@ export interface ClientValidationRecordV1 {
   finishedAt: string;
   rawTranscriptSha256: string;
   requestIds: string[];
+  requestClaims: {
+    requestId: string;
+    method: "POST";
+    path: string;
+    status: number;
+    outcome: "COMMITTED" | "REJECTED";
+  }[];
   resourceRefs: Record<string, string>;
   webPaths: string[];
   objectiveChecks: { id: string; result: "PASS" }[];

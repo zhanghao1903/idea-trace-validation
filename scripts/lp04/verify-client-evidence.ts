@@ -69,6 +69,7 @@ export const parseClientValidationRecord = (
     "finishedAt",
     "rawTranscriptSha256",
     "requestIds",
+    "requestClaims",
     "resourceRefs",
     "webPaths",
     "objectiveChecks",
@@ -105,6 +106,8 @@ export const parseClientValidationRecord = (
         typeof id !== "string" || !/^req_[0-9A-HJKMNP-TV-Z]{26}$/u.test(id),
     ) ||
     new Set(input.requestIds).size !== input.requestIds.length ||
+    !Array.isArray(input.requestClaims) ||
+    input.requestClaims.length !== input.requestIds.length ||
     !Array.isArray(input.webPaths) ||
     input.webPaths.length === 0 ||
     input.webPaths.length > 20 ||
@@ -120,6 +123,47 @@ export const parseClientValidationRecord = (
     input.objectiveChecks.length > 30
   )
     throw new Error("CLIENT_EVIDENCE_VALUE");
+  const requestClaims = input.requestClaims.map((value) => {
+    const claim = object(value, "CLIENT_EVIDENCE_REQUEST_CLAIM");
+    if (
+      Object.keys(claim).some(
+        (key) =>
+          key !== "requestId" &&
+          key !== "method" &&
+          key !== "path" &&
+          key !== "status" &&
+          key !== "outcome",
+      ) ||
+      typeof claim.requestId !== "string" ||
+      !/^req_[0-9A-HJKMNP-TV-Z]{26}$/u.test(claim.requestId) ||
+      claim.method !== "POST" ||
+      typeof claim.path !== "string" ||
+      !/^\/api\/v1\/(?:ideas|projects)(?:\/[^/?#]+)*$/u.test(claim.path) ||
+      !Number.isSafeInteger(claim.status) ||
+      Number(claim.status) < 200 ||
+      Number(claim.status) > 499 ||
+      (claim.outcome !== "COMMITTED" && claim.outcome !== "REJECTED") ||
+      (claim.outcome === "COMMITTED" && Number(claim.status) >= 300) ||
+      (claim.outcome === "REJECTED" && Number(claim.status) < 400)
+    )
+      throw new Error("CLIENT_EVIDENCE_REQUEST_CLAIM");
+    return {
+      requestId: claim.requestId,
+      method: "POST" as const,
+      path: claim.path,
+      status: Number(claim.status),
+      outcome: claim.outcome as "COMMITTED" | "REJECTED",
+    };
+  });
+  const claimedIds = requestClaims.map((claim) => claim.requestId);
+  if (
+    new Set(claimedIds).size !== claimedIds.length ||
+    claimedIds.some((requestId) => !input.requestIds.includes(requestId)) ||
+    input.requestIds.some(
+      (requestId) => !claimedIds.includes(String(requestId)),
+    )
+  )
+    throw new Error("CLIENT_EVIDENCE_REQUEST_CLAIMS");
   const resourceInput = object(input.resourceRefs, "CLIENT_EVIDENCE_REFS");
   const resourceRefs: Record<string, string> = {};
   for (const [key, resource] of Object.entries(resourceInput)) {
@@ -177,6 +221,7 @@ export const parseClientValidationRecord = (
     finishedAt: input.finishedAt,
     rawTranscriptSha256: input.rawTranscriptSha256,
     requestIds: input.requestIds as string[],
+    requestClaims,
     resourceRefs,
     webPaths: input.webPaths as string[],
     objectiveChecks,
@@ -269,6 +314,132 @@ const assertTranscriptEnvelope = (
     throw new Error("CLIENT_EVIDENCE_TRANSCRIPT_ENVELOPE");
 };
 
+export interface TranscriptRequestResponse {
+  method: "POST";
+  path: string;
+  status: number;
+  requestId: string;
+}
+
+const claudeTranscriptRequests = (
+  events: Record<string, unknown>[],
+): TranscriptRequestResponse[] => {
+  const requests = new Map<string, { method: "POST"; path: string }>();
+  const responses: TranscriptRequestResponse[] = [];
+  for (const event of events) {
+    const message = event.message;
+    if (
+      typeof message !== "object" ||
+      message === null ||
+      Array.isArray(message)
+    )
+      continue;
+    const content = (message as Record<string, unknown>).content;
+    if (!Array.isArray(content)) continue;
+    for (const item of content) {
+      if (typeof item !== "object" || item === null || Array.isArray(item))
+        continue;
+      const value = item as Record<string, unknown>;
+      if (value.type === "tool_use" && value.name === "Bash") {
+        const input = value.input;
+        if (typeof input !== "object" || input === null || Array.isArray(input))
+          continue;
+        const command = (input as Record<string, unknown>).command;
+        const match =
+          typeof command === "string"
+            ? /(?:^|\n)node lp04-http\.mjs (POST) '([^']+)'(?: |$)/u.exec(
+                command,
+              )
+            : null;
+        if (
+          typeof value.id === "string" &&
+          match?.[1] === "POST" &&
+          match[2] !== undefined
+        )
+          requests.set(value.id, { method: "POST", path: match[2] });
+      }
+      if (value.type !== "tool_result" || typeof value.tool_use_id !== "string")
+        continue;
+      const request = requests.get(value.tool_use_id);
+      if (request === undefined || typeof value.content !== "string") continue;
+      try {
+        const response = object(
+          JSON.parse(value.content) as unknown,
+          "CLIENT_EVIDENCE_TRANSCRIPT_RESPONSE",
+        );
+        const body = object(
+          response.body,
+          "CLIENT_EVIDENCE_TRANSCRIPT_RESPONSE",
+        );
+        const meta = object(body.meta, "CLIENT_EVIDENCE_TRANSCRIPT_RESPONSE");
+        if (
+          Number.isSafeInteger(response.status) &&
+          typeof meta.requestId === "string" &&
+          /^req_[0-9A-HJKMNP-TV-Z]{26}$/u.test(meta.requestId)
+        )
+          responses.push({
+            ...request,
+            status: Number(response.status),
+            requestId: meta.requestId,
+          });
+      } catch {
+        continue;
+      }
+    }
+  }
+  return responses;
+};
+
+export const parseClientTranscriptRequests = (
+  client: ClientValidationRecordV1["client"],
+  transcriptText: string,
+): TranscriptRequestResponse[] => {
+  let events: Record<string, unknown>[];
+  try {
+    events = transcriptText
+      .trim()
+      .split("\n")
+      .map((line) =>
+        object(
+          JSON.parse(line) as unknown,
+          "CLIENT_EVIDENCE_TRANSCRIPT_ENVELOPE",
+        ),
+      );
+  } catch {
+    throw new Error("CLIENT_EVIDENCE_TRANSCRIPT_ENVELOPE");
+  }
+  return client === "CLAUDE" ? claudeTranscriptRequests(events) : [];
+};
+
+export const transcriptRequestClaimMatches = (
+  claim: ClientValidationRecordV1["requestClaims"][number],
+  requests: TranscriptRequestResponse[],
+): boolean =>
+  requests.some(
+    (request) =>
+      request.method === claim.method &&
+      request.path === claim.path &&
+      request.status === claim.status &&
+      request.requestId === claim.requestId,
+  );
+
+const claimResourceId = (
+  claim: ClientValidationRecordV1["requestClaims"][number],
+  resourceRefs: Record<string, string>,
+): string => {
+  const ideaId = resourceRefs.ideaId;
+  const projectId = resourceRefs.projectId;
+  if (claim.path === "/api/v1/ideas" && ideaId !== undefined) return ideaId;
+  if (ideaId !== undefined && claim.path.startsWith(`/api/v1/ideas/${ideaId}/`))
+    return ideaId;
+  if (
+    projectId !== undefined &&
+    claim.path.startsWith(`/api/v1/projects/${projectId}/`)
+  )
+    return projectId;
+  throw new Error(`CLIENT_EVIDENCE_REQUEST_PATH:${claim.requestId}`);
+};
+
 const readProjectAuditIds = async (input: {
   baseOrigin: string;
   projectId: string;
@@ -317,6 +488,10 @@ export const verifyClientEvidence = async (input: {
   const transcriptText = transcript.toString("utf8");
   assertSanitizedEvidence(transcriptText, [], 8_388_608);
   assertTranscriptEnvelope(record, transcriptText);
+  const transcriptRequests = parseClientTranscriptRequests(
+    record.client,
+    transcriptText,
+  );
   for (const expected of [
     record.runId,
     ...record.requestIds,
@@ -338,7 +513,7 @@ export const verifyClientEvidence = async (input: {
     skillTree(input.repoRoot, "HEAD")
   )
     throw new Error("CLIENT_EVIDENCE_SKILL_TREE");
-  const authoritativeRequestIds = new Set<string>();
+  const authoritativeRequestIds = new Map<string, Set<string>>();
   for (const id of Object.values(record.resourceRefs)) {
     const route = id.startsWith("idea_")
       ? `/api/v1/ideas/${id}`
@@ -358,9 +533,7 @@ export const verifyClientEvidence = async (input: {
       throw new Error(`CLIENT_EVIDENCE_NOT_SYNTHETIC:${id}`);
     if (id.startsWith("idea_")) {
       const ids = auditRequestIds(response.json);
-      if (!ids.some((requestId) => record.requestIds.includes(requestId)))
-        throw new Error(`CLIENT_EVIDENCE_IDEA_HISTORY:${id}`);
-      ids.forEach((requestId) => authoritativeRequestIds.add(requestId));
+      authoritativeRequestIds.set(id, new Set(ids));
     }
     if (id.startsWith("proj_")) {
       const ids = await readProjectAuditIds({
@@ -368,9 +541,7 @@ export const verifyClientEvidence = async (input: {
         projectId: id,
         fetchImpl: input.fetchImpl,
       });
-      if (!ids.some((requestId) => record.requestIds.includes(requestId)))
-        throw new Error(`CLIENT_EVIDENCE_PROJECT_HISTORY:${id}`);
-      ids.forEach((requestId) => authoritativeRequestIds.add(requestId));
+      authoritativeRequestIds.set(id, new Set(ids));
     }
   }
   for (const id of Object.values(record.resourceRefs).filter((value) =>
@@ -392,12 +563,16 @@ export const verifyClientEvidence = async (input: {
     )
       throw new Error(`CLIENT_EVIDENCE_REPORT:${id}`);
   }
-  if (
-    !record.requestIds.some((requestId) =>
-      authoritativeRequestIds.has(requestId),
-    )
-  )
-    throw new Error("CLIENT_EVIDENCE_REQUEST_AUTHORITY");
+  for (const claim of record.requestClaims) {
+    const resourceId = claimResourceId(claim, record.resourceRefs);
+    if (claim.outcome === "COMMITTED") {
+      if (!authoritativeRequestIds.get(resourceId)?.has(claim.requestId))
+        throw new Error(`CLIENT_EVIDENCE_REQUEST_AUTHORITY:${claim.requestId}`);
+      continue;
+    }
+    if (!transcriptRequestClaimMatches(claim, transcriptRequests))
+      throw new Error(`CLIENT_EVIDENCE_REJECTED_REQUEST:${claim.requestId}`);
+  }
   return record;
 };
 

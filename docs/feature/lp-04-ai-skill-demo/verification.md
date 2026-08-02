@@ -8,17 +8,20 @@
 - Approved composite digest:
   `24d41fd9b5a5f10e07daa9c2a941f0fe411833663ba9ccb7d1ecc3035cb76f6b`
 - Exact Skill commit: `55fefc83f02ada8a0310bacc7402faf72642d726`
-- Evidence status: Cycle 1 findings remediated; ready for exact-head Cycle 2 Engineering Review on
-  2026-08-02 (Asia/Shanghai)
+- Evidence status: Cycle 2 retained finding remediated; ready for exact-head Cycle 3 Engineering
+  Review on 2026-08-02 (Asia/Shanghai)
 
 ## Exact-head and status boundary
 
-This record distinguishes implemented automation from external-client acceptance. Cycle 1 Review
-requested changes for client-proof fabrication, child-resource readback and terminal handling of
-`IDEMPOTENCY_IN_PROGRESS`. All three findings are remediated below. Both actual client records now
-pass the strengthened independent verifier. A new immutable `CodeReviewRequest` and PR checks must
-bind the remediation commands to the exact PR head. `Ready for Acceptance` is not formal acceptance,
-merge approval or publication authority.
+This record distinguishes implemented automation from external-client acceptance. Cycle 2 closed
+child-resource readback and `IDEMPOTENCY_IN_PROGRESS`, and independently reproduced both real client
+proofs. It retained PRR-001 because one authoritative request ID could mask invented IDs. The current
+records now declare only POST request claims: every committed claim must appear in the matching
+public Idea/project history, while every rejected claim must match one client-specific transcript
+request/response pair by method, path, status and response request ID. Both real client records pass
+this verifier. A new immutable `CodeReviewRequest` and PR checks must bind the remediation commands
+to the exact PR head. `Ready for Acceptance` is not formal acceptance, merge approval or publication
+authority.
 
 ## Delivered behavior
 
@@ -36,6 +39,10 @@ merge approval or publication authority.
   performs those reads again and sends zero writes.
 - Bounded `IDEMPOTENCY_IN_PROGRESS` recovery reuses the frozen bytes and key for at most three
   attempts; exhausted entries remain `OUTCOME_UNKNOWN` and resumable instead of becoming rejected.
+- Closed client request claims: mixed real/invented IDs, wrong resource paths, mismatched rejected
+  statuses/IDs and unsupported objective names fail closed. Successful report identity remains bound
+  by the transcript report ID and exact public current-report read because LP-03 does not expose
+  report-aggregate audit IDs through project history.
 - Separate human facilitator that requires exact manifest binding and explicit synthetic-demo opt-in,
   without writing or printing human-control material.
 - Real-data Chromium story over the production Web build and actual API/database, plus isolation from
@@ -52,7 +59,7 @@ merge approval or publication authority.
 | `npm run typecheck` | PASS, including Playwright sources |
 | `npm run build` | PASS; production Web JavaScript 97.35 KiB gzip |
 | `npm run openapi:check` | PASS; LP-01/LP-02 immutable digests and LP-03 current artifact |
-| `npm run test:unit` | PASS; 54/54 |
+| `npm run test:unit` | PASS; 55/55 |
 | `npm run test:contract` | PASS; 23/23, including current management projection |
 | `npm run test:integration` | PASS; 31/31 |
 | `npm run test:acceptance:lp01` | PASS; 2/2 on the isolated database |
@@ -90,9 +97,11 @@ the exact final PR head. The PR check and immutable review request will bind tha
 | Claude | PASS | [`claude-client-proof.json`](./evidence/claude-client-proof.json): actual Claude Desktop/Claude Code local session, ready-Idea promotion, one execution fact, invalid/corrected report flow, both role views and stop before human confirmation |
 
 The verifier reads the operator-supplied raw transcript, checks its exact digest, requires the run,
-request and resource identifiers to occur in that transcript, verifies the exact Skill tree and
-correlates the claimed request IDs with public Idea/project audit history. It then performs exact
-synthetic Idea, project and report reads; arbitrary PASS labels or unrelated live resources fail.
+claimed POST requests and resource identifiers to occur in that transcript, and verifies the exact
+Skill tree. Every `COMMITTED` request claim must appear in its matching public Idea/project history;
+every `REJECTED` claim must pair a client-specific tool request with its exact response. It then
+performs exact synthetic Idea, project and report reads; mixed authoritative/invented IDs, arbitrary
+PASS labels, wrong paths or unrelated live resources fail.
 Main additionally re-read every referenced resource through the loopback public API. The Claude
 projection contains exactly one AI/EXECUTOR progress update, exactly one accepted report revision
 and zero human confirmations. Its invalid report did not create a submission-key or revision row.
@@ -118,6 +127,6 @@ LP-03 is durably accepted without publication at merge
 `25fd479b6c7663d41920bc50935c5bd1fd5efb7f2d4a3e14252015a889e360f8`, with release targets `[]`.
 
 LP-04 is `Ready for Acceptance`. Its acceptance record is still `None`; no merge, tag, GitHub Release,
-package, deployment or other publication has been performed. Cycle 1 was not approved. Engineering
-Review must approve the exact remediation head before any separately authorized merge and later
-acceptance-only/no-publish closure.
+package, deployment or other publication has been performed. Cycles 1 and 2 were not approved.
+Engineering Review must approve the exact Cycle 3 remediation head before any separately authorized
+merge and later acceptance-only/no-publish closure.

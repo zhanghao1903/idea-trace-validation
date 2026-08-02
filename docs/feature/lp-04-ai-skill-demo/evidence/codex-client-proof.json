@@ -11,9 +11,16 @@
   "finishedAt": "2026-08-02T01:27:10.295Z",
   "rawTranscriptSha256": "c3e836193dd1eb8c563c0840412fd3f5f5a6e9f21e946cec2413add7acd30bd4",
   "requestIds": [
-    "req_01KZ016KGXGQMWAFM4JBC0DMMP",
-    "req_01KZ017AF97QP09HFC0WCQ3MR5",
-    "req_01KZ017AM1J4CTH5RHETZB6DZW"
+    "req_01KZ016KGXGQMWAFM4JBC0DMMP"
+  ],
+  "requestClaims": [
+    {
+      "requestId": "req_01KZ016KGXGQMWAFM4JBC0DMMP",
+      "method": "POST",
+      "path": "/api/v1/ideas",
+      "status": 201,
+      "outcome": "COMMITTED"
+    }
   ],
   "resourceRefs": {
     "ideaId": "idea_01KZ016KJFXCNEA323Y0YMMF98"
@@ -54,5 +61,5 @@
     }
   ],
   "result": "PASS",
-  "evidenceSha256": "17fda044a0803c107f4cac225c95002fd8169a6cbaa5164b23224348ada24a7d"
+  "evidenceSha256": "8f3b77062e4b2f592418ff99c0ef81bec1affd96e15e60706871ebdaaaf627d7"
 }

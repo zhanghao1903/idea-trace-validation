@@ -35,7 +35,9 @@ import { assertSanitizedEvidence } from "./security.js";
 import { expandTemplate, loadScenarioAssets } from "./scenario.js";
 import { assertStructuredReport } from "./structured-report.js";
 import {
+  parseClientTranscriptRequests,
   parseClientValidationRecord,
+  transcriptRequestClaimMatches,
   verifyClientEvidence,
 } from "./verify-client-evidence.js";
 
@@ -357,6 +359,15 @@ describe("LP-04 deterministic runtime contracts", () => {
       finishedAt: "2026-08-01T00:01:00.000Z",
       rawTranscriptSha256: "b".repeat(64),
       requestIds: ["req_01ARZ3NDEKTSV4RRFFQ69G5FAV"],
+      requestClaims: [
+        {
+          requestId: "req_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+          method: "POST",
+          path: "/api/v1/ideas",
+          status: 201,
+          outcome: "COMMITTED",
+        },
+      ],
       resourceRefs: { ideaId: "idea_01ARZ3NDEKTSV4RRFFQ69G5FAV" },
       webPaths: ["/ideas/idea_01ARZ3NDEKTSV4RRFFQ69G5FAV"],
       objectiveChecks: [
@@ -436,6 +447,15 @@ describe("LP-04 deterministic runtime contracts", () => {
       finishedAt: "2026-08-01T00:01:00.000Z",
       rawTranscriptSha256: sha256(transcript),
       requestIds: [requestId],
+      requestClaims: [
+        {
+          requestId,
+          method: "POST",
+          path: "/api/v1/ideas",
+          status: 201,
+          outcome: "COMMITTED",
+        },
+      ],
       resourceRefs: { ideaId },
       webPaths: [`/ideas/${ideaId}`],
       objectiveChecks: [
@@ -544,6 +564,12 @@ describe("LP-04 deterministic runtime contracts", () => {
       ...digestInput,
       rawTranscriptSha256: sha256(unrelatedTranscript),
       requestIds: [unrelatedRequestId],
+      requestClaims: [
+        {
+          ...digestInput.requestClaims[0],
+          requestId: unrelatedRequestId,
+        },
+      ],
     };
     await expect(
       verifyClientEvidence({
@@ -556,7 +582,78 @@ describe("LP-04 deterministic runtime contracts", () => {
         },
         fetchImpl,
       }),
-    ).rejects.toThrow(`CLIENT_EVIDENCE_IDEA_HISTORY:${ideaId}`);
+    ).rejects.toThrow(
+      `CLIENT_EVIDENCE_REQUEST_AUTHORITY:${unrelatedRequestId}`,
+    );
+
+    const mixedTranscript = `${JSON.stringify({
+      timestamp: "2026-08-01T00:00:30.000Z",
+      type: "session_meta",
+      payload: {
+        session_id: "codex-test-session",
+        cli_version: "codex-test",
+      },
+    })}\n${JSON.stringify({
+      timestamp: "2026-08-01T00:00:31.000Z",
+      type: "event_msg",
+      payload: {
+        runId: "codex-proof",
+        requestIds: [requestId, unrelatedRequestId],
+        ideaId,
+      },
+    })}\n`;
+    await writeFile(transcriptFile, mixedTranscript);
+    const mixedInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(mixedTranscript),
+      requestIds: [requestId, unrelatedRequestId],
+      requestClaims: [
+        digestInput.requestClaims[0],
+        {
+          ...digestInput.requestClaims[0],
+          requestId: unrelatedRequestId,
+        },
+      ],
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...mixedInput,
+          evidenceSha256: sha256(assertSanitizedEvidence(mixedInput)),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow(
+      `CLIENT_EVIDENCE_REQUEST_AUTHORITY:${unrelatedRequestId}`,
+    );
+
+    const wrongPathInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(transcript),
+      requestClaims: [
+        {
+          ...digestInput.requestClaims[0],
+          path: `/api/v1/projects/proj_01ARZ3NDEKTSV4RRFFQ69G5FAV/reports`,
+        },
+      ],
+    };
+    await writeFile(transcriptFile, transcript);
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...wrongPathInput,
+          evidenceSha256: sha256(assertSanitizedEvidence(wrongPathInput)),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow(`CLIENT_EVIDENCE_REQUEST_PATH:${requestId}`);
+
     await writeFile(transcriptFile, "different transcript");
     await expect(
       verifyClientEvidence({
@@ -567,6 +664,79 @@ describe("LP-04 deterministic runtime contracts", () => {
         fetchImpl,
       }),
     ).rejects.toThrow("CLIENT_EVIDENCE_TRANSCRIPT_DIGEST");
+  });
+
+  it("pairs a Claude rejected POST with its exact path, status and response request ID", () => {
+    const requestId = "req_01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    const path = "/api/v1/projects/proj_01ARZ3NDEKTSV4RRFFQ69G5FAV/reports";
+    const transcript = [
+      {
+        type: "assistant",
+        timestamp: "2026-08-01T00:00:30.000Z",
+        version: "claude-test",
+        sessionId: "claude-test-session",
+        message: {
+          content: [
+            {
+              type: "tool_use",
+              id: "tool-call-one",
+              name: "Bash",
+              input: {
+                command: `node lp04-http.mjs POST '${path}' req_01ARZ3NDEKTSV4RRFFQ69G5FAW invalid.json 2>&1`,
+              },
+            },
+          ],
+        },
+      },
+      {
+        type: "user",
+        timestamp: "2026-08-01T00:00:31.000Z",
+        version: "claude-test",
+        sessionId: "claude-test-session",
+        message: {
+          content: [
+            {
+              type: "tool_result",
+              tool_use_id: "tool-call-one",
+              content: JSON.stringify({
+                status: 400,
+                body: { ok: false, meta: { requestId } },
+              }),
+            },
+          ],
+        },
+      },
+    ]
+      .map((event) => JSON.stringify(event))
+      .join("\n");
+    const requests = parseClientTranscriptRequests("CLAUDE", transcript);
+    expect(requests).toEqual([
+      { method: "POST", path, status: 400, requestId },
+    ]);
+    const claim = {
+      method: "POST" as const,
+      path,
+      status: 400,
+      requestId,
+      outcome: "REJECTED" as const,
+    };
+    expect(transcriptRequestClaimMatches(claim, requests)).toBe(true);
+    expect(
+      transcriptRequestClaimMatches(
+        { ...claim, path: `${path}/wrong-resource` },
+        requests,
+      ),
+    ).toBe(false);
+    expect(
+      transcriptRequestClaimMatches({ ...claim, status: 422 }, requests),
+    ).toBe(false);
+    expect(
+      transcriptRequestClaimMatches(
+        { ...claim, requestId: "req_01ARZ3NDEKTSV4RRFFQ69G5FAX" },
+        requests,
+      ),
+    ).toBe(false);
+    expect(parseClientTranscriptRequests("CODEX", transcript)).toEqual([]);
   });
 
   it("re-reads exact report and execution children and rejects mismatches", async () => {

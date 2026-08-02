@@ -11,15 +11,40 @@
   "finishedAt": "2026-08-02T01:32:21.425Z",
   "rawTranscriptSha256": "a5b44a72d91cfbb030ab5ebadaf9e7bf44b45704e0455fa6fa995d996b89b171",
   "requestIds": [
-    "req_01KZ01GFZ13ZAF2P9W817RM2YK",
     "req_01KZ01GTA67YRBWM24XQ6JW0FM",
     "req_01KZ01H8ZHCHKZA8RE7JDTPGEK",
     "req_01KZ01HVQQBDW81KHVYF4C7FF2",
-    "req_01KZ01JCH1PAA8JB6P3GZPKHFX",
-    "req_01KZ01JXHNFXN6S8GKM96RR0NJ",
-    "req_01KZ01K3SWCB5WFZ09W2J1SMNF",
-    "req_01KZ01K41AQV2YA7RR730SMY11",
-    "req_01KZ01K46DQ5Y61DGJ3959S3SX"
+    "req_01KZ01JCH1PAA8JB6P3GZPKHFX"
+  ],
+  "requestClaims": [
+    {
+      "requestId": "req_01KZ01GTA67YRBWM24XQ6JW0FM",
+      "method": "POST",
+      "path": "/api/v1/ideas/idea_01KZ01CKR30NAV6E3HWMVR878Y/promotions",
+      "status": 201,
+      "outcome": "COMMITTED"
+    },
+    {
+      "requestId": "req_01KZ01H8ZHCHKZA8RE7JDTPGEK",
+      "method": "POST",
+      "path": "/api/v1/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC/transitions",
+      "status": 200,
+      "outcome": "COMMITTED"
+    },
+    {
+      "requestId": "req_01KZ01HVQQBDW81KHVYF4C7FF2",
+      "method": "POST",
+      "path": "/api/v1/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC/progress-updates",
+      "status": 201,
+      "outcome": "COMMITTED"
+    },
+    {
+      "requestId": "req_01KZ01JCH1PAA8JB6P3GZPKHFX",
+      "method": "POST",
+      "path": "/api/v1/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC/reports",
+      "status": 400,
+      "outcome": "REJECTED"
+    }
   ],
   "resourceRefs": {
     "ideaId": "idea_01KZ01CKR30NAV6E3HWMVR878Y",
@@ -84,5 +109,5 @@
     }
   ],
   "result": "PASS",
-  "evidenceSha256": "23699615a0baa56cc408f9ff10638cec2598ade730c9b640a6425cf7fed9cd21"
+  "evidenceSha256": "69ae3f895025c90ad3b66e9b9125ba45b1aeb6ef0cf86d29fb61d59955daed62"
 }
