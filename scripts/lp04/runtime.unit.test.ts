@@ -592,6 +592,44 @@ describe("LP-04 deterministic runtime contracts", () => {
       }),
     ).resolves.toMatchObject({ client: "CODEX", resourceRefs: { ideaId } });
 
+    const optionReaderTranscript = transcript
+      .split("\n")
+      .map((line) => {
+        const event = JSON.parse(line) as {
+          payload?: { type?: string; call_id?: string; input?: string };
+        };
+        if (
+          event.payload?.type === "custom_tool_call" &&
+          event.payload.call_id === "response-read-call" &&
+          typeof event.payload.input === "string"
+        ) {
+          const input = JSON.parse(event.payload.input) as { cmd: string };
+          input.cmd =
+            "jq --arg marker ignored " +
+            "'{requestId: .meta.requestId}' replay-response.json";
+          event.payload.input = JSON.stringify(input);
+        }
+        return JSON.stringify(event);
+      })
+      .join("\n");
+    await writeFile(transcriptFile, optionReaderTranscript);
+    const optionReaderInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(optionReaderTranscript),
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...optionReaderInput,
+          evidenceSha256: sha256(assertSanitizedEvidence(optionReaderInput)),
+        },
+        fetchImpl,
+      }),
+    ).resolves.toMatchObject({ client: "CODEX", resourceRefs: { ideaId } });
+
     const slurpfileReaderTranscript = transcript
       .split("\n")
       .map((line) => {
@@ -948,6 +986,10 @@ describe("LP-04 deterministic runtime contracts", () => {
     await expectRejectedResponseReaderCommand(
       "jq '{requestId: .meta.requestId}' replay-response.json >/dev/null\n" +
         "jq '{requestId: .meta.requestId}' unrelated-replay-response.json",
+    );
+    await expectRejectedResponseReaderCommand(
+      "jq --arg marker replay-response.json " +
+        "'{requestId: .meta.requestId}' unrelated-replay-response.json",
     );
 
     const crossOperationTranscript = transcript.replaceAll(

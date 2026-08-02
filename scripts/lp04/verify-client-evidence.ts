@@ -807,30 +807,119 @@ interface CodexResponseReaderOutput {
   shape: "SINGULAR" | "FIRST_ARRAY_ITEM";
 }
 
+interface ParsedJqInvocation {
+  filter: string;
+  nullInput: boolean;
+  positionalInputs: string[];
+  slurpfiles: { variable: string; file: string }[];
+}
+
+const jqFlags = new Set([
+  "--ascii-output",
+  "--color-output",
+  "--compact-output",
+  "--exit-status",
+  "--join-output",
+  "--monochrome-output",
+  "--null-input",
+  "--raw-input",
+  "--raw-output",
+  "--seq",
+  "--slurp",
+  "--sort-keys",
+  "--stream",
+  "--stream-errors",
+  "--unbuffered",
+]);
+
+const jqOptionsWithOneValue = new Set(["-L", "--indent", "--library-path"]);
+const jqOptionsWithTwoValues = new Set([
+  "--arg",
+  "--argjson",
+  "--rawfile",
+  "--slurpfile",
+]);
+
+const parseJqInvocation = (segment: string): ParsedJqInvocation | null => {
+  const arguments_ = shellArguments(segment);
+  if (shellCommandName(arguments_) !== "jq") return null;
+  let filter: string | undefined;
+  let nullInput = false;
+  let optionsEnded = false;
+  const positionalInputs: string[] = [];
+  const slurpfiles: ParsedJqInvocation["slurpfiles"] = [];
+  for (let index = 1; index < arguments_.length; index += 1) {
+    const argument = arguments_[index] as string;
+    if (filter !== undefined) {
+      positionalInputs.push(argument);
+      continue;
+    }
+    if (!optionsEnded && argument === "--") {
+      optionsEnded = true;
+      continue;
+    }
+    if (!optionsEnded && jqFlags.has(argument)) {
+      if (argument === "--null-input") nullInput = true;
+      continue;
+    }
+    if (!optionsEnded && /^-[acCeMjnRrSs]+$/u.test(argument)) {
+      if (argument.includes("n")) nullInput = true;
+      continue;
+    }
+    if (!optionsEnded && argument === "-n") {
+      nullInput = true;
+      continue;
+    }
+    if (!optionsEnded && jqOptionsWithOneValue.has(argument)) {
+      if (arguments_[index + 1] === undefined) return null;
+      index += 1;
+      continue;
+    }
+    if (!optionsEnded && jqOptionsWithTwoValues.has(argument)) {
+      const name = arguments_[index + 1];
+      const value = arguments_[index + 2];
+      if (name === undefined || value === undefined) return null;
+      if (argument === "--slurpfile")
+        slurpfiles.push({ variable: name, file: value });
+      index += 2;
+      continue;
+    }
+    if (!optionsEnded && argument.startsWith("-")) return null;
+    filter = argument;
+  }
+  return filter === undefined
+    ? null
+    : { filter, nullInput, positionalInputs, slurpfiles };
+};
+
 const responseReaderShape = (
   segment: string,
   responseFile: string,
 ): CodexResponseReaderOutput["shape"] | null => {
-  const arguments_ = shellArguments(segment);
-  if (shellCommandName(arguments_) !== "jq") return null;
-  for (let index = 0; index < arguments_.length - 2; index += 1) {
-    if (
-      arguments_[index] !== "--slurpfile" ||
-      arguments_[index + 2] !== responseFile
-    )
-      continue;
-    const variable = arguments_[index + 1];
+  const invocation = parseJqInvocation(segment);
+  if (invocation === null) return null;
+  const bindings = invocation.slurpfiles.filter(
+    ({ file }) => file === responseFile,
+  );
+  if (
+    invocation.nullInput &&
+    invocation.positionalInputs.length === 0 &&
+    bindings.length === 1
+  ) {
+    const variable = bindings[0]?.variable;
     if (variable === undefined || !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(variable))
       return null;
     return new RegExp(
       `requestIds\\s*:\\s*\\[\\s*\\$${variable}\\[0\\]\\.meta\\.requestId`,
       "u",
-    ).test(segment)
+    ).test(invocation.filter)
       ? "FIRST_ARRAY_ITEM"
       : null;
   }
-  return arguments_.includes(responseFile) &&
-    /requestId\s*:\s*\.meta\.requestId/u.test(segment)
+  return !invocation.nullInput &&
+    invocation.positionalInputs.length === 1 &&
+    invocation.positionalInputs[0] === responseFile &&
+    /requestId\s*:\s*\.meta\.requestId/u.test(invocation.filter)
     ? "SINGULAR"
     : null;
 };

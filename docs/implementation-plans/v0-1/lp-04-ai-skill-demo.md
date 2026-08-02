@@ -77,10 +77,11 @@ Acceptance record:
   闭合 POST request claims、逐条公开审计的固定操作语义和资源精确读回；拒绝请求须配对
   精确 transcript request/result，Codex replay 必须将 response request ID 与同一
   path/body/key/terminal status claim 交叉绑定；`jq`、request-ID selector、精确
-  response-file 输入和对应输出必须属于同一个解析后的命令段，不得跨换行、管道或复合命令
-  边界拼接；objective 必须由这些事实推导。
+  response-file 输入和对应输出必须属于同一个解析后的命令段；直接读取要求文件是唯一位置
+  输入，数组读取要求文件由 selector 使用的 `--slurpfile` 变量精确绑定，其他选项值不得
+  冒充输入；不得跨换行、管道或复合命令边界拼接；objective 必须由这些事实推导。
 - Blocker: `None`。实际 Codex CLI 与 Claude Desktop/Claude Code 客户端均已完成独立运行，
-  且 Cycle 6 保留的跨命令 response-reader 拼接反例现已 fail closed。
+  且 Cycle 7 保留的 jq 选项值冒充 response-file 输入反例现已 fail closed。
 
 ## 9. Status
 
@@ -92,5 +93,5 @@ Engineering Review，不表示已审查、已合并、已发布或已正式验�
 
 ## 10. Next step
 
-在无进一步文件变更的 remediation exact head 上执行完整验证矩阵并发送 Cycle 7
+在无进一步文件变更的 remediation exact head 上执行完整验证矩阵并发送 Cycle 8
 Engineering Review。LP-05 保持 `Not Started` 且需求未确认。

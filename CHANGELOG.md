@@ -89,6 +89,7 @@
   request/response facts and derived objective checks; correlate the Codex
   timeout/replay tuple and response-file request ID to the same accepted claim;
   bind `jq`, its request-ID selector, the exact response-file input and output
-  to one parsed command segment instead of composing facts across shell control
-  boundaries; require per-child public readback and preserve resumable journal
-  state after bounded `IDEMPOTENCY_IN_PROGRESS` retries.
+  to one parsed command segment, then parse jq option arity so only a true
+  positional input or selector-bound `--slurpfile` can satisfy response-file
+  proof; require per-child public readback and preserve resumable journal state
+  after bounded `IDEMPOTENCY_IN_PROGRESS` retries.

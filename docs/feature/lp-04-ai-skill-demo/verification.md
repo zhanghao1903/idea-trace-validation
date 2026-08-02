@@ -8,17 +8,19 @@
 - Approved composite digest:
   `24d41fd9b5a5f10e07daa9c2a941f0fe411833663ba9ccb7d1ecc3035cb76f6b`
 - Exact Skill commit: `55fefc83f02ada8a0310bacc7402faf72642d726`
-- Evidence status: Cycle 6 retained finding remediated; ready for exact-head Cycle 7 Engineering
+- Evidence status: Cycle 7 retained finding remediated; ready for exact-head Cycle 8 Engineering
   Review on 2026-08-02 (Asia/Shanghai)
 
 ## Exact-head and status boundary
 
-This record distinguishes implemented automation from external-client acceptance. Cycle 6 confirmed
-the longer-filename alias is closed, but retained PRR-001 because one multi-command exec could combine
-`jq` output from an unrelated file with the exact expected filename in another command. Reader calls are
-now split on shell control boundaries. A valid response reader must bind `jq`, its request-ID selector,
-the exact successful response-file input and the corresponding output in one command segment; every
-other segment in that exec must be provably quiet. Every committed claim matches an explicit
+This record distinguishes implemented automation from external-client acceptance. Cycle 7 confirmed
+the shell-boundary cases are closed, but retained PRR-001 because the expected filename could appear
+only as a `jq` option value while an unrelated positional file supplied the output. The supported `jq`
+invocation is now parsed by option arity: a direct reader must have the exact successful response file
+as its sole positional input, while a null-input array reader must bind it through the selector's exact
+`--slurpfile` variable. Arbitrary option values cannot satisfy either shape. Reader calls remain split
+on shell control boundaries, and every other segment in that exec must be provably quiet. Every
+committed claim matches an explicit
 authoritative audit-event to method/exact-path/status mapping. Claude claims match exact tool
 request/results; Codex additionally joins the timeout/replay path, frozen body digest, idempotency key,
 terminal status and response-file request ID to that same claim. Objective PASS values are independently
@@ -106,8 +108,9 @@ claimed POST requests and resource identifiers to occur in that transcript, and 
 Skill tree. Every `COMMITTED` request claim must match its public audit event's fixed method, exact
 path and status; Claude claims additionally pair the client tool request and response, while Codex
 must pair its exact replay tuple with the request ID emitted by the one parsed reader command that
-actually consumes the exact successful response file. Newline, pipeline and compound-command facts
-cannot be combined. Every
+actually consumes the exact successful response file as a positional input or selector-bound
+`--slurpfile`. Option values, newline, pipeline and compound-command facts cannot be substituted or
+combined. Every
 `REJECTED` claim must pair a client-specific tool request with its exact response. Objective results
 are derived from these facts and exact synthetic Idea, project, report, progress and experience
 reads; same-resource relabeling, arbitrary PASS labels or unrelated live resources fail.
@@ -136,6 +139,6 @@ LP-03 is durably accepted without publication at merge
 `25fd479b6c7663d41920bc50935c5bd1fd5efb7f2d4a3e14252015a889e360f8`, with release targets `[]`.
 
 LP-04 is `Ready for Acceptance`. Its acceptance record is still `None`; no merge, tag, GitHub Release,
-package, deployment or other publication has been performed. Cycles 1 through 6 were not approved.
-Engineering Review must approve the exact Cycle 7 remediation head before any separately authorized
+package, deployment or other publication has been performed. Cycles 1 through 7 were not approved.
+Engineering Review must approve the exact Cycle 8 remediation head before any separately authorized
 merge and later acceptance-only/no-publish closure.
