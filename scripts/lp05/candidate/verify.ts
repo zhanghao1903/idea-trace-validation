@@ -71,6 +71,15 @@ export const verifyStaticCandidateConfiguration = async (
     if (!dockerignore.split("\n").includes(required))
       throw new Error(`DOCKERIGNORE_MISSING:${required}`);
   }
+  const healthcheck = await readFile(
+    join(root, "deploy/runtime/healthcheck.mjs"),
+    "utf8",
+  );
+  if (
+    !healthcheck.includes("body?.ok !== true") ||
+    !healthcheck.includes('body?.data?.status !== "ready"')
+  )
+    throw new Error("RUNTIME_HEALTHCHECK_CONTRACT");
 };
 
 export const verifyCandidateFiles = async (

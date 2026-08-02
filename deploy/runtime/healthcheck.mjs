@@ -8,7 +8,8 @@ try {
   if (!response.ok) process.exitCode = 1;
   else {
     const body = await response.json();
-    if (body.status !== "READY") process.exitCode = 1;
+    if (body?.ok !== true || body?.data?.status !== "ready")
+      process.exitCode = 1;
   }
 } catch {
   process.exitCode = 1;
