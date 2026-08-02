@@ -108,6 +108,11 @@ export const runLocalAcceptance = async (
     "-f",
     "deploy/compose.test.yaml",
   ];
+  const redactDiagnostics = (value: string): string =>
+    [aiToken, humanToken, "lp05-local-postgres-password-000001"].reduce(
+      (current, secret) => current.split(secret).join("[REDACTED]"),
+      value,
+    );
   try {
     const rendered = await command([...compose, "config"], environment);
     for (const secret of [
@@ -170,6 +175,20 @@ export const runLocalAcceptance = async (
     verifySecurityHeaders(readiness, true);
     const openapi = await observeLocalTls("/openapi.json");
     if (openapi.status !== 200) throw new Error("LOCAL_OPENAPI_FAILED");
+  } catch (error) {
+    const diagnostics = await Promise.all([
+      command([...compose, "ps", "--all"], environment).catch(
+        () => "LOCAL_PS_UNAVAILABLE",
+      ),
+      command(
+        [...compose, "logs", "--no-color", "--tail", "80", "migrate", "app"],
+        environment,
+      ).catch(() => "LOCAL_LOGS_UNAVAILABLE"),
+    ]);
+    const message = error instanceof Error ? error.message : "LOCAL_FAILURE";
+    throw new Error(
+      `LOCAL_TOPOLOGY_FAILED:${message}\n${redactDiagnostics(diagnostics.join("\n")).slice(-12_000)}`,
+    );
   } finally {
     await command(
       [...compose, "down", "--volumes", "--remove-orphans", "--timeout", "10"],
