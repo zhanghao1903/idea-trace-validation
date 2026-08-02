@@ -46,7 +46,7 @@ services:
     secrets: [postgres_password, ai_api_token, human_control_token]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
-    tmpfs: [/tmp:rw, noexec, nosuid, size=16m]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=16m"]
     labels:
       io.idea-validation.environment: production
       io.idea-validation.role: migration
@@ -72,7 +72,7 @@ services:
     secrets: [postgres_password, ai_api_token, human_control_token]
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
-    tmpfs: [/tmp:rw, noexec, nosuid, size=32m]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]
     labels:
       io.idea-validation.environment: production
       io.idea-validation.release-id: ${RELEASE_ID:?RELEASE_ID is required}
@@ -115,7 +115,7 @@ services:
     restart: unless-stopped
     security_opt: [no-new-privileges:true]
     cap_drop: [ALL]
-    tmpfs: [/config:rw, noexec, nosuid, size=16m]
+    tmpfs: ["/config:rw,noexec,nosuid,size=16m"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

@@ -32,6 +32,9 @@ export const validateComposeStatic = async (
     "postgres_password",
     "ai_api_token",
     "human_control_token",
+    'tmpfs: ["/tmp:rw,noexec,nosuid,size=16m"]',
+    'tmpfs: ["/tmp:rw,noexec,nosuid,size=32m"]',
+    'tmpfs: ["/config:rw,noexec,nosuid,size=16m"]',
   ]) {
     if (!production.includes(token))
       throw new Error(`COMPOSE_REQUIRED:${token}`);
