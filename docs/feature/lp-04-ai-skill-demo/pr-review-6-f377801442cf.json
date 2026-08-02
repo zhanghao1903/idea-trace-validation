@@ -1,0 +1,495 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 6,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/6",
+    "title": "LP-04: AI Skill and repeatable demo",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "818671c504c8b8b8cd41f8ebc096f341ece6b18f",
+    "head_ref": "codex/lp-04-ai-skill-demo",
+    "head_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+    "reviewed_at": "2026-08-02T08:47:24Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "Cycle 7 PRR-001 remediation at the exact routed head",
+      "complete 55398cc27e087ef97b6b58f362c954d851f8b32b..f377801442cf1cfb268b5dd830f5d20e95ce18c0 delta across all 8 changed files",
+      "complete 818671c504c8b8b8cd41f8ebc096f341ece6b18f..f377801442cf1cfb268b5dd830f5d20e95ce18c0 PR reconciliation",
+      "independent Codex and Claude transcript/live-proof replay, committed and reviewer-added jq operand negatives, full unit/static validation and exact-head GitHub state"
+    ],
+    "excluded_scope": [
+      "production deployment, production data, release publication, merge execution and feature-branch mutation"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+        "report": "pr-review-6-55398cc27e08.md",
+        "result_path": "docs/feature/lp-04-ai-skill-demo/pr-review-6-55398cc27e08.json",
+        "result_sha256": "69db4adca12480fcb6bc40f97a2978f19890792e4ac606352329aed2bd824783",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 6,
+      "reviewed_at": "2026-08-02T08:01:28Z",
+      "base_sha": "818671c504c8b8b8cd41f8ebc096f341ece6b18f",
+        "head_sha": "55398cc27e087ef97b6b58f362c954d851f8b32b",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": [
+        "PRR-001",
+        "PRR-002",
+        "PRR-003"
+      ],
+      "blocking_finding_ids": [
+        "PRR-001"
+      ]
+    },
+    "delta_review": {
+      "previous_base_sha": "818671c504c8b8b8cd41f8ebc096f341ece6b18f",
+        "previous_head_sha": "55398cc27e087ef97b6b58f362c954d851f8b32b",
+      "current_base_sha": "818671c504c8b8b8cd41f8ebc096f341ece6b18f",
+        "current_head_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+      "triggers": [
+        "HEAD_CHANGED",
+        "EVIDENCE_CHANGED"
+      ],
+        "commit_range": "55398cc27e087ef97b6b58f362c954d851f8b32b..f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+      "commits_reviewed": [
+          "f377801442cf1cfb268b5dd830f5d20e95ce18c0"
+      ],
+      "changed_files": [
+        "CHANGELOG.md",
+        "README.md",
+        "docs/demo/lp04.md",
+        "docs/feature/lp-04-ai-skill-demo/verification.md",
+        "docs/implementation-plans/v0-1/lp-04-ai-skill-demo.md",
+        "docs/project-management.md",
+        "scripts/lp04/runtime.unit.test.ts",
+        "scripts/lp04/verify-client-evidence.ts"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "README.md",
+        "docs/demo/lp04.md",
+        "docs/feature/lp-04-ai-skill-demo/verification.md",
+        "docs/implementation-plans/v0-1/lp-04-ai-skill-demo.md",
+        "docs/project-management.md",
+        "scripts/lp04/runtime.unit.test.ts",
+        "scripts/lp04/verify-client-evidence.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "The remediation parses jq option arity, requires the successful response file as the sole positional input or selector-bound --slurpfile, adds the Cycle 7 option-value negative and updates Cycle 8 status documentation.",
+      "evidence": "Every delta file and the full base-to-head behavior were reconciled; all committed regressions, both exact transcript/live-proof validations, exact-head CI and reviewer-added multi-input/rawfile/duplicate-slurpfile/unknown-option negatives passed."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "parseJqInvocation now separates flags, option values, filter and positional inputs. A direct reader requires exactly one positional input equal to the successful response file; a null-input array reader requires one selector-bound --slurpfile binding. The routed --arg/positional-input counterexample and reviewer-added multi-input, --rawfile, duplicate-binding and unknown-option negatives all fail closed while supported positive readers and the real Codex proof pass.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "Cycle 8 changes only client-proof parsing, its regression test and documentation; the exact child-resource commit/readback gate remains unchanged and exact-head CI is green.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-003",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "Cycle 8 preserves bounded same-body/key recovery and resumable OUTCOME_UNKNOWN exhaustion; the 55-test unit suite, real Codex replay proof and exact-head CI remain green.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Client operation/objective proof trust boundary",
+        "risk_triggers": [
+          "trust-boundary",
+          "test-adequacy",
+          "data-integrity",
+          "other"
+        ],
+        "reason": "AC-15 forbids static compatibility substitution, so authoritative operations and client-observed execution must describe the same request for each claimed client.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "README.md",
+          "docs/demo/lp04.md",
+          "docs/feature/lp-04-ai-skill-demo/verification.md",
+          "docs/implementation-plans/v0-1/lp-04-ai-skill-demo.md",
+          "docs/project-management.md",
+          "scripts/lp04/runtime.unit.test.ts",
+          "scripts/lp04/verify-client-evidence.ts"
+        ],
+        "checks": [
+          "verify both committed records against their exact ignored transcripts and the live proof API",
+          "re-run same-resource wrong-operation/status and prior cross-operation negatives",
+          "re-run the longer filename-alias and all committed shell-segment negatives",
+          "supply the expected filename as a jq option value while reading an unrelated response file",
+          "exercise multiple positional inputs, --rawfile substitution, duplicate exact --slurpfile bindings and an unknown option",
+          "perform a separate second pass across the full verifier, tests, evidence and documentation delta"
+        ],
+        "finding_ids": [
+          "PRR-001"
+        ],
+        "result": "PASS"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "GRANTED",
+      "independent_pass": {
+        "status": "PASS",
+        "reviewer": "Codex Engineering Lifecycle Review — separate second pass",
+        "summary": "A fresh-context sub-agent was unavailable under the active no-delegation policy. Review therefore performed a distinct second pass over the full parser, call/output binding, tests, documentation and exact-head adversarial matrix; no open blocker or induced-risk failure remained."
+      }
+    }
+  },
+  "decision": {
+    "status": "APPROVE",
+    "mergeable": true,
+    "rationale": "Cycle 8 closes PRR-001 by parsing supported jq invocation roles and requiring the successful response file as the sole positional input or selector-bound --slurpfile. All prior findings are resolved, exact-head CI is green, both real client proofs pass, and the forward-risk matrix fails closed.",
+    "blocking_finding_ids": []
+  },
+  "summary": "Cycle 8 closes the final PRR-001 jq input-role gap required by AC-15. The exact routed head passes build, static/generated checks, all 55 unit tests, both real-client/live-proof replays, exact-head GitHub CI and a second-pass adversarial matrix; approval is renewed for this snapshot only.",
+  "change_map": [
+    {
+      "area": "Codex replay claim matching",
+      "change": "Parses jq flags, option arity, filter, positional inputs and --slurpfile bindings in addition to the existing shell-segment gate.",
+      "external_behavior": "Direct readers require the exact response file as their sole positional input; null-input array readers require one selector-bound exact --slurpfile. All prior boundary, alias, operation, request-ID and status negatives fail closed.",
+      "risk": "Low",
+      "validation": "All committed negatives, both real client proofs and exact-head CI pass."
+    },
+    {
+      "area": "Client transcript/objective derivation",
+      "change": "The SINGULAR and FIRST_ARRAY_ITEM recognizers consume structured invocation roles instead of token presence.",
+      "external_behavior": "Option values, multiple positional inputs, ambiguous duplicate bindings and unsupported options cannot authorize a response-reader fact.",
+      "risk": "Low",
+      "validation": "Committed positives and negatives, both real clients, and reviewer-added adversarial variants pass with the expected fail-closed behavior."
+    },
+    {
+      "area": "Evidence and status documentation",
+      "change": "Documents Cycle 8 positional-input and selector-bound --slurpfile semantics.",
+      "external_behavior": "The LP-04 narrative now matches the verified parser and exact-head status.",
+      "risk": "Low",
+      "validation": "All documentation delta was reconciled against the current implementation and verification evidence."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Codex response filename is bound to jq's input operand",
+      "location": {
+        "path": "scripts/lp04/verify-client-evidence.ts",
+        "line_start": 843,
+        "line_end": 925,
+        "symbol": "parseJqInvocation / responseReaderShape",
+        "side": "RIGHT",
+        "commit_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0"
+      },
+      "observation": "Cycle 8 parses supported jq flags and option arity before identifying the filter and positional inputs. The singular shape requires exactly one positional input equal to the successful response file; the array shape requires null input, zero positionals and one exact --slurpfile binding referenced by the selector.",
+      "trigger": "Replay the prior --arg marker replay-response.json counterexample and adjacent malformed/ambiguous input-role variants against the exact-head verifier.",
+      "impact": "The prior false compatibility record is rejected while legitimate direct and --slurpfile readers remain accepted, restoring the AC-15 response-to-claim correlation gate.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "The committed Cycle 7 counterexample now rejects when replay-response.json is only a --arg value and unrelated-replay-response.json is the positional input.",
+          "reference": "scripts/lp04/runtime.unit.test.ts:990-993 at f377801442cf1cfb268b5dd830f5d20e95ce18c0"
+        },
+        {
+          "kind": "code",
+          "description": "parseJqInvocation separates jq option values from filter and positional inputs, rejecting unknown or malformed options.",
+          "reference": "scripts/lp04/verify-client-evidence.ts:843-893"
+        },
+        {
+          "kind": "code",
+          "description": "responseReaderShape proves the exact direct positional input or one selector-bound exact --slurpfile binding before exposing any parsed output.",
+          "reference": "scripts/lp04/verify-client-evidence.ts:895-925"
+        },
+        {
+          "kind": "test",
+          "description": "Supported direct readers with unrelated option values and supported null-input --slurpfile readers pass; alias, command-boundary and option-value substitutions fail.",
+          "reference": "scripts/lp04/runtime.unit.test.ts:595-690; scripts/lp04/runtime.unit.test.ts:932-993"
+        },
+        {
+          "kind": "analysis",
+          "description": "Reviewer-added multiple-positional, --rawfile substitution, duplicate exact --slurpfile and unknown-option negatives all failed closed; real Codex and Claude proof replays passed.",
+          "reference": "reviewer exact-head verify-client-evidence runs"
+        },
+        {
+          "kind": "spec",
+          "description": "AC-15 requires each named client to actually execute the representative validation, and the plan disallows a hand-written assertion without live request/resource correlation.",
+          "reference": "docs/feature/lp-04-ai-skill-demo/requirements.md:111-113; docs/feature/lp-04-ai-skill-demo/implementation-plan.md:283-287"
+        }
+      ],
+      "remediation": "Completed at the current head: supported jq invocation roles are parsed and exact input identity is required.",
+      "verification": "Both real client records pass; all existing negatives remain closed; the routed --arg/positional-input case and reviewer-added malformed/ambiguous variants fail with CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "evidence:lp04-client-proof:uncorrelated-self-assertion"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "Child-resource writes are committed without matching public reads",
+      "location": {
+        "path": "scripts/lp04/public-verification.ts",
+        "line_start": 106,
+        "line_end": 145,
+        "symbol": "verifyPublicResources",
+        "side": "RIGHT",
+        "commit_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0"
+      },
+      "observation": "The current implementation maps every scenario result ref to a direct or paginated public read and requires an exact ID match.",
+      "trigger": "A normal, recovered or terminal-replayed journal entry contains a child resource reference.",
+      "impact": "The exact child must be publicly present before COMMITTED/PASS; missing or mismatched children now fail closed.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "Exact report/progress reads pass, mismatched progress fails, and terminal replay performs zero writes while reading reports and progress.",
+          "reference": "scripts/lp04/runtime.unit.test.ts:572-630; apps/api/test/lp04-demo.acceptance.test.ts:302-334"
+        }
+      ],
+      "remediation": "Completed at the current head.",
+      "verification": "Targeted unit tests and exact-head CI verify normal, recovery and terminal readback behavior.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "recovery:lp04-public-verify:child-refs-ignored"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "concurrency",
+      "title": "IDEMPOTENCY_IN_PROGRESS is persisted as terminal rejection",
+      "location": {
+        "path": "scripts/lp04/http-client.ts",
+        "line_start": 132,
+        "line_end": 183,
+        "symbol": "executeStoredEntryWithInProgressRetry",
+        "side": "RIGHT",
+        "commit_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0"
+      },
+      "observation": "The current recovery helper recognizes the bounded retry contract, preserves exact bytes/key and leaves exhaustion OUTCOME_UNKNOWN.",
+      "trigger": "Recovery receives one or more 409 IDEMPOTENCY_IN_PROGRESS responses.",
+      "impact": "Temporary concurrency no longer becomes terminal local rejection and the original intent remains resumable.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The exact-head regression proves retry-success after two sends and OUTCOME_UNKNOWN after three bounded in-progress responses, with identical body and key.",
+          "reference": "scripts/lp04/runtime.unit.test.ts:632-730"
+        }
+      ],
+      "remediation": "Completed at the current head.",
+      "verification": "Targeted unit tests and exact-head CI pass.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "concurrency:lp04-recovery:in-progress-terminal-rejected"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Bind the exact successful response file to jq's actual input operand, not any argument position; add the --arg/positional-input negative.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Publicly reconcile each exact child resource before COMMITTED/PASS and on terminal replay.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-003",
+      "action": "Implement and test bounded IDEMPOTENCY_IN_PROGRESS recovery with frozen bytes and key.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "data-integrity",
+      "level": "Low",
+      "description": "The supported jq grammar is intentionally narrow; unrecognized or ambiguous invocation forms fail closed and require future parser/test updates before they can serve as proof.",
+      "mitigation": "Preserve exact option metadata, input-role tests and fail-closed behavior when supporting additional jq forms.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "Low",
+      "description": "Previously resolved child readback and in-progress retry behavior remain covered by targeted tests, real replay proof and exact-head CI.",
+      "mitigation": "Preserve the current exact-ID reads, frozen retry bytes/key and resumable exhaustion.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "The Codex transcript passed directly; the Claude record's exact SHA-bound 206-line prefix passed after two later metadata-only records made the mutable source path's whole-file digest differ.",
+      "mitigation": "Keep raw client material local, retain exact digest-bound snapshots or recoverable append boundaries, and rerun the validator after evidence changes.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "LP-04 remains additive tooling, documentation and tests with no production schema or accepted API mutation.",
+      "mitigation": "Revert the LP-04 feature commits if delivery is abandoned.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "PASSED",
+    "reviewer_runs": [
+      {
+        "command": "npm 11.16.0 install --ignore-scripts using bundled Node 24",
+        "environment": "macOS; Node.js 24.14.0; pinned npm 11.16.0 installer; exact head",
+        "head_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 locked packages in the isolated review worktree using npm 11.16.0.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "build, format, lint, typecheck, report-type, OpenAPI and Skill checks using bundled Node 24",
+        "environment": "macOS; Node.js 24.14.0; exact head",
+        "head_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Production build and all listed static/generated-contract checks passed; report-type and OpenAPI checks ran directly through Node plus tsx.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "vitest run --config vitest.unit.config.ts",
+        "environment": "macOS; Node.js 24.14.0; exact head",
+        "head_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 55 unit tests passed, including the 15 LP-04 runtime tests, supported jq-reader positives and all committed Cycle 8 input-role negatives.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "verify-client-evidence for committed Codex proof with exact ignored transcript and live proof API",
+        "environment": "macOS; exact head; host loopback proof API at 127.0.0.1:53919",
+        "head_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The committed Codex proof passed exact transcript digest/envelope, Skill tree, claim correlation, objectives and live-resource validation.",
+        "required_for_approval": true,
+        "evidence_ref": "docs/feature/lp-04-ai-skill-demo/evidence/codex-client-proof.json"
+      },
+      {
+        "command": "verify-client-evidence for committed Claude proof using its exact SHA-bound 206-line transcript prefix and live proof API",
+        "environment": "macOS; exact head; host loopback proof API at 127.0.0.1:53919",
+        "head_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The record digest matched the current file's first 206 lines exactly; that snapshot passed. A later metadata-only mode record made the mutable whole-file path fail its digest as expected.",
+        "required_for_approval": true,
+        "evidence_ref": "docs/feature/lp-04-ai-skill-demo/evidence/claude-client-proof.json"
+      },
+      {
+        "command": "Cycle 8 jq input-role forward-risk matrix in a separate second pass",
+        "environment": "exact-head verifier with deterministic CODEX transcript and public Idea authority fixture",
+        "head_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The routed --arg substitution plus reviewer-added multiple positional, --rawfile substitution, duplicate exact --slurpfile and unknown-option variants all failed closed; supported positive readers remained accepted.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "git diff --check for full PR and Cycle 8 delta",
+        "environment": "exact local git objects",
+        "head_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors in the complete base-to-head diff or Cycle 8 delta.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-02T08:47:24Z",
+        "head_sha": "f377801442cf1cfb268b5dd830f5d20e95ce18c0",
+        "status": "PASS",
+        "summary": "GitHub Actions workflow run 30739853980 and verify job 91475186198 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30739853980/job/91475186198"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local full npm run verify",
+        "reason": "Exact-head GitHub CI completed the full configured suite; reviewer-local work covered the build, all unit tests, static/generated checks, exact real client proofs and a separate jq input-role adversarial matrix."
+      },
+      {
+        "check": "Production deployment, load and real-user study",
+        "reason": "No production or publication target is in LP-04 scope or Review authority."
+      }
+    ]
+  },
+  "limitations": [
+    "Reviewer-local npm was 11.12.1 rather than the declared 11.16.0; exact configured-runtime authority comes from successful exact-head GitHub CI.",
+    "A fresh-context independent sub-agent pass was unavailable under the active no-delegation policy; the Review task performed a separate full/delta pass and executable adversarial reproduction.",
+    "The live proof API is an externally managed loopback process; Review used it only for authenticated-free public reads and did not mutate proof data.",
+    "The Claude transcript source path is append-only rather than immutable: its committed digest matches the current first 206 lines, while a later metadata-only record changes the whole-file digest.",
+    "Client transcript provenance is operator-observed rather than cryptographically attested; the validator must therefore make every checkable client/authority correlation exact."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #6 points to the accepted exact base and Cycle 8 head and remains ready for review.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh authoritative GitHub PR metadata for the routed snapshot.",
+      "evidence": "GitHub reports open, draft=false, mergeable=true, base 818671c504c8b8b8cd41f8ebc096f341ece6b18f and head f377801442cf1cfb268b5dd830f5d20e95ce18c0.",
+      "impact_if_false": "The report would be stale and could not authorize any outcome."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed CI run belongs to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read PR-associated checks for the routed head SHA.",
+      "evidence": "Workflow run 30739853980 and verify job 91475186198 completed successfully for f377801442cf1cfb268b5dd830f5d20e95ce18c0.",
+      "impact_if_false": "The platform check could not support this review snapshot."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The exact ignored transcripts and loopback proof API support an independent read-only client-proof replay.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Confirm the Codex whole-file digest and the Claude digest-bound append prefix, then run the exact-head validator independently for both committed records.",
+      "evidence": "The Codex transcript digest matches directly. The Claude record digest matches the current file's first 206 lines exactly; both exact snapshots returned PASS without modifying the feature worktree or proof API.",
+      "impact_if_false": "PRR-001 could not be separated from an evidence-availability problem."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
