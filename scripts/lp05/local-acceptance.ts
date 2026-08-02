@@ -181,7 +181,16 @@ export const runLocalAcceptance = async (
         () => "LOCAL_PS_UNAVAILABLE",
       ),
       command(
-        [...compose, "logs", "--no-color", "--tail", "80", "migrate", "app"],
+        [
+          ...compose,
+          "logs",
+          "--no-color",
+          "--tail",
+          "80",
+          "migrate",
+          "app",
+          "caddy",
+        ],
         environment,
       ).catch(() => "LOCAL_LOGS_UNAVAILABLE"),
     ]);

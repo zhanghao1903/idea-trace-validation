@@ -24,6 +24,12 @@ export const validateComposeStatic = async (
   );
   if (/^\s+ports:/mu.test(postgresSection) || /^\s+ports:/mu.test(appSection))
     throw new Error("COMPOSE_INTERNAL_SERVICE_EXPOSED");
+  const caddySection = production.slice(production.indexOf("  caddy:"));
+  if (
+    !caddySection.includes("cap_drop: [ALL]") ||
+    !caddySection.includes("cap_add: [NET_BIND_SERVICE]")
+  )
+    throw new Error("COMPOSE_CADDY_CAPABILITIES");
   for (const token of [
     "read_only: true",
     "cap_drop: [ALL]",
