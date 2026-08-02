@@ -245,6 +245,34 @@ const build = async (): Promise<void> => {
   )
     throw new Error("OCI_ARCHIVE_INVALID");
   const imageId = await ociImageId(archivePath);
+  await run("docker", [
+    "buildx",
+    "build",
+    "--platform",
+    platform,
+    "--file",
+    "deploy/Containerfile",
+    "--build-arg",
+    `SOURCE_COMMIT=${sourceCommit}`,
+    "--build-arg",
+    `SOURCE_TREE=${sourceTree}`,
+    "--build-arg",
+    `RELEASE_ID=${releaseId}`,
+    "--tag",
+    `idea-trace-validation:${releaseId}`,
+    "--load",
+    ".",
+  ]);
+  const loadedImageId = (
+    await run("docker", [
+      "image",
+      "inspect",
+      "--format",
+      "{{.Id}}",
+      `idea-trace-validation:${releaseId}`,
+    ])
+  ).trim();
+  if (loadedImageId !== imageId) throw new Error("LOADED_IMAGE_ID_MISMATCH");
   const migrationPaths = [
     ["0001_lp01_core", "packages/db/migrations/0001_lp01_core.sql", "legacy"],
     [

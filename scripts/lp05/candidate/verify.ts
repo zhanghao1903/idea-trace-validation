@@ -80,6 +80,15 @@ export const verifyStaticCandidateConfiguration = async (
     !healthcheck.includes('body?.data?.status !== "ready"')
   )
     throw new Error("RUNTIME_HEALTHCHECK_CONTRACT");
+  const candidateBuilder = await readFile(
+    join(root, "scripts/lp05/candidate/build.ts"),
+    "utf8",
+  );
+  if (
+    !candidateBuilder.includes('"--load"') ||
+    !candidateBuilder.includes("LOADED_IMAGE_ID_MISMATCH")
+  )
+    throw new Error("CANDIDATE_DAEMON_LOAD_CONTRACT");
 };
 
 export const verifyCandidateFiles = async (

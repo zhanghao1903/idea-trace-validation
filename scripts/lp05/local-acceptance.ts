@@ -62,7 +62,25 @@ export const runLocalAcceptance = async (
   });
   const archive = manifest.ociArchive as JsonRecord;
   const archivePath = join(dirname(manifestPath), String(archive.basename));
-  await command(["image", "load", "--input", archivePath], process.env);
+  const expectedImageId = String(manifest.imageId);
+  const imageName = String(manifest.imageName);
+  let loadedImageId = (
+    await command(
+      ["image", "inspect", "--format", "{{.Id}}", imageName],
+      process.env,
+    ).catch(() => "")
+  ).trim();
+  if (loadedImageId === "") {
+    await command(["image", "load", "--input", archivePath], process.env);
+    loadedImageId = (
+      await command(
+        ["image", "inspect", "--format", "{{.Id}}", imageName],
+        process.env,
+      )
+    ).trim();
+  }
+  if (loadedImageId !== expectedImageId)
+    throw new Error("LOCAL_LOADED_IMAGE_ID_MISMATCH");
 
   const temporary = await mkdtemp(join(tmpdir(), "lp05-local-"));
   const secretsRoot = join(temporary, "secrets");
