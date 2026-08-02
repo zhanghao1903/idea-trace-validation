@@ -1,0 +1,20 @@
+{
+  admin off
+  http_port 8080
+  https_port 8443
+  local_certs
+}
+
+localhost {
+  tls internal
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy no-referrer
+    -Server
+  }
+  @dynamic path /api/* /health/* /openapi.json
+  header @dynamic Cache-Control "no-store"
+  reverse_proxy app:3000
+}

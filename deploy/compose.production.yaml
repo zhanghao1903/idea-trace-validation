@@ -1,0 +1,148 @@
+name: ${COMPOSE_PROJECT_NAME:-idea-validation-prod}
+
+services:
+  postgres:
+    image: docker.io/library/postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    platform: ${APP_PLATFORM:?APP_PLATFORM is required}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks: [backend]
+    restart: unless-stopped
+    secrets: [postgres_password]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    labels:
+      io.idea-validation.environment: production
+      io.idea-validation.role: database
+
+  migrate:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    platform: ${APP_PLATFORM:?APP_PLATFORM is required}
+    command: ["/app/packages/db/dist/cli/migrate.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment: &app_environment
+      AI_WRITE_CLIENT: lp05-deployment
+      AI_WRITE_DISPLAY_NAME: LP-05 deployment executor
+      NODE_ENV: production
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      RELEASE_ID: ${RELEASE_ID:?RELEASE_ID is required}
+      SOURCE_COMMIT: ${SOURCE_COMMIT:?SOURCE_COMMIT is required}
+      WEB_DIST_DIR: /app/apps/web/dist
+    networks: [backend]
+    read_only: true
+    restart: "no"
+    secrets: [postgres_password, ai_api_token, human_control_token]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/tmp:rw, noexec, nosuid, size=16m]
+    labels:
+      io.idea-validation.environment: production
+      io.idea-validation.role: migration
+
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE is required}
+    platform: ${APP_PLATFORM:?APP_PLATFORM is required}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    environment: *app_environment
+    healthcheck:
+      test: ["CMD", "node", "/app/deploy/runtime/healthcheck.mjs"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 20s
+    networks: [backend, edge]
+    read_only: true
+    restart: unless-stopped
+    secrets: [postgres_password, ai_api_token, human_control_token]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/tmp:rw, noexec, nosuid, size=32m]
+    labels:
+      io.idea-validation.environment: production
+      io.idea-validation.release-id: ${RELEASE_ID:?RELEASE_ID is required}
+      io.idea-validation.role: application
+
+  caddy:
+    image: docker.io/library/caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
+    platform: ${APP_PLATFORM:?APP_PLATFORM is required}
+    user: "1000:1000"
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+      DEPLOY_DOMAIN: ${DEPLOY_DOMAIN:?DEPLOY_DOMAIN is required}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "caddy",
+          "validate",
+          "--config",
+          "/etc/caddy/Caddyfile",
+          "--adapter",
+          "caddyfile",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks: [edge]
+    ports:
+      - target: 8080
+        published: "80"
+        protocol: tcp
+      - target: 8443
+        published: "443"
+        protocol: tcp
+    read_only: true
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    tmpfs: [/config:rw, noexec, nosuid, size=16m]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    labels:
+      io.idea-validation.environment: production
+      io.idea-validation.role: edge
+
+networks:
+  backend:
+    internal: true
+  edge:
+    internal: false
+
+secrets:
+  postgres_password:
+    file: ${SECRETS_ROOT:?SECRETS_ROOT is required}/postgres_password
+  ai_api_token:
+    file: ${SECRETS_ROOT:?SECRETS_ROOT is required}/ai_api_token
+  human_control_token:
+    file: ${SECRETS_ROOT:?SECRETS_ROOT is required}/human_control_token
+
+volumes:
+  postgres-data:
+    labels:
+      io.idea-validation.environment: production
+      io.idea-validation.role: database
+  caddy-data:
+    labels:
+      io.idea-validation.environment: production
+      io.idea-validation.role: tls
