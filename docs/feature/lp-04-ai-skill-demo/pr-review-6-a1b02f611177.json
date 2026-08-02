@@ -1,0 +1,468 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 6,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/6",
+    "title": "LP-04: AI Skill and repeatable demo",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "818671c504c8b8b8cd41f8ebc096f341ece6b18f",
+    "head_ref": "codex/lp-04-ai-skill-demo",
+    "head_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4",
+    "reviewed_at": "2026-08-02T01:02:14Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete exact base-to-head diff across all 52 changed files",
+      "confirmed requirements and approved LP-04 design and implementation plan",
+      "Skill instructions, deterministic request journal, recovery runner, client evidence validator, human facilitator and browser story",
+      "exact-head GitHub PR identity, draft state, mergeability and CI workflow"
+    ],
+    "excluded_scope": [
+      "production deployment, production data, real secrets and external publication",
+      "raw Codex and Claude transcripts because the design intentionally keeps them local and uncommitted",
+      "manual line-by-line reading of the frozen generated OpenAPI artifact"
+    ]
+  },
+  "review_context": {
+    "kind": "INITIAL",
+    "forward_risk_review": [
+      {
+        "surface": "Codex and Claude client acceptance evidence",
+        "risk_triggers": ["trust-boundary", "test-adequacy", "other"],
+        "reason": "AC-15 requires actual client execution and forbids a static or hand-written compatibility pass.",
+        "affected_paths": [
+          "scripts/lp04/verify-client-evidence.ts",
+          "scripts/lp04/runtime.unit.test.ts",
+          "docs/feature/lp-04-ai-skill-demo/evidence/codex-client-proof.json",
+          "docs/feature/lp-04-ai-skill-demo/evidence/claude-client-proof.json",
+          "docs/feature/lp-04-ai-skill-demo/verification.md"
+        ],
+        "checks": [
+          "trace transcript digest and request IDs from parser through verifier",
+          "run a fabricated-record counterexample with a live-readable synthetic resource",
+          "inspect exact-head CI gate composition"
+        ],
+        "finding_ids": ["PRR-001"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Durable request recovery and public authority reconciliation",
+        "risk_triggers": ["mutation-recovery", "data-integrity", "state-transition", "test-adequacy"],
+        "reason": "The demo may claim writes and recovered entries are committed only after matching public reads.",
+        "affected_paths": [
+          "scripts/lp04/scenario.ts",
+          "scripts/lp04/verify-run.ts",
+          "apps/api/test/lp04-demo.acceptance.test.ts"
+        ],
+        "checks": [
+          "trace every response resource reference into publicVerify and verifyRun",
+          "run a report-only public verification counterexample",
+          "compare acceptance coverage with the committed/recovery contract"
+        ],
+        "finding_ids": ["PRR-002"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Idempotency-in-progress retry protocol",
+        "risk_triggers": ["mutation-recovery", "concurrency", "public-contract", "state-transition"],
+        "reason": "The approved design requires a bounded exact-body/key retry when the API reports IDEMPOTENCY_IN_PROGRESS.",
+        "affected_paths": [
+          "scripts/lp04/http-client.ts",
+          "scripts/lp04/scenario.ts",
+          "scripts/lp04/request-journal.ts",
+          "skills/idea-validation-workflow/references/error-recovery.md"
+        ],
+        "checks": [
+          "trace a 409 IDEMPOTENCY_IN_PROGRESS replay response",
+          "run an exact-head recovery counterexample and inspect the terminal journal state"
+        ],
+        "finding_ids": ["PRR-003"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Credential and human-confirmation boundary",
+        "risk_triggers": ["security-privacy", "trust-boundary", "other"],
+        "reason": "The Skill and demo must keep AI and human capabilities separate and prevent secret evidence leakage.",
+        "affected_paths": [
+          "skills/idea-validation-workflow",
+          "scripts/lp04/security.ts",
+          "scripts/lp04/human-facilitator.ts",
+          "apps/api/test/lp04-demo.acceptance.test.ts"
+        ],
+        "checks": [
+          "inspect credential flow and persistence boundaries",
+          "run the static Skill checker and targeted security/recovery unit tests"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ]
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "Three blocking defects let LP-04 claim success without authoritative client or resource proof and mishandle the documented in-progress recovery response. Exact-head CI is green, but it does not exercise these counterexamples; the PR is also still draft."
+    ,"blocking_finding_ids": ["PRR-001", "PRR-002", "PRR-003"]
+  },
+  "summary": "PR #6 adds the LP-04 Skill, deterministic real-HTTP demo, recovery journal, client evidence, facilitator and browser proof. Three exact-head counterexamples block approval: fabricated client evidence passes, child resources are not publicly re-read before COMMITTED/PASS, and IDEMPOTENCY_IN_PROGRESS becomes terminal REJECTED instead of being retried.",
+  "change_map": [
+    {
+      "area": "Repository Skill",
+      "change": "Adds a client-neutral Markdown Skill and bounded workflow, report, recovery and client-setup references.",
+      "external_behavior": "Codex, Claude and compatible clients receive instructions for current API workflows and the human stop boundary.",
+      "risk": "High",
+      "validation": "Skill structure and secret checks pass; instruction paths were inspected against the frozen API."
+    },
+    {
+      "area": "Deterministic demo and recovery",
+      "change": "Adds canonical identities, durable journals, real HTTP scenario execution, crash recovery and run verification.",
+      "external_behavior": "Synthetic demo writes can be replayed after process death and reported as verified.",
+      "risk": "High",
+      "validation": "Normal exact-head tests pass, but PRR-002 and PRR-003 counterexamples fail."
+    },
+    {
+      "area": "Client acceptance evidence",
+      "change": "Commits Codex and Claude proof records and a live-resource verifier.",
+      "external_behavior": "LP-04 records both required clients as actually executed and PASS.",
+      "risk": "High",
+      "validation": "PRR-001 proves the verifier accepts a hand-written record with an absent transcript and unrelated request ID."
+    },
+    {
+      "area": "Human and browser demonstration",
+      "change": "Adds an explicit synthetic human facilitator and a real-data proposer/executor Chromium story.",
+      "external_behavior": "The demo shows completed and active projects without exposing write controls or credentials in public Web.",
+      "risk": "Medium",
+      "validation": "Implementation and acceptance/browser coverage were inspected; exact-head CI passes."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "testing",
+      "title": "Client evidence verifier accepts fabricated execution proof",
+      "location": {
+        "path": "scripts/lp04/verify-client-evidence.ts",
+        "line_start": 149,
+        "line_end": 211,
+        "symbol": "verifyClientEvidence",
+        "side": "RIGHT",
+        "commit_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4"
+      },
+      "observation": "After format checks, the verifier never consumes rawTranscriptSha256 or requestIds. It only proves the named Skill tree and that caller-supplied Idea/project/report IDs are currently readable and synthetic; objectiveChecks and client metadata remain self-asserted.",
+      "trigger": "A hand-written record supplies any 64-hex transcript digest, any syntactically valid request ID, PASS objective checks and the ID of any readable synthetic resource.",
+      "impact": "The command returns PASS and committed documentation can state that Codex or Claude actually executed even when no client session, transcript or request/resource correlation exists, directly defeating AC-15 and the approved plan's no-static-substitution gate.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "An exact-head counterexample used clientVersion invented-client, observer hand-written, a zero transcript digest, an unrelated request ID and an invented check; a fake public Idea read was sufficient for verifyClientEvidence to return accepted=true.",
+          "reference": "reviewer counterexample at a1b02f6111777b104d794d7da0e11dd17a26a1c4"
+        },
+        {
+          "kind": "code",
+          "description": "requestIds and rawTranscriptSha256 are validated only for shape and then returned; the live loop starts from resourceRefs and never correlates audit/request metadata.",
+          "reference": "scripts/lp04/verify-client-evidence.ts:48-139,149-211"
+        },
+        {
+          "kind": "spec",
+          "description": "AC-15 requires actual Codex and Claude execution; the approved plan says a hand-written assertion without live request/resource correlation cannot become PASS.",
+          "reference": "docs/feature/lp-04-ai-skill-demo/requirements.md:111-113; implementation-plan.md:283-287"
+        },
+        {
+          "kind": "test",
+          "description": "The unit test itself constructs a record in memory and only proves its self-digest; npm verify does not run demo:lp04:verify-client for either committed proof.",
+          "reference": "scripts/lp04/runtime.unit.test.ts:337-373; package.json:45-55"
+        }
+      ],
+      "remediation": "Make PASS depend on independently checkable execution evidence: bind the transcript digest to an actual supplied ignored transcript during generation/verification, correlate every recorded request ID to the claimed resources via authoritative audit/history data, require expected objective check IDs, and include both committed proof validations in the exact-head gate or keep AC-15 explicitly failed.",
+      "verification": "Add negative tests showing absent/mismatched transcript, unrelated request IDs, arbitrary objective checks and a readable unrelated synthetic resource all fail; both real Codex and Claude records then pass the exact-head validator.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "evidence:lp04-client-proof:uncorrelated-self-assertion"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "Child-resource writes are committed without matching public reads",
+      "location": {
+        "path": "scripts/lp04/scenario.ts",
+        "line_start": 262,
+        "line_end": 281,
+        "symbol": "DemoScenarioRunner.publicVerify",
+        "side": "RIGHT",
+        "commit_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4"
+      },
+      "observation": "publicVerify builds checks only for reference names ending in IdeaId or ProjectId. Evidence, progress, attention, conclusion and report IDs are ignored; report-only refs cause zero GETs, while project-bearing writes only prove that the project exists, not that the returned child ID is authoritative. The caller then persists COMMITTED and verifyRun repeats the same omission.",
+      "trigger": "Any normal or recovered child-resource write returns 2xx, especially report submission whose responseRefs contains only a ReportId, or a later rerun encounters a COMMITTED child entry.",
+      "impact": "The journal and result can report COMMITTED/VERIFIED/PASS even though the exact evidence, fact, item, conclusion or report was never publicly reconciled. This invalidates the recovery authority and real-HTTP demo evidence required by AC-9/12.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "Calling exact-head publicVerify with only activeReportId completed successfully with childVerifyReadCount=0.",
+          "reference": "reviewer counterexample at a1b02f6111777b104d794d7da0e11dd17a26a1c4"
+        },
+        {
+          "kind": "code",
+          "description": "step and recoverPending call publicVerify before resolveExecutedEntry, but the verifier discards all child IDs; verifyRun likewise only reads IdeaId and ProjectId refs.",
+          "reference": "scripts/lp04/scenario.ts:262-281,320-340,431-445; scripts/lp04/verify-run.ts:61-76"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved design requires a matching public read before success and requires COMMITTED entries to re-read recorded resources before skipping the write.",
+          "reference": "docs/feature/lp-04-ai-skill-demo/design.md:425-442; implementation-plan.md:205-215"
+        }
+      ],
+      "remediation": "Associate every journaled child ID with its project and authoritative collection/current-report endpoint, then require the exact child ID to appear in a bounded public read before COMMITTED, on terminal skip, and in verifyRun. Do not emit PASS assertions unconditionally when those reads have not succeeded.",
+      "verification": "Add normal and crash/restart cases for report plus at least one execution child; make a missing/mismatched child fail before COMMITTED and prove terminal reruns perform zero writes but matching public reads.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "recovery:lp04-public-verify:child-refs-ignored"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "concurrency",
+      "title": "IDEMPOTENCY_IN_PROGRESS is persisted as terminal rejection",
+      "location": {
+        "path": "scripts/lp04/scenario.ts",
+        "line_start": 328,
+        "line_end": 340,
+        "symbol": "DemoScenarioRunner.recoverPending",
+        "side": "RIGHT",
+        "commit_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4"
+      },
+      "observation": "Recovery treats every non-2xx response as accepted=false and immediately resolves the journal to REJECTED. It never recognizes IDEMPOTENCY_IN_PROGRESS, reads retryAfterMs or performs the planned bounded same-body/key retry.",
+      "trigger": "A restart replays an unresolved write while the original API transaction is still processing and the existing contract returns 409 IDEMPOTENCY_IN_PROGRESS.",
+      "impact": "A temporary and explicitly retryable state becomes permanent local rejection. The next scenario pass sees a terminal mismatch and cannot recover the original intent, violating AC-7 and the Skill's advertised recovery behavior.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "An exact-head recovery replay returning 409 IDEMPOTENCY_IN_PROGRESS with retryAfterMs=250 performed one POST and left the journal in REJECTED.",
+          "reference": "reviewer counterexample at a1b02f6111777b104d794d7da0e11dd17a26a1c4"
+        },
+        {
+          "kind": "code",
+          "description": "recoverPending and step classify status solely by the 2xx range and resolve all other responses as REJECTED.",
+          "reference": "scripts/lp04/scenario.ts:328-340,422-442"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved design specifies advertised 250 ms waits and at most three exact-body/key retries; the Skill reference promises the same behavior.",
+          "reference": "docs/feature/lp-04-ai-skill-demo/design.md:409-430; skills/idea-validation-workflow/references/error-recovery.md:7-18"
+        }
+      ],
+      "remediation": "Handle IDEMPOTENCY_IN_PROGRESS as unresolved: validate and bound retryAfterMs, wait and replay the same frozen entry/key at most the approved limit, and leave an honest unresolved/failed state rather than REJECTED if the limit is exhausted.",
+      "verification": "Add exact-head tests for in-progress then replay-success and in-progress exhaustion; assert identical body/key, bounded POST count, no changed intent and no premature REJECTED/COMMITTED state.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "concurrency:lp04-recovery:in-progress-terminal-rejected"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Make actual client execution and request/resource correlation independently verifiable, then gate both proof records.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Publicly reconcile each exact child resource before COMMITTED/PASS and on terminal replay.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-003",
+      "action": "Implement and test bounded IDEMPOTENCY_IN_PROGRESS recovery with frozen bytes and key.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "Medium",
+      "description": "Credential and human capability separation is well documented and tested, but transcript provenance cannot currently be validated without weakening the intentional privacy boundary.",
+      "mitigation": "Resolve PRR-001 with local ignored-input verification and commit only sanitized derived proof.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "data-integrity",
+      "level": "High",
+      "description": "Child write results can become COMMITTED/PASS without a matching authoritative public read.",
+      "mitigation": "Resolve PRR-002 before merge.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "reliability-concurrency",
+      "level": "High",
+      "description": "A documented temporary idempotency state becomes terminal local rejection.",
+      "mitigation": "Resolve PRR-003 and add bounded replay regressions.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "performance-scalability",
+      "level": "Low",
+      "description": "The demo is bounded and local; no unbounded production hot path is introduced.",
+      "mitigation": "Preserve current page, request and evidence bounds.",
+      "owner": null
+    },
+    {
+      "category": "api-compatibility",
+      "level": "Medium",
+      "description": "The Skill describes the existing API correctly, but its demo runner does not implement one advertised public error response.",
+      "mitigation": "Align the runner with IDEMPOTENCY_IN_PROGRESS and preserve frozen OpenAPI checks.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "The change is additive repository tooling and documentation with no schema or production API change.",
+      "mitigation": "A feature revert removes LP-04 assets without altering the accepted LP-03 runtime.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm ci --ignore-scripts with engine-strict disabled",
+        "environment": "macOS; Node.js 24.14.0; npm 11.12.1; exact head",
+        "head_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 locked packages; npm differs from the declared 11.16.0 and is not used as exact-runtime approval evidence.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run build",
+        "environment": "macOS; Node.js 24.14.0; exact head",
+        "head_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "TypeScript project build and production Web build passed; JavaScript gzip size was 97.35 KiB.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx scripts/lp04/check-skill.ts",
+        "environment": "macOS; Node.js 24.14.0; exact head",
+        "head_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Skill structure, canonical links, route/error names and static secret/human-action checks passed.",
+        "required_for_approval": true,
+        "evidence_ref": "skills/idea-validation-workflow"
+      },
+      {
+        "command": "npx vitest run --config vitest.unit.config.ts scripts/lp04/runtime.unit.test.ts scripts/lp04/check-skill.unit.test.ts",
+        "environment": "macOS; Node.js 24.14.0; exact head",
+        "head_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Both files and all 13 targeted tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "fabricated client-evidence counterexample",
+        "environment": "exact-head verifier with deterministic fake public response",
+        "head_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "Verifier accepted a hand-written client PASS with absent transcript, zero digest, unrelated request ID and invented objective check.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "child public-read and idempotency-in-progress counterexamples",
+        "environment": "exact-head DemoScenarioRunner with deterministic HTTP responses",
+        "head_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "ReportId verification made zero reads; one 409 IDEMPOTENCY_IN_PROGRESS replay produced terminal REJECTED after one POST.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-002; PRR-003"
+      },
+      {
+        "command": "git diff --check 818671c504c8b8b8cd41f8ebc096f341ece6b18f..a1b02f6111777b104d794d7da0e11dd17a26a1c4",
+        "environment": "exact local git objects",
+        "head_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors across all 52 changed files.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-02T01:02:14Z",
+        "head_sha": "a1b02f6111777b104d794d7da0e11dd17a26a1c4",
+        "status": "PASS",
+        "summary": "GitHub Actions workflow run 30725582980 and verify job 91436531725 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30725582980/job/91436531725"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local full npm run verify",
+        "reason": "Exact-head GitHub CI already completed the full configured suite; targeted reviewer checks and counterexamples were used to discriminate the uncovered risk."
+      },
+      {
+        "check": "Raw Codex and Claude transcript inspection",
+        "reason": "The approved privacy design intentionally keeps transcripts local and uncommitted; PRR-001 addresses the missing independently verifiable binding."
+      },
+      {
+        "check": "Production deployment, load and real-user study",
+        "reason": "No production or publication target is in LP-04 scope or Review authority."
+      }
+    ]
+  },
+  "limitations": [
+    "Reviewer-local npm was 11.12.1 rather than the declared 11.16.0; exact configured-runtime authority comes from the exact-head successful GitHub CI run.",
+    "Raw external-client transcripts were unavailable by intentional design, so their provenance can be trusted only after PRR-001 supplies a verifiable local binding.",
+    "Generated OpenAPI was consistency-checked and selectively inspected rather than manually read line by line.",
+    "The PR is still draft; even a finding-free review could not return merge-ready until GitHub reports non-draft."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #6 still points to the exact base and head in the accepted CodeReviewRequest.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh authoritative GitHub PR metadata before report preparation.",
+      "evidence": "GitHub reports base 818671c504c8b8b8cd41f8ebc096f341ece6b18f and head a1b02f6111777b104d794d7da0e11dd17a26a1c4.",
+      "impact_if_false": "The report would be stale and could not authorize any outcome."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed GitHub CI run belongs to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Fetch commit-associated workflow runs and jobs for the routed head SHA.",
+      "evidence": "Workflow run 30725582980 and verify job 91436531725 completed successfully for a1b02f6111777b104d794d7da0e11dd17a26a1c4.",
+      "impact_if_false": "The platform check could not support this review snapshot."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The counterexamples use only local synthetic inputs and do not mutate authoritative repository or external state.",
+      "decision_critical": false,
+      "status": "VERIFIED",
+      "method": "Use temporary proof directories, fake fetch implementations and remove temporary scripts after execution.",
+      "evidence": "The review worktree returned clean before the immutable report files were added.",
+      "impact_if_false": "Review evidence could have affected data outside its authorized scope."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
