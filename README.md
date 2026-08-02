@@ -1,10 +1,13 @@
 # Idea Trace Validation
 
-LP-01～LP-03 组成当前可运行纵向切片：登记和澄清 Idea、显式推进为唯一验证项目，记录执行转换与决策历史，再通过不可变结构化汇报和 proposer/executor
+LP-01～LP-03 组成当前已验收的可运行纵向切片：登记和澄清 Idea、显式推进为唯一验证项目，记录执行转换与决策历史，再通过不可变结构化汇报和 proposer/executor
 Web 读取同一份 PostgreSQL 权威数据。汇报只负责展示，不能覆盖项目状态、确认或审计事实。
 
-当前范围包含 API、共享契约、三份增量数据库迁移、安全通用汇报渲染器、双角色 Web 和自动化验证。AI
-Skill、可重复演示与生产部署分别属于 LP-04～LP-05。
+LP-04 正在增加仓库版本化 AI
+Skill、只使用合成数据的确定性真实 HTTP 演示、崩溃恢复证据和真实数据浏览器故事。实际 Codex/Claude 客户端证据已通过加强后的 transcript、公开审计和资源读回验证；LP-04 当前为
+`Ready for Acceptance`，但 Cycle 7 缩小后的 Codex response-reader
+jq 输入角色 finding 正在为 Cycle
+8 复审闭环；合并和正式验收尚未完成。生产部署属于 LP-05，不在当前实现范围。
 
 ## 运行要求
 
@@ -97,11 +100,36 @@ Web 入口为 `/proposer`、`/executor`、对应的项目详情路径和
 写入 token 只证明调用来源可以写入；body 中的 `actor`、`proposer` 和 `role`
 是声明归属，不是已认证用户身份。公开演示环境不得保存真实秘密、个人数据或商业机密。
 
+## LP-04 Skill 与本地演示
+
+客户端中立 Skill 位于
+[`skills/idea-validation-workflow/`](./skills/idea-validation-workflow/SKILL.md)。它只映射现有 LP-03
+API，不保存第二份业务状态，也不会让 AI 获取或转交 human-control token/cookie。
+
+静态与真实 HTTP 门禁：
+
+```bash
+npm run skill:check
+npm run demo:lp04 -- \
+  --base-url http://127.0.0.1:3000 \
+  --run-id <synthetic-run-id> \
+  --skill-commit <40-character-skill-commit>
+npm run demo:lp04:verify -- \
+  --base-url http://127.0.0.1:3000 \
+  --run-id <synthetic-run-id> \
+  --skill-commit <40-character-skill-commit>
+```
+
+AI
+bearer 只通过环境注入；命令参数和证据不包含真实值。实际客户端、独立人工交接、失败恢复、Web 验收和精确清理见
+[LP-04 本地演示指南](./docs/demo/lp04.md)。
+
 ## 验证
 
 ```bash
 npm run format:check
 npm run lint
+npm run skill:check
 npm run typecheck
 npm run build
 npm run openapi:check
@@ -111,9 +139,11 @@ TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/ide
 TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:acceptance:lp01
 TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:acceptance:lp02
 TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:acceptance:lp03
+TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:acceptance:lp04
 npm run test:web:component
 npx playwright install chromium
 npm run test:browser
+TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:browser:lp04
 ```
 
 `npm run verify`
@@ -138,4 +168,6 @@ npm run test:browser
 [LP-01 verification](./docs/feature/lp-01-core-idea-flow/verification.md)、
 [LP-02 verification](./docs/feature/lp-02-execution-decisions/verification.md)
 与
-[LP-03 verification](./docs/feature/lp-03-reporting-role-experience/verification.md)。
+[LP-03 verification](./docs/feature/lp-03-reporting-role-experience/verification.md)。LP-04 的进行中证据见
+[LP-04 verification](./docs/feature/lp-04-ai-skill-demo/verification.md)；其中明确区分客户端证据通过、Engineering
+Review 批准、合并与正式验收。

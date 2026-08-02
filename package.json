@@ -31,11 +31,18 @@
     "test:contract": "vitest run --config vitest.contract.config.ts",
     "test:web:component": "vitest run --config vitest.web.config.ts",
     "test:browser": "playwright test",
+    "test:browser:lp04": "npm run build && playwright test --config playwright.lp04.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:acceptance": "tsx scripts/acceptance.ts",
     "test:acceptance:lp01": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp01.acceptance.test.ts",
     "test:acceptance:lp02": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp02.acceptance.test.ts",
     "test:acceptance:lp03": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp03-*.acceptance.test.ts",
+    "test:acceptance:lp04": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp04-demo.acceptance.test.ts",
+    "skill:check": "tsx scripts/lp04/check-skill.ts",
+    "demo:lp04": "tsx scripts/lp04/run.ts",
+    "demo:lp04:verify": "tsx scripts/lp04/verify-run.ts",
+    "demo:lp04:human": "tsx scripts/lp04/human-facilitator.ts",
+    "demo:lp04:verify-client": "tsx scripts/lp04/verify-client-evidence.ts",
     "test": "npm run test:unit && npm run test:contract && npm run test:integration && npm run test:web:component && npm run test:acceptance",
     "report-types:generate": "tsx scripts/generate-report-types.ts",
     "report-types:check": "tsx scripts/check-report-types.ts",
@@ -45,7 +52,7 @@
     "db:migrate:test": "tsx packages/db/src/cli/migrate.ts --test",
     "test:db:up": "tsx scripts/test-db.ts up",
     "test:db:down": "tsx scripts/test-db.ts down",
-    "verify": "npm run format:check && npm run lint && npm run report-types:check && npm run typecheck && npm run build && npm run openapi:check && npm run test && npm run test:browser"
+    "verify": "npm run format:check && npm run lint && npm run skill:check && npm run report-types:check && npm run typecheck && npm run build && npm run openapi:check && npm run test && npm run test:browser && npm run test:browser:lp04"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

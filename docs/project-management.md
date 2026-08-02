@@ -10,8 +10,8 @@
 | --- | --- | --- | --- | --- | --- |
 | LP-01 | [核心基础与 Idea 流程](./implementation-plans/v0-1/lp-01-core-idea-flow.md) | None | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
 | LP-02 | [项目执行与决策闭环](./implementation-plans/v0-1/lp-02-execution-decisions.md) | LP-01 | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
-| LP-03 | [结构化汇报与双角色体验](./implementation-plans/v0-1/lp-03-reporting-role-experience.md) | LP-02 | Ready for Acceptance | None | 完成精确 head 代码审查、合并证明与正式验收 |
-| LP-04 | [AI Skill 与可重复演示](./implementation-plans/v0-1/lp-04-ai-skill-demo.md) | LP-03 | Not Started | None | 为 LP-04 启动独立 Requirements 阶段 |
+| LP-03 | [结构化汇报与双角色体验](./implementation-plans/v0-1/lp-03-reporting-role-experience.md) | LP-02 | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
+| LP-04 | [AI Skill 与可重复演示](./implementation-plans/v0-1/lp-04-ai-skill-demo.md) | LP-03 | Ready for Acceptance | None | 完成 remediation exact-head 全量门禁并发送 Cycle 8 Engineering Review；未经批准不合并 |
 | LP-05 | [部署与发布就绪](./implementation-plans/v0-1/lp-05-deployment-release.md) | LP-04 | Not Started | None | 为 LP-05 启动独立 Requirements 阶段 |
 
 ## 依赖
@@ -19,10 +19,13 @@
 验收依赖为 `LP-01 → LP-02 → LP-03 → LP-04 → LP-05`。后续计划可以提前准备
 不依赖前序结果的工作，但不得绕过依赖计划的验收结论。
 
-当前阻塞：`None`。
+当前阻塞：无。LP-04 Cycle 7 将 PRR-001 缩小为 jq 选项值冒充输入文件的缺口；当前
+reader 会按选项元数解析 jq 参数，直接读取只接受精确 response file 作为唯一位置输入，
+数组读取只接受 selector 精确引用的 `--slurpfile` 绑定。选项值、换行、管道、复合命令和
+输出替换反例均失败，两份真实客户端证明、既有请求关联和秘密/人类边界继续通过。
 
-总体下一步：完成 LP-03 精确 head 代码审查、合并证明和正式验收。LP-04 保持
-`Not Started`；当前记录不授予 LP-04 Requirements、设计或实现权限。
+总体下一步：在最终修复提交上执行完整 exact-head 验证、推送并发送 Cycle 8 Engineering
+Review。未经 Review 批准和独立合并授权不得合并；LP-05 保持 `Not Started` 且需求未确认。
 
 ## 已接受依赖
 
@@ -48,10 +51,20 @@ LP-02 已通过 Engineering Lifecycle 的 `ACCEPTED_NO_PUBLISH` 迁移正式关�
 - releaseTargets: `[]`
 - 发布产物：没有 tag、GitHub Release、package、部署或其他发布产物。
 
-LP-03 的客观实现证据见
-[LP-03 verification](./feature/lp-03-reporting-role-experience/verification.md)。这里的
-`Ready for Acceptance` 只表示实现和本地门禁已准备送审，不表示 Review 批准、已合并、
-已发布或已正式验收。
+LP-03 已通过 Engineering Lifecycle 的 `ACCEPTED_NO_PUBLISH` 迁移正式关闭：
+
+- merge commit:
+  `818671c504c8b8b8cd41f8ebc096f341ece6b18f`
+- acceptanceId:
+  `7f8aeac9327278dc08bd84d2f229ebc9f6b166a109e4a7c83a0001a49bf7ce8b`
+- closureId:
+  `25fd479b6c7663d41920bc50935c5bd1fd5efb7f2d4a3e14252015a889e360f8`
+- releaseTargets: `[]`
+- 发布产物：没有 tag、GitHub Release、package、部署或其他发布产物。
+
+LP-04 的送验客观证据见
+[LP-04 verification](./feature/lp-04-ai-skill-demo/verification.md)。`Ready for Acceptance` 只
+表示当前实施与客户端证据可送审，不表示 Review 批准、已合并、已发布或已正式验收。
 
 ## 主归属
 

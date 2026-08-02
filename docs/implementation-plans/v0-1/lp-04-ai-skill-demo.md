@@ -28,7 +28,9 @@
 ## 4. Dependencies
 
 - Acceptance dependency: `LP-03`
-- LP-01 至 LP-03 必须已提供可用的真实 API、确认流、结构化汇报和双角色 Web。
+- LP-03 已在 merge `818671c504c8b8b8cd41f8ebc096f341ece6b18f` 上通过
+  `ACCEPTED_NO_PUBLISH` 验收关闭，release targets 为 `[]`。
+- LP-01 至 LP-03 已提供可用的真实 API、确认流、结构化汇报和双角色 Web。
 - Planning input:
   [source implementation plan](../../feature/v0-1-project-plan/implementation-plan.md).
 
@@ -49,12 +51,12 @@
 
 ## 7. Acceptance checklist
 
-- [ ] Codex 或 Claude 可按 Skill 将自然语言 Idea 创建为唯一且可读取的权威记录。
-- [ ] Skill 对字段不足、API 失败、网络未知和确认拒绝给出明确恢复路径。
-- [ ] 网络未知时复用原 request ID，不重复创建业务对象。
-- [ ] Skill 不保存独立状态、不绕过人类确认且不泄露 token。
-- [ ] 演示数据覆盖 Idea 池、执行中、阻塞、待确认、支持、动态汇报和完成项目。
-- [ ] 人工脚本可重复展示从 Idea 创建到结论归档的核心故事。
+- [x] Codex 与 Claude 各自按 Skill 调用真实 API，并留下可公开重读的代表性客户端证据。
+- [x] Skill 对字段不足、API 失败、网络未知和确认拒绝给出明确恢复路径。
+- [x] 网络未知时复用原 request ID，不重复创建业务对象；真实 HTTP 跨进程 oracle 已通过。
+- [x] Skill 不保存独立状态、不绕过人类确认且不泄露 token。
+- [x] 演示数据覆盖 Idea 池、执行中、阻塞、待确认、支持、动态汇报和完成项目。
+- [x] 独立人工 facilitator 可重复展示从 Idea 创建到结论归档的核心故事。
 
 至少一个客观验收场景：在干净演示环境中按 Skill 从一段自然语言创建 Idea，经真实
 API 推进和汇报，并在模拟网络未知后用同一 request ID 重试；最终只有一条权威记录，
@@ -71,15 +73,25 @@ Acceptance record:
 
 - Risk: Skill 与 API 漂移；示例和自动化演示必须使用当前契约，不加隐藏参数。
 - Risk: 演示脚本只覆盖顺利路径；至少保留网络未知、输入不足和确认拒绝恢复场景。
-- Blocker: `None`
+- Risk: 客户端自报或资源创建成功不能单独授权 PASS；必须同时绑定原始 transcript 摘要、
+  闭合 POST request claims、逐条公开审计的固定操作语义和资源精确读回；拒绝请求须配对
+  精确 transcript request/result，Codex replay 必须将 response request ID 与同一
+  path/body/key/terminal status claim 交叉绑定；`jq`、request-ID selector、精确
+  response-file 输入和对应输出必须属于同一个解析后的命令段；直接读取要求文件是唯一位置
+  输入，数组读取要求文件由 selector 使用的 `--slurpfile` 变量精确绑定，其他选项值不得
+  冒充输入；不得跨换行、管道或复合命令边界拼接；objective 必须由这些事实推导。
+- Blocker: `None`。实际 Codex CLI 与 Claude Desktop/Claude Code 客户端均已完成独立运行，
+  且 Cycle 7 保留的 jq 选项值冒充 response-file 输入反例现已 fail closed。
 
 ## 9. Status
 
-`Not Started`
+`Ready for Acceptance`
 
-LP-03 未验收前，可以准备文案结构，但不能把 mock 或静态页面演示当作真实闭环证据。
+Skill、确定性 demo、跨进程未知结果恢复、真实 HTTP、人类边界和真实数据双角色浏览器故事
+已实现并通过比例化门禁。实际 Codex 与 Claude 客户端证据均为 PASS；该状态只表示可送交
+Engineering Review，不表示已审查、已合并、已发布或已正式验收。
 
 ## 10. Next step
 
-为 LP-04 启动独立 Engineering Lifecycle Requirements 阶段，并选择当时可用的
-Codex/Claude 客户端和演示环境作为可复现验收输入。
+在无进一步文件变更的 remediation exact head 上执行完整验证矩阵并发送 Cycle 8
+Engineering Review。LP-05 保持 `Not Started` 且需求未确认。

@@ -1,0 +1,93 @@
+{
+  "schemaVersion": "1.0",
+  "scenarioId": "lp04-core-story",
+  "locale": "zh-CN",
+  "syntheticMarker": "SYNTHETIC_DEMO_DATA",
+  "actors": {
+    "proposer": {
+      "actorType": "HUMAN",
+      "role": "PROPOSER",
+      "displayName": "合成提议者林晓"
+    },
+    "executor": {
+      "actorType": "AI",
+      "role": "EXECUTOR",
+      "displayName": "合成执行助手",
+      "client": "lp04-demo"
+    }
+  },
+  "ideas": [
+    {
+      "key": "clarification",
+      "intentSummary": "SYNTHETIC_DEMO_DATA：验证校园共享工具的真实需求",
+      "facts": ["当前只有一段合成访谈摘要"],
+      "hypotheses": ["学生愿意每月付费使用"],
+      "clarificationQuestions": [
+        {
+          "prompt": "希望在两周内观察到什么结果？",
+          "targetField": "DESIRED_OUTCOME"
+        }
+      ]
+    },
+    {
+      "key": "execution",
+      "intentSummary": "SYNTHETIC_DEMO_DATA：验证小团队异步决策闭环",
+      "desiredOutcome": "在两周内完成五次合成访谈并形成可追踪结论",
+      "facts": ["SYNTHETIC_DEMO_DATA 场景只使用本地隔离环境"],
+      "hypotheses": ["结构化记录会缩短决策时间"],
+      "clarificationQuestions": []
+    },
+    {
+      "key": "governed",
+      "intentSummary": "SYNTHETIC_DEMO_DATA：验证需要人类确认的项目完成路径",
+      "desiredOutcome": "形成一条由独立人类 capability 确认的合成完成记录",
+      "facts": ["AI bearer 不能替代 human-control capability"],
+      "hypotheses": ["显式交接能够保持权限边界"],
+      "clarificationQuestions": []
+    }
+  ],
+  "executionStories": [
+    {
+      "key": "active-project",
+      "ideaKey": "execution",
+      "steps": [
+        "promote",
+        "start",
+        "evidence",
+        "progress",
+        "blocker",
+        "decision-request",
+        "support-request",
+        "conclusion",
+        "report"
+      ]
+    },
+    {
+      "key": "governed-project",
+      "ideaKey": "governed",
+      "steps": [
+        "promote",
+        "start",
+        "evidence",
+        "conclusion",
+        "report",
+        "human-confirmation"
+      ]
+    }
+  ],
+  "reports": [
+    {
+      "key": "active-project",
+      "template": "reports/active-project.v1.json"
+    },
+    {
+      "key": "completed-project",
+      "template": "reports/completed-project.v1.json"
+    }
+  ],
+  "expectedViews": {
+    "proposer": ["IDEA", "IN_PROGRESS", "COMPLETED"],
+    "executor": ["OPEN", "WAITING", "COMPLETED"],
+    "reportStructures": ["evidence-first", "timeline-first"]
+  }
+}

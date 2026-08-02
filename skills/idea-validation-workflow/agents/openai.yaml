@@ -1,0 +1,6 @@
+interface:
+  display_name: "Idea Validation Workflow"
+  short_description: "Guide safe Idea validation and execution workflows"
+  default_prompt:
+    "Use $idea-validation-workflow to turn this idea or project update into a
+    verified API workflow."

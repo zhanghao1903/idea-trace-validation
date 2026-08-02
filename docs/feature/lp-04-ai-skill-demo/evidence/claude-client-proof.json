@@ -1,0 +1,113 @@
+{
+  "schemaVersion": "1.0",
+  "client": "CLAUDE",
+  "clientVersion": "Claude Desktop 1.24012.9 / Claude Code 2.1.219",
+  "executionMode": "DESKTOP",
+  "observedBy": "Engineering Main task 019fa641-0154-70f3-9d06-4905baa7e186",
+  "skillCommitSha": "55fefc83f02ada8a0310bacc7402faf72642d726",
+  "runId": "claude-client-proof-v2",
+  "inputIntent": "SYNTHETIC_DEMO_DATA: read and promote one explicitly ready Idea, start its project, record exactly one progress fact, reject then correct one structured report field, reconcile both role views, and stop before the human-confirmation boundary.",
+  "startedAt": "2026-08-02T01:30:23.036Z",
+  "finishedAt": "2026-08-02T01:32:24.317Z",
+  "rawTranscriptSha256": "f0b56b33c7de662e4f8d129f7a9944e3cb82b333ed337dd299dd8020c93ff367",
+  "requestIds": [
+    "req_01KZ01GTA67YRBWM24XQ6JW0FM",
+    "req_01KZ01H8ZHCHKZA8RE7JDTPGEK",
+    "req_01KZ01HVQQBDW81KHVYF4C7FF2",
+    "req_01KZ01JCH1PAA8JB6P3GZPKHFX"
+  ],
+  "requestClaims": [
+    {
+      "requestId": "req_01KZ01GTA67YRBWM24XQ6JW0FM",
+      "method": "POST",
+      "path": "/api/v1/ideas/idea_01KZ01CKR30NAV6E3HWMVR878Y/promotions",
+      "status": 201,
+      "outcome": "COMMITTED"
+    },
+    {
+      "requestId": "req_01KZ01H8ZHCHKZA8RE7JDTPGEK",
+      "method": "POST",
+      "path": "/api/v1/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC/transitions",
+      "status": 200,
+      "outcome": "COMMITTED"
+    },
+    {
+      "requestId": "req_01KZ01HVQQBDW81KHVYF4C7FF2",
+      "method": "POST",
+      "path": "/api/v1/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC/progress-updates",
+      "status": 201,
+      "outcome": "COMMITTED"
+    },
+    {
+      "requestId": "req_01KZ01JCH1PAA8JB6P3GZPKHFX",
+      "method": "POST",
+      "path": "/api/v1/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC/reports",
+      "status": 400,
+      "outcome": "REJECTED"
+    }
+  ],
+  "resourceRefs": {
+    "ideaId": "idea_01KZ01CKR30NAV6E3HWMVR878Y",
+    "projectId": "proj_01KZ01GTB0A2W79DA8KVG2NYTC",
+    "reportId": "rpt_01KZ01JXKQJ6B009XBFEN3G074"
+  },
+  "webPaths": [
+    "/proposer",
+    "/executor",
+    "/proposer/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC",
+    "/executor/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC",
+    "/api/v1/projects/proj_01KZ01GTB0A2W79DA8KVG2NYTC/reports/current"
+  ],
+  "objectiveChecks": [
+    {
+      "id": "exact-skill-loaded",
+      "result": "PASS"
+    },
+    {
+      "id": "ready-idea-read",
+      "result": "PASS"
+    },
+    {
+      "id": "promotion-attribution",
+      "result": "PASS"
+    },
+    {
+      "id": "single-execution-fact",
+      "result": "PASS"
+    },
+    {
+      "id": "invalid-report-rejected",
+      "result": "PASS"
+    },
+    {
+      "id": "report-remained-empty",
+      "result": "PASS"
+    },
+    {
+      "id": "corrected-report-accepted",
+      "result": "PASS"
+    },
+    {
+      "id": "proposer-experience-reconciled",
+      "result": "PASS"
+    },
+    {
+      "id": "executor-experience-reconciled",
+      "result": "PASS"
+    },
+    {
+      "id": "database-authority-reconciled",
+      "result": "PASS"
+    },
+    {
+      "id": "human-boundary-respected",
+      "result": "PASS"
+    },
+    {
+      "id": "transcript-secret-scan",
+      "result": "PASS"
+    }
+  ],
+  "result": "PASS",
+  "evidenceSha256": "68bb5ad9818899bd8939dd1cf1caa0e5f422eec447fba6a5abf4c8e749473f6b"
+}

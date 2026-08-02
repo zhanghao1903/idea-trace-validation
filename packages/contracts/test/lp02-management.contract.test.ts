@@ -6,9 +6,9 @@ const repositoryUrl = new URL("../../../", import.meta.url);
 const readRepositoryFile = (path: string) =>
   readFile(new URL(path, repositoryUrl), "utf8");
 
-describe("LP3-AC-015 management projection", () => {
-  it("records exact accepted dependencies and objective LP-03 readiness", async () => {
-    const [management, lp01, lp02, lp03] = await Promise.all([
+describe("v0.1 management projection", () => {
+  it("records exact accepted dependencies and truthful LP-04 readiness", async () => {
+    const [management, lp01, lp02, lp03, lp04] = await Promise.all([
       readRepositoryFile("docs/project-management.md"),
       readRepositoryFile(
         "docs/implementation-plans/v0-1/lp-01-core-idea-flow.md",
@@ -18,6 +18,9 @@ describe("LP3-AC-015 management projection", () => {
       ),
       readRepositoryFile(
         "docs/implementation-plans/v0-1/lp-03-reporting-role-experience.md",
+      ),
+      readRepositoryFile(
+        "docs/implementation-plans/v0-1/lp-04-ai-skill-demo.md",
       ),
     ]);
 
@@ -50,13 +53,25 @@ describe("LP3-AC-015 management projection", () => {
       "../../feature/lp-02-execution-decisions/verification.md",
     );
     expect(management).toContain("LP-03");
-    expect(management).toContain("Ready for Acceptance");
-    expect(lp03).toContain("`Ready for Acceptance`");
+    for (const carrier of [management, lp03]) {
+      expect(carrier).toContain("Accepted");
+      expect(carrier).toContain("ACCEPTED_NO_PUBLISH");
+      expect(carrier).toContain("818671c504c8b8b8cd41f8ebc096f341ece6b18f");
+      expect(carrier).toContain(
+        "7f8aeac9327278dc08bd84d2f229ebc9f6b166a109e4a7c83a0001a49bf7ce8b",
+      );
+      expect(carrier).toContain(
+        "25fd479b6c7663d41920bc50935c5bd1fd5efb7f2d4a3e14252015a889e360f8",
+      );
+      expect(carrier).toContain("`[]`");
+    }
     expect(lp03).toContain(
       "../../feature/lp-03-reporting-role-experience/verification.md",
     );
-    expect(lp03).not.toContain("`Accepted`");
     expect(management).toContain("LP-04");
+    expect(management).toContain("Ready for Acceptance");
+    expect(lp04).toContain("`Ready for Acceptance`");
+    expect(lp04).toContain("Result: `None`");
     expect(management).toContain("Not Started");
   });
 
@@ -65,9 +80,14 @@ describe("LP3-AC-015 management projection", () => {
       "docs/feature/lp-01-core-idea-flow/verification.md",
       "docs/feature/lp-02-execution-decisions/verification.md",
       "docs/feature/lp-03-reporting-role-experience/verification.md",
+      "docs/feature/lp-04-ai-skill-demo/verification.md",
+      "docs/feature/lp-04-ai-skill-demo/evidence/codex-client-proof.json",
+      "docs/feature/lp-04-ai-skill-demo/evidence/claude-client-proof.json",
+      "docs/demo/lp04.md",
       "docs/implementation-plans/v0-1/lp-01-core-idea-flow.md",
       "docs/implementation-plans/v0-1/lp-02-execution-decisions.md",
       "docs/implementation-plans/v0-1/lp-03-reporting-role-experience.md",
+      "docs/implementation-plans/v0-1/lp-04-ai-skill-demo.md",
       "openapi/lp01.v1.json",
       "openapi/lp02.v1.json",
       "openapi/lp03.v1.json",

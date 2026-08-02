@@ -13,6 +13,12 @@
   confirmation.
 - Define the LP-03 technical design for immutable structured-report revisions,
   safe generic rendering, and the proposer/executor Web experience.
+- Define the implementation-ready LP-04 design for a client-neutral AI Skill,
+  deterministic synthetic demos, real HTTP recovery proof, and exact
+  Codex/Claude validation evidence.
+- Add the LP-04 local demo guide and in-progress verification record, with
+  explicit synthetic-data, credential, human-handoff and exact cleanup
+  boundaries.
 
 ### Added
 
@@ -42,6 +48,19 @@
   renderers, scoped confirmation page and strict same-origin static hosting.
 - Add component and Chromium acceptance coverage for role URLs, pagination,
   narrow screens, capability isolation, render fallback and failure states.
+- Add the client-neutral `idea-validation-workflow` Skill and bounded references
+  for existing API workflows, structured reports, idempotent recovery, client
+  loading and the human-governed stop boundary.
+- Add deterministic synthetic manifests, canonical request identities, durable
+  request journals, fail-closed run records and a real HTTP demo/verification
+  runner without introducing a second business state store.
+- Add a separate explicit-opt-in human facilitator for owned synthetic
+  environments; human-control material remains outside AI inputs and evidence.
+- Add cross-process unknown-result recovery, exact body/key replay, public
+  uniqueness reconciliation and real-data proposer/executor Chromium coverage.
+- Add independently verified Codex CLI and Claude Desktop/Claude Code Skill
+  execution records, bound to exact transcript digests and publicly readable
+  synthetic API resources without committing credentials or raw transcripts.
 
 ### Changed
 
@@ -65,3 +84,12 @@
 - Preserve the exact LP-02 migration ledger while tracking LP-03 in a strict
   feature ledger, so the accepted LP-02 binary remains a tested application
   rollback target after the additive upgrade.
+- Bind LP-04 client proof to the exact raw transcript, closed POST request
+  claims, exact authoritative event-to-operation mappings, client-observed
+  request/response facts and derived objective checks; correlate the Codex
+  timeout/replay tuple and response-file request ID to the same accepted claim;
+  bind `jq`, its request-ID selector, the exact response-file input and output
+  to one parsed command segment, then parse jq option arity so only a true
+  positional input or selector-bound `--slurpfile` can satisfy response-file
+  proof; require per-child public readback and preserve resumable journal state
+  after bounded `IDEMPOTENCY_IN_PROGRESS` retries.

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "1.0",
+  "projectId": "{{projectId}}",
+  "clientRequestId": "{{clientRequestId}}",
+  "basedOnRevision": "{{basedOnRevision}}",
+  "locale": "zh-CN",
+  "title": "SYNTHETIC_DEMO_DATA 证据优先验证报告",
+  "summary": "合成执行故事的当前证据、风险与下一步。",
+  "generator": {
+    "name": "idea-validation-workflow",
+    "version": "1.0"
+  },
+  "sections": [
+    {
+      "id": "evidence_first",
+      "title": "证据与行动",
+      "blocks": [
+        {
+          "id": "summary_text",
+          "type": "text",
+          "markdown": "五次合成访谈已完成，所有内容均为 **SYNTHETIC_DEMO_DATA**。"
+        },
+        {
+          "id": "evidence_refs",
+          "type": "evidence_refs",
+          "evidenceIds": ["{{evidenceId}}"]
+        },
+        {
+          "id": "action_refs",
+          "type": "action_refs",
+          "attentionItemIds": [
+            "{{decisionAttentionId}}",
+            "{{supportAttentionId}}"
+          ]
+        }
+      ]
+    }
+  ]
+}
