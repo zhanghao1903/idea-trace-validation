@@ -587,9 +587,8 @@ export const transcriptRequestClaimMatches = (
   );
 
 interface CodexTranscriptFacts {
-  exactBodyKeyReused: boolean;
   postPaths: string[];
-  unknownResultReplayed: boolean;
+  replayedRequests: TranscriptRequestResponse[];
 }
 
 const commandFromCodexCall = (
@@ -642,7 +641,24 @@ const codexOutput = (
   const item = payload as Record<string, unknown>;
   return item.type === "custom_tool_call_output" &&
     typeof item.call_id === "string"
-    ? { callId: item.call_id, text: JSON.stringify(item.output) }
+    ? {
+        callId: item.call_id,
+        text: (() => {
+          const strings = (value: unknown): string[] => {
+            if (typeof value === "string") return [value];
+            if (Array.isArray(value)) return value.flatMap(strings);
+            if (typeof value !== "object" || value === null) return [];
+            const input = value as Record<string, unknown>;
+            return [
+              ...(typeof input.text === "string" ? [input.text] : []),
+              ...Object.entries(input)
+                .filter(([key]) => key !== "text")
+                .flatMap(([, child]) => strings(child)),
+            ];
+          };
+          return strings(item.output).join("\n");
+        })(),
+      }
     : null;
 };
 
@@ -665,17 +681,30 @@ const codexTranscriptFacts = (
   }
   const posts: {
     callId: string;
+    order: number;
     path: string;
     bodyFile: string;
     bodySha256: string;
     keyHeader: string;
     output: string;
+    responseFile?: string | undefined;
+  }[] = [];
+  const calls: {
+    callId: string;
+    command: string;
+    order: number;
+    output: string;
   }[] = [];
   const allPostPaths: string[] = [];
-  for (const event of events) {
+  for (const [order, event] of events.entries()) {
     if (!eventWithinWindow(event, window)) continue;
     const call = commandFromCodexCall(event);
     if (call === null) continue;
+    calls.push({
+      ...call,
+      order,
+      output: outputs.get(call.callId) ?? "",
+    });
     for (const match of call.command.matchAll(
       /(?:^|\n)node lp04-http\.mjs POST ['"]([^'"]+)['"](?: |$)/gu,
     )) {
@@ -689,6 +718,7 @@ const codexTranscriptFacts = (
       const keyHeader = /--header\s+["']Idempotency-Key:\s*([^"']+)["']/iu.exec(
         line,
       )?.[1];
+      const responseFile = /--output\s+([^\s"']+)/u.exec(line)?.[1];
       const path = url === undefined ? null : normalizedCommandPath(url);
       if (path !== null) allPostPaths.push(path);
       const output = outputs.get(call.callId) ?? "";
@@ -703,11 +733,13 @@ const codexTranscriptFacts = (
       )
         posts.push({
           callId: call.callId,
+          order,
           path,
           bodyFile,
           bodySha256,
           keyHeader,
           output,
+          responseFile,
         });
     }
   }
@@ -718,23 +750,49 @@ const codexTranscriptFacts = (
     existing.push(post);
     signatures.set(signature, existing);
   }
-  const replay = [...signatures.values()].some(
-    (requests) =>
-      requests.some(
-        (request) =>
-          request.output.includes("curl_exit=28") &&
-          request.output.includes("http_code=000"),
-      ) &&
-      requests.some(
-        (request) =>
-          request.output.includes("curl_exit=0") &&
-          request.output.includes("http_code=201"),
-      ),
-  );
+  const replayedRequests: TranscriptRequestResponse[] = [];
+  for (const requests of signatures.values()) {
+    const timedOut = requests.some(
+      (request) =>
+        request.output.includes("curl_exit=28") &&
+        request.output.includes("http_code=000"),
+    );
+    if (!timedOut) continue;
+    for (const request of requests) {
+      const statusText = /(?:^|\n)http_code=(\d{3})(?:\n|$)/u.exec(
+        request.output,
+      )?.[1];
+      if (
+        !request.output.includes("curl_exit=0") ||
+        statusText === undefined ||
+        request.responseFile === undefined
+      )
+        continue;
+      const responseReaders = calls.filter(
+        (call) =>
+          call.order > request.order &&
+          call.command.includes(request.responseFile as string) &&
+          /\bjq\b/u.test(call.command) &&
+          /(?:requestId|\.meta\.requestId)/u.test(call.command),
+      );
+      for (const reader of responseReaders) {
+        for (const match of reader.output.matchAll(
+          /["']requestId["']\s*:\s*["'](req_[0-9A-HJKMNP-TV-Z]{26})["']/gu,
+        )) {
+          if (match[1] !== undefined)
+            replayedRequests.push({
+              method: "POST",
+              path: request.path,
+              status: Number(statusText),
+              requestId: match[1],
+            });
+        }
+      }
+    }
+  }
   return {
-    exactBodyKeyReused: replay,
     postPaths: [...new Set(allPostPaths)],
-    unknownResultReplayed: replay,
+    replayedRequests,
   };
 };
 
@@ -989,6 +1047,16 @@ export const verifyClientEvidence = async (input: {
         throw new Error(
           `CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${claim.requestId}`,
         );
+      if (
+        record.client === "CODEX" &&
+        !transcriptRequestClaimMatches(
+          claim,
+          codexFacts?.replayedRequests ?? [],
+        )
+      )
+        throw new Error(
+          `CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${claim.requestId}`,
+        );
       continue;
     }
     if (!transcriptRequestClaimMatches(claim, transcriptRequests))
@@ -1008,9 +1076,27 @@ export const verifyClientEvidence = async (input: {
     if (ideas.filter((item) => exactValuePresent(item, ideaId)).length !== 1)
       throw new Error("CLIENT_EVIDENCE_CODEX_IDEA_COLLECTION");
     verifiedChecks.add("proposer-collection-unique");
-    if (codexFacts?.unknownResultReplayed === true)
+    if (
+      record.requestClaims.every(
+        (claim) =>
+          claim.outcome !== "COMMITTED" ||
+          transcriptRequestClaimMatches(
+            claim,
+            codexFacts?.replayedRequests ?? [],
+          ),
+      )
+    )
       verifiedChecks.add("unknown-result-replayed");
-    if (codexFacts?.exactBodyKeyReused === true)
+    if (
+      record.requestClaims.every(
+        (claim) =>
+          claim.outcome !== "COMMITTED" ||
+          transcriptRequestClaimMatches(
+            claim,
+            codexFacts?.replayedRequests ?? [],
+          ),
+      )
+    )
       verifiedChecks.add("exact-body-key-reused");
   } else {
     const ideaId = record.resourceRefs.ideaId;

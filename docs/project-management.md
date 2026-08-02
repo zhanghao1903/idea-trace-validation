@@ -11,7 +11,7 @@
 | LP-01 | [核心基础与 Idea 流程](./implementation-plans/v0-1/lp-01-core-idea-flow.md) | None | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
 | LP-02 | [项目执行与决策闭环](./implementation-plans/v0-1/lp-02-execution-decisions.md) | LP-01 | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
 | LP-03 | [结构化汇报与双角色体验](./implementation-plans/v0-1/lp-03-reporting-role-experience.md) | LP-02 | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
-| LP-04 | [AI Skill 与可重复演示](./implementation-plans/v0-1/lp-04-ai-skill-demo.md) | LP-03 | Ready for Acceptance | None | 完成 remediation exact-head 全量门禁并发送 Cycle 4 Engineering Review；未经批准不合并 |
+| LP-04 | [AI Skill 与可重复演示](./implementation-plans/v0-1/lp-04-ai-skill-demo.md) | LP-03 | Ready for Acceptance | None | 完成 remediation exact-head 全量门禁并发送 Cycle 5 Engineering Review；未经批准不合并 |
 | LP-05 | [部署与发布就绪](./implementation-plans/v0-1/lp-05-deployment-release.md) | LP-04 | Not Started | None | 为 LP-05 启动独立 Requirements 阶段 |
 
 ## 依赖
@@ -19,11 +19,11 @@
 验收依赖为 `LP-01 → LP-02 → LP-03 → LP-04 → LP-05`。后续计划可以提前准备
 不依赖前序结果的工作，但不得绕过依赖计划的验收结论。
 
-当前阻塞：无。LP-04 Cycle 3 将 PRR-001 缩小为同资源操作语义缺口；当前所有成功声明逐条
-匹配固定 event→method/path/status 映射，Claude 同时配对 transcript request/result，拒绝
-声明和 objective 也由事实推导。同资源错操作/错状态反例失败，秘密/人类边界继续通过。
+当前阻塞：无。LP-04 Cycle 4 将 PRR-001 缩小为 Codex replay/claim 交叉绑定缺口；当前
+Codex timeout/replay 的 exact path、body 摘要、幂等键、终态 status 和 response request ID
+必须匹配同一权威 claim。跨操作反例失败，两份真实客户端证明和秘密/人类边界继续通过。
 
-总体下一步：在最终修复提交上执行完整 exact-head 验证、推送并发送 Cycle 4 Engineering
+总体下一步：在最终修复提交上执行完整 exact-head 验证、推送并发送 Cycle 5 Engineering
 Review。未经 Review 批准和独立合并授权不得合并；LP-05 保持 `Not Started` 且需求未确认。
 
 ## 已接受依赖

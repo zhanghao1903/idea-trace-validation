@@ -86,6 +86,7 @@
   rollback target after the additive upgrade.
 - Bind LP-04 client proof to the exact raw transcript, closed POST request
   claims, exact authoritative event-to-operation mappings, client-observed
-  request/response facts and derived objective checks; require per-child public
-  readback and preserve resumable journal state after bounded
-  `IDEMPOTENCY_IN_PROGRESS` retries.
+  request/response facts and derived objective checks; correlate the Codex
+  timeout/replay tuple and response-file request ID to the same accepted claim;
+  require per-child public readback and preserve resumable journal state after
+  bounded `IDEMPOTENCY_IN_PROGRESS` retries.

@@ -8,18 +8,19 @@
 - Approved composite digest:
   `24d41fd9b5a5f10e07daa9c2a941f0fe411833663ba9ccb7d1ecc3035cb76f6b`
 - Exact Skill commit: `55fefc83f02ada8a0310bacc7402faf72642d726`
-- Evidence status: Cycle 3 retained finding remediated; ready for exact-head Cycle 4 Engineering
+- Evidence status: Cycle 4 retained finding remediated; ready for exact-head Cycle 5 Engineering
   Review on 2026-08-02 (Asia/Shanghai)
 
 ## Exact-head and status boundary
 
-This record distinguishes implemented automation from external-client acceptance. Cycle 3 confirmed
-that mixed real/invented IDs fail closed, but retained PRR-001 because one real same-resource request
-could still be relabeled as another operation/status. Every committed claim now matches an explicit
-authoritative audit-event to method/exact-path/status mapping; Claude committed and rejected claims
-also match exact transcript request/response facts. Objective PASS values are independently derived
-from those facts, recovery evidence and public resource/collection reads. Both real client records
-pass this verifier. A new immutable `CodeReviewRequest` and PR checks must bind the remediation
+This record distinguishes implemented automation from external-client acceptance. Cycle 4 confirmed
+the authoritative operation map and Claude correlation, but retained PRR-001 because an unrelated
+Codex replay could still authorize another claim. Every committed claim now matches an explicit
+authoritative audit-event to method/exact-path/status mapping. Claude claims match exact tool
+request/results; Codex additionally joins the timeout/replay path, frozen body digest, idempotency key,
+terminal status and response-file request ID to that same claim. Objective PASS values are independently
+derived from those facts, recovery evidence and public resource/collection reads. Both real client
+records pass this verifier. A new immutable `CodeReviewRequest` and PR checks must bind the remediation
 commands to the exact PR head. `Ready for Acceptance` is not formal acceptance, merge approval or
 publication authority.
 
@@ -100,7 +101,8 @@ the exact final PR head. The PR check and immutable review request will bind tha
 The verifier reads the operator-supplied raw transcript, checks its exact digest, requires the run,
 claimed POST requests and resource identifiers to occur in that transcript, and verifies the exact
 Skill tree. Every `COMMITTED` request claim must match its public audit event's fixed method, exact
-path and status; Claude claims additionally pair the client tool request and response. Every
+path and status; Claude claims additionally pair the client tool request and response, while Codex
+must pair its exact replay tuple with the request ID read from the successful response file. Every
 `REJECTED` claim must pair a client-specific tool request with its exact response. Objective results
 are derived from these facts and exact synthetic Idea, project, report, progress and experience
 reads; same-resource relabeling, arbitrary PASS labels or unrelated live resources fail.
@@ -129,6 +131,6 @@ LP-03 is durably accepted without publication at merge
 `25fd479b6c7663d41920bc50935c5bd1fd5efb7f2d4a3e14252015a889e360f8`, with release targets `[]`.
 
 LP-04 is `Ready for Acceptance`. Its acceptance record is still `None`; no merge, tag, GitHub Release,
-package, deployment or other publication has been performed. Cycles 1 through 3 were not approved.
-Engineering Review must approve the exact Cycle 4 remediation head before any separately authorized
+package, deployment or other publication has been performed. Cycles 1 through 4 were not approved.
+Engineering Review must approve the exact Cycle 5 remediation head before any separately authorized
 merge and later acceptance-only/no-publish closure.

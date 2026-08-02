@@ -418,10 +418,10 @@ describe("LP-04 deterministic runtime contracts", () => {
     const transcriptFile = path.join(proofRoot, "transcript.jsonl");
     const requestId = "req_01ARZ3NDEKTSV4RRFFQ69G5FAV";
     const ideaId = "idea_01ARZ3NDEKTSV4RRFFQ69G5FAV";
-    const requestCommand =
+    const requestCommand = (responseFile: string) =>
       'curl --request POST "${LP04_BASE_URL}/api/v1/ideas" ' +
       '--header "Idempotency-Key: ${LP04_IDEMPOTENCY_KEY}" ' +
-      "--data-binary @frozen.json";
+      `--data-binary @frozen.json --output ${responseFile}`;
     const transcript = [
       {
         timestamp: "2026-08-01T00:00:30.000Z",
@@ -438,7 +438,9 @@ describe("LP-04 deterministic runtime contracts", () => {
           type: "custom_tool_call",
           call_id: "timeout-call",
           name: "exec",
-          input: JSON.stringify({ cmd: requestCommand }),
+          input: JSON.stringify({
+            cmd: requestCommand("initial-response.json"),
+          }),
         },
       },
       {
@@ -457,7 +459,9 @@ describe("LP-04 deterministic runtime contracts", () => {
           type: "custom_tool_call",
           call_id: "replay-call",
           name: "exec",
-          input: JSON.stringify({ cmd: requestCommand }),
+          input: JSON.stringify({
+            cmd: requestCommand("replay-response.json"),
+          }),
         },
       },
       {
@@ -471,6 +475,27 @@ describe("LP-04 deterministic runtime contracts", () => {
       },
       {
         timestamp: "2026-08-01T00:00:35.000Z",
+        type: "response_item",
+        payload: {
+          type: "custom_tool_call",
+          call_id: "response-read-call",
+          name: "exec",
+          input: JSON.stringify({
+            cmd: "jq '{requestId: .meta.requestId}' replay-response.json",
+          }),
+        },
+      },
+      {
+        timestamp: "2026-08-01T00:00:36.000Z",
+        type: "response_item",
+        payload: {
+          type: "custom_tool_call_output",
+          call_id: "response-read-call",
+          output: JSON.stringify({ requestId }),
+        },
+      },
+      {
+        timestamp: "2026-08-01T00:00:37.000Z",
         type: "event_msg",
         payload: { runId: "codex-proof", requestId, ideaId },
       },
@@ -717,6 +742,87 @@ describe("LP-04 deterministic runtime contracts", () => {
       }),
     ).rejects.toThrow(`CLIENT_EVIDENCE_REQUEST_AUTHORITY:${requestId}`);
 
+    const mismatchedResponseTranscript = transcript
+      .split("\n")
+      .map((line) => {
+        const event = JSON.parse(line) as {
+          payload?: { call_id?: string; output?: unknown };
+        };
+        if (event.payload?.call_id === "response-read-call")
+          event.payload.output = JSON.stringify({
+            requestId: "req_01ARZ3NDEKTSV4RRFFQ69G5FAX",
+          });
+        return JSON.stringify(event);
+      })
+      .join("\n");
+    await writeFile(transcriptFile, mismatchedResponseTranscript);
+    const mismatchedResponseInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(mismatchedResponseTranscript),
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...mismatchedResponseInput,
+          evidenceSha256: sha256(
+            assertSanitizedEvidence(mismatchedResponseInput),
+          ),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow(`CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${requestId}`);
+
+    const mismatchedTerminalStatusTranscript = transcript.replace(
+      "http_code=201",
+      "http_code=202",
+    );
+    await writeFile(transcriptFile, mismatchedTerminalStatusTranscript);
+    const mismatchedTerminalStatusInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(mismatchedTerminalStatusTranscript),
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...mismatchedTerminalStatusInput,
+          evidenceSha256: sha256(
+            assertSanitizedEvidence(mismatchedTerminalStatusInput),
+          ),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow(`CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${requestId}`);
+
+    const crossOperationTranscript = transcript.replaceAll(
+      "/api/v1/ideas",
+      "/api/v1/projects/proj_01ARZ3NDEKTSV4RRFFQ69G5FAV/transitions",
+    );
+    await writeFile(transcriptFile, crossOperationTranscript);
+    const crossOperationInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(crossOperationTranscript),
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...crossOperationInput,
+          evidenceSha256: sha256(assertSanitizedEvidence(crossOperationInput)),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow(`CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${requestId}`);
+
+    await writeFile(transcriptFile, transcript);
+
     const wrongStatusInput = {
       ...digestInput,
       requestClaims: [{ ...digestInput.requestClaims[0], status: 299 }],
@@ -754,7 +860,7 @@ describe("LP-04 deterministic runtime contracts", () => {
         },
         fetchImpl,
       }),
-    ).rejects.toThrow("CLIENT_EVIDENCE_OBJECTIVE:unknown-result-replayed");
+    ).rejects.toThrow(`CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${requestId}`);
 
     const humanBoundaryTranscript = `${transcript}\n${JSON.stringify({
       timestamp: "2026-08-01T00:00:36.000Z",

@@ -5,9 +5,9 @@ Web 读取同一份 PostgreSQL 权威数据。汇报只负责展示，不能覆�
 
 LP-04 正在增加仓库版本化 AI
 Skill、只使用合成数据的确定性真实 HTTP 演示、崩溃恢复证据和真实数据浏览器故事。实际 Codex/Claude 客户端证据已通过加强后的 transcript、公开审计和资源读回验证；LP-04 当前为
-`Ready for Acceptance`，但 Cycle 3 缩小后的 request-operation
-finding 正在为 Cycle
-4 复审闭环；合并和正式验收尚未完成。生产部署属于 LP-05，不在当前实现范围。
+`Ready for Acceptance`，但 Cycle 4 缩小后的 Codex
+replay/claim 交叉绑定 finding 正在为 Cycle
+5 复审闭环；合并和正式验收尚未完成。生产部署属于 LP-05，不在当前实现范围。
 
 ## 运行要求
 
