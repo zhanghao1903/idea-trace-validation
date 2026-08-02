@@ -669,6 +669,45 @@ const normalizedCommandPath = (value: string): string | null => {
     : null;
 };
 
+const shellArguments = (command: string): string[] => {
+  const arguments_: string[] = [];
+  let current = "";
+  let quote: "'" | '"' | null = null;
+  let escaped = false;
+  const flush = (): void => {
+    if (current.length > 0) arguments_.push(current);
+    current = "";
+  };
+  for (const character of command) {
+    if (escaped) {
+      current += character;
+      escaped = false;
+      continue;
+    }
+    if (character === "\\" && quote !== "'") {
+      escaped = true;
+      continue;
+    }
+    if (quote !== null) {
+      if (character === quote) quote = null;
+      else current += character;
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      continue;
+    }
+    if (/\s/u.test(character) || /[;&|<>]/u.test(character)) {
+      flush();
+      continue;
+    }
+    current += character;
+  }
+  if (escaped || quote !== null) return [];
+  flush();
+  return arguments_;
+};
+
 const codexTranscriptFacts = (
   events: Record<string, unknown>[],
   window: { startedAt: string; finishedAt: string },
@@ -771,7 +810,9 @@ const codexTranscriptFacts = (
       const responseReaders = calls.filter(
         (call) =>
           call.order > request.order &&
-          call.command.includes(request.responseFile as string) &&
+          shellArguments(call.command).includes(
+            request.responseFile as string,
+          ) &&
           /\bjq\b/u.test(call.command) &&
           /(?:requestId|\.meta\.requestId)/u.test(call.command),
       );

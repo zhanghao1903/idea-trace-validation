@@ -88,5 +88,6 @@
   claims, exact authoritative event-to-operation mappings, client-observed
   request/response facts and derived objective checks; correlate the Codex
   timeout/replay tuple and response-file request ID to the same accepted claim;
-  require per-child public readback and preserve resumable journal state after
-  bounded `IDEMPOTENCY_IN_PROGRESS` retries.
+  match the response filename as an exact parsed shell argument; require
+  per-child public readback and preserve resumable journal state after bounded
+  `IDEMPOTENCY_IN_PROGRESS` retries.

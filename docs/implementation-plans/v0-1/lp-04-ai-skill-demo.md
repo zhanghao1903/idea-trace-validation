@@ -76,9 +76,10 @@ Acceptance record:
 - Risk: 客户端自报或资源创建成功不能单独授权 PASS；必须同时绑定原始 transcript 摘要、
   闭合 POST request claims、逐条公开审计的固定操作语义和资源精确读回；拒绝请求须配对
   精确 transcript request/result，Codex replay 必须将 response request ID 与同一
-  path/body/key/terminal status claim 交叉绑定，objective 必须由这些事实推导。
+  path/body/key/terminal status claim 交叉绑定，并精确匹配 response-file shell 参数，
+  objective 必须由这些事实推导。
 - Blocker: `None`。实际 Codex CLI 与 Claude Desktop/Claude Code 客户端均已完成独立运行，
-  且 Cycle 4 保留的 Codex 跨操作 replay/claim 反例现已 fail closed。
+  且 Cycle 5 保留的更长 response filename alias 反例现已 fail closed。
 
 ## 9. Status
 
@@ -90,5 +91,5 @@ Engineering Review，不表示已审查、已合并、已发布或已正式验�
 
 ## 10. Next step
 
-在无进一步文件变更的 remediation exact head 上执行完整验证矩阵并发送 Cycle 5
+在无进一步文件变更的 remediation exact head 上执行完整验证矩阵并发送 Cycle 6
 Engineering Review。LP-05 保持 `Not Started` 且需求未确认。

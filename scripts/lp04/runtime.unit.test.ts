@@ -799,6 +799,47 @@ describe("LP-04 deterministic runtime contracts", () => {
       }),
     ).rejects.toThrow(`CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${requestId}`);
 
+    const aliasedResponseFileTranscript = transcript
+      .split("\n")
+      .map((line) => {
+        const event = JSON.parse(line) as {
+          payload?: { type?: string; call_id?: string; input?: string };
+        };
+        if (
+          event.payload?.type === "custom_tool_call" &&
+          event.payload.call_id === "response-read-call" &&
+          typeof event.payload.input === "string"
+        ) {
+          const input = JSON.parse(event.payload.input) as { cmd: string };
+          input.cmd = input.cmd.replace(
+            " replay-response.json",
+            " unrelated-replay-response.json",
+          );
+          event.payload.input = JSON.stringify(input);
+        }
+        return JSON.stringify(event);
+      })
+      .join("\n");
+    await writeFile(transcriptFile, aliasedResponseFileTranscript);
+    const aliasedResponseFileInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(aliasedResponseFileTranscript),
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...aliasedResponseFileInput,
+          evidenceSha256: sha256(
+            assertSanitizedEvidence(aliasedResponseFileInput),
+          ),
+        },
+        fetchImpl,
+      }),
+    ).rejects.toThrow(`CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${requestId}`);
+
     const crossOperationTranscript = transcript.replaceAll(
       "/api/v1/ideas",
       "/api/v1/projects/proj_01ARZ3NDEKTSV4RRFFQ69G5FAV/transitions",
