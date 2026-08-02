@@ -27,8 +27,10 @@ jobs:
       HUMAN_CONTROL_TOKEN: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
       TEST_DATABASE_URL: postgres://idea_validation:idea_validation@127.0.0.1:5432/idea_validation_test
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           cache: npm
           node-version-file: .nvmrc
@@ -36,3 +38,50 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run db:migrate:test
       - run: npm run verify
+
+  lp05-candidate:
+    needs: verify
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+        env:
+          POSTGRES_DB: idea_validation_test
+          POSTGRES_PASSWORD: idea_validation
+          POSTGRES_USER: idea_validation
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U idea_validation -d idea_validation_test"
+          --health-interval 2s --health-timeout 2s --health-retries 20
+    env:
+      AI_API_TOKEN: ci-only-token-with-at-least-32-characters
+      DATABASE_URL: postgres://idea_validation:idea_validation@127.0.0.1:5432/idea_validation_test
+      HUMAN_CONTROL_TOKEN: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+      TEST_DATABASE_URL: postgres://idea_validation:idea_validation@127.0.0.1:5432/idea_validation_test
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          cache: npm
+          node-version-file: .nvmrc
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Build exact LP-05 OCI candidate
+        run: npm run release:lp05:candidate -- --platform linux/amd64
+      - name: Verify candidate and local production topology
+        shell: bash
+        run: |
+          MANIFEST_PATH="$(find .lp05-release -type f -name manifest.json -print -quit)"
+          test -n "$MANIFEST_PATH"
+          REVIEWED_HEAD="$(git rev-parse HEAD)"
+          npm run release:lp05:verify-candidate -- --manifest "$MANIFEST_PATH" --reviewed-head "$REVIEWED_HEAD"
+          npm run test:deployment:local -- --manifest "$MANIFEST_PATH"
+      - run: npm run test:deployment:authority
+      - run: npm run test:deployment:restore-chain
+      - run: npm run test:backup-restore:lp05
+      - run: npm run test:rotation:lp05
+      - run: npm run test:deployment:rollback
+      - run: git diff --check
