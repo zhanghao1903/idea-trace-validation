@@ -206,6 +206,7 @@ const build = async (): Promise<void> => {
   const architecture = platform === "linux/amd64" ? "amd64" : "arm64";
   const releaseId = `lp05-${sourceCommit.slice(0, 12)}-${architecture}`;
   const candidateRoot = join(outputRoot, releaseId);
+  await mkdir(outputRoot, { recursive: true, mode: 0o700 });
   await mkdir(candidateRoot, { recursive: false, mode: 0o700 });
   const archivePath = join(candidateRoot, `${releaseId}.oci.tar`);
   const verificationStartedAt = new Date();
