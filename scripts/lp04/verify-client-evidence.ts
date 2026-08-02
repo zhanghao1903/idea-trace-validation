@@ -708,6 +708,160 @@ const shellArguments = (command: string): string[] => {
   return arguments_;
 };
 
+const shellCommandSegments = (command: string): string[] => {
+  const segments: string[] = [];
+  let current = "";
+  let quote: "'" | '"' | null = null;
+  let escaped = false;
+  const flush = (): void => {
+    const segment = current.trim();
+    if (segment.length > 0) segments.push(segment);
+    current = "";
+  };
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index] as string;
+    if (escaped) {
+      if (character === "\n") current = current.slice(0, -1);
+      else current += character;
+      escaped = false;
+      continue;
+    }
+    if (character === "\\" && quote !== "'") {
+      current += character;
+      escaped = true;
+      continue;
+    }
+    if (quote !== null) {
+      current += character;
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      current += character;
+      quote = character;
+      continue;
+    }
+    if (
+      character === "`" ||
+      (character === "$" && command[index + 1] === "(") ||
+      ((character === "<" || character === ">") && command[index + 1] === "(")
+    )
+      return [];
+    if (/[\r\n;&|()]/u.test(character)) {
+      flush();
+      continue;
+    }
+    current += character;
+  }
+  if (escaped || quote !== null) return [];
+  flush();
+  return segments;
+};
+
+const shellCommandName = (arguments_: string[]): string | undefined =>
+  arguments_[0]?.split("/").at(-1);
+
+const isQuietShellSegment = (segment: string): boolean => {
+  const arguments_ = shellArguments(segment);
+  const command = shellCommandName(arguments_);
+  if (command === ":" || command === "test") return true;
+  if (command === "[") return arguments_.at(-1) === "]";
+  if (command !== "grep") return false;
+  return arguments_
+    .slice(1)
+    .some(
+      (argument) =>
+        argument === "--quiet" ||
+        argument === "--silent" ||
+        /^-[^-]*q/iu.test(argument),
+    );
+};
+
+const redirectsShellOutput = (segment: string): boolean => {
+  let quote: "'" | '"' | null = null;
+  let escaped = false;
+  for (const character of segment) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\" && quote !== "'") {
+      escaped = true;
+      continue;
+    }
+    if (quote !== null) {
+      if (character === quote) quote = null;
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      continue;
+    }
+    if (character === ">") return true;
+  }
+  return escaped || quote !== null;
+};
+
+interface CodexResponseReaderOutput {
+  output: string;
+  shape: "SINGULAR" | "FIRST_ARRAY_ITEM";
+}
+
+const responseReaderShape = (
+  segment: string,
+  responseFile: string,
+): CodexResponseReaderOutput["shape"] | null => {
+  const arguments_ = shellArguments(segment);
+  if (shellCommandName(arguments_) !== "jq") return null;
+  for (let index = 0; index < arguments_.length - 2; index += 1) {
+    if (
+      arguments_[index] !== "--slurpfile" ||
+      arguments_[index + 2] !== responseFile
+    )
+      continue;
+    const variable = arguments_[index + 1];
+    if (variable === undefined || !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(variable))
+      return null;
+    return new RegExp(
+      `requestIds\\s*:\\s*\\[\\s*\\$${variable}\\[0\\]\\.meta\\.requestId`,
+      "u",
+    ).test(segment)
+      ? "FIRST_ARRAY_ITEM"
+      : null;
+  }
+  return arguments_.includes(responseFile) &&
+    /requestId\s*:\s*\.meta\.requestId/u.test(segment)
+    ? "SINGULAR"
+    : null;
+};
+
+const codexResponseReaderOutput = (
+  command: string,
+  output: string,
+  responseFile: string,
+): CodexResponseReaderOutput | null => {
+  const segments = shellCommandSegments(command);
+  const readers = segments.flatMap((segment, index) => {
+    const shape = responseReaderShape(segment, responseFile);
+    return shape === null ? [] : [{ index, shape }];
+  });
+  if (readers.length !== 1) return null;
+  const reader = readers[0] as {
+    index: number;
+    shape: CodexResponseReaderOutput["shape"];
+  };
+  const readerIndex = reader.index;
+  if (redirectsShellOutput(segments[readerIndex] as string)) return null;
+  if (
+    segments.some(
+      (segment, index) =>
+        index !== readerIndex && !isQuietShellSegment(segment),
+    )
+  )
+    return null;
+  return { output, shape: reader.shape };
+};
+
 const codexTranscriptFacts = (
   events: Record<string, unknown>[],
   window: { startedAt: string; finishedAt: string },
@@ -807,25 +961,28 @@ const codexTranscriptFacts = (
         request.responseFile === undefined
       )
         continue;
-      const responseReaders = calls.filter(
-        (call) =>
-          call.order > request.order &&
-          shellArguments(call.command).includes(
-            request.responseFile as string,
-          ) &&
-          /\bjq\b/u.test(call.command) &&
-          /(?:requestId|\.meta\.requestId)/u.test(call.command),
-      );
-      for (const reader of responseReaders) {
-        for (const match of reader.output.matchAll(
-          /["']requestId["']\s*:\s*["'](req_[0-9A-HJKMNP-TV-Z]{26})["']/gu,
-        )) {
-          if (match[1] !== undefined)
+      const responseReaderOutputs = calls.flatMap((call) => {
+        if (call.order <= request.order) return [];
+        const reader = codexResponseReaderOutput(
+          call.command,
+          call.output,
+          request.responseFile as string,
+        );
+        return reader === null ? [] : [reader];
+      });
+      for (const reader of responseReaderOutputs) {
+        const pattern =
+          reader.shape === "SINGULAR"
+            ? /["']requestId["']\s*:\s*["'](req_[0-9A-HJKMNP-TV-Z]{26})["']/gu
+            : /["']requestIds["']\s*:\s*\[\s*["'](req_[0-9A-HJKMNP-TV-Z]{26})["']/gu;
+        for (const match of reader.output.matchAll(pattern)) {
+          const requestId = match[1];
+          if (requestId !== undefined)
             replayedRequests.push({
               method: "POST",
               path: request.path,
               status: Number(statusText),
-              requestId: match[1],
+              requestId,
             });
         }
       }

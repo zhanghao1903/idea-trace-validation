@@ -88,6 +88,7 @@
   claims, exact authoritative event-to-operation mappings, client-observed
   request/response facts and derived objective checks; correlate the Codex
   timeout/replay tuple and response-file request ID to the same accepted claim;
-  match the response filename as an exact parsed shell argument; require
-  per-child public readback and preserve resumable journal state after bounded
-  `IDEMPOTENCY_IN_PROGRESS` retries.
+  bind `jq`, its request-ID selector, the exact response-file input and output
+  to one parsed command segment instead of composing facts across shell control
+  boundaries; require per-child public readback and preserve resumable journal
+  state after bounded `IDEMPOTENCY_IN_PROGRESS` retries.

@@ -592,6 +592,57 @@ describe("LP-04 deterministic runtime contracts", () => {
       }),
     ).resolves.toMatchObject({ client: "CODEX", resourceRefs: { ideaId } });
 
+    const slurpfileReaderTranscript = transcript
+      .split("\n")
+      .map((line) => {
+        const event = JSON.parse(line) as {
+          payload?: {
+            type?: string;
+            call_id?: string;
+            input?: string;
+            output?: unknown;
+          };
+        };
+        if (
+          event.payload?.type === "custom_tool_call" &&
+          event.payload.call_id === "response-read-call" &&
+          typeof event.payload.input === "string"
+        ) {
+          const input = JSON.parse(event.payload.input) as { cmd: string };
+          input.cmd =
+            "test ! -s initial-response.json\n" +
+            "grep -q 'curl: (28)' initial-curl.stderr\n" +
+            "jq -n --slurpfile replay replay-response.json " +
+            "'{requestIds: [$replay[0].meta.requestId]}'";
+          event.payload.input = JSON.stringify(input);
+        }
+        if (
+          event.payload?.type === "custom_tool_call_output" &&
+          event.payload.call_id === "response-read-call"
+        )
+          event.payload.output = JSON.stringify({ requestIds: [requestId] });
+        return JSON.stringify(event);
+      })
+      .join("\n");
+    await writeFile(transcriptFile, slurpfileReaderTranscript);
+    const slurpfileReaderInput = {
+      ...digestInput,
+      rawTranscriptSha256: sha256(slurpfileReaderTranscript),
+    };
+    await expect(
+      verifyClientEvidence({
+        repoRoot,
+        baseOrigin: "http://127.0.0.1:3000",
+        transcriptFile,
+        value: {
+          ...slurpfileReaderInput,
+          evidenceSha256: sha256(assertSanitizedEvidence(slurpfileReaderInput)),
+        },
+        fetchImpl,
+      }),
+    ).resolves.toMatchObject({ client: "CODEX", resourceRefs: { ideaId } });
+    await writeFile(transcriptFile, transcript);
+
     const arbitraryChecksInput = {
       ...digestInput,
       objectiveChecks: [
@@ -839,6 +890,65 @@ describe("LP-04 deterministic runtime contracts", () => {
         fetchImpl,
       }),
     ).rejects.toThrow(`CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${requestId}`);
+
+    const expectRejectedResponseReaderCommand = async (
+      command: string,
+    ): Promise<void> => {
+      const responseReaderTranscript = transcript
+        .split("\n")
+        .map((line) => {
+          const event = JSON.parse(line) as {
+            payload?: { type?: string; call_id?: string; input?: string };
+          };
+          if (
+            event.payload?.type === "custom_tool_call" &&
+            event.payload.call_id === "response-read-call" &&
+            typeof event.payload.input === "string"
+          ) {
+            const input = JSON.parse(event.payload.input) as { cmd: string };
+            input.cmd = command;
+            event.payload.input = JSON.stringify(input);
+          }
+          return JSON.stringify(event);
+        })
+        .join("\n");
+      await writeFile(transcriptFile, responseReaderTranscript);
+      const responseReaderInput = {
+        ...digestInput,
+        rawTranscriptSha256: sha256(responseReaderTranscript),
+      };
+      await expect(
+        verifyClientEvidence({
+          repoRoot,
+          baseOrigin: "http://127.0.0.1:3000",
+          transcriptFile,
+          value: {
+            ...responseReaderInput,
+            evidenceSha256: sha256(
+              assertSanitizedEvidence(responseReaderInput),
+            ),
+          },
+          fetchImpl,
+        }),
+      ).rejects.toThrow(`CLIENT_EVIDENCE_COMMITTED_TRANSCRIPT:${requestId}`);
+    };
+
+    await expectRejectedResponseReaderCommand(
+      "jq '{requestId: .meta.requestId}' unrelated-replay-response.json\n" +
+        "test -f replay-response.json",
+    );
+    await expectRejectedResponseReaderCommand(
+      "jq '{requestId: .meta.requestId}' unrelated-replay-response.json | " +
+        "test -f replay-response.json",
+    );
+    await expectRejectedResponseReaderCommand(
+      "jq '{requestId: .meta.requestId}' unrelated-replay-response.json && " +
+        "test -f replay-response.json",
+    );
+    await expectRejectedResponseReaderCommand(
+      "jq '{requestId: .meta.requestId}' replay-response.json >/dev/null\n" +
+        "jq '{requestId: .meta.requestId}' unrelated-replay-response.json",
+    );
 
     const crossOperationTranscript = transcript.replaceAll(
       "/api/v1/ideas",
