@@ -1,9 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+import { afterEach, describe, expect, it } from "vitest";
 
 import { loadDeploymentConfig } from "./config.js";
 import { evaluateOperations } from "./ops-status.js";
+import { readValidatedRuntimeSecrets } from "./preflight.js";
 import { parseSemver, inspectToolchain } from "./toolchain.js";
 import { verifyPublishedPorts } from "../smoke/network.js";
+
+const roots: string[] = [];
+afterEach(async () =>
+  Promise.all(
+    roots.splice(0).map((root) => rm(root, { recursive: true, force: true })),
+  ),
+);
 
 const environment = (): NodeJS.ProcessEnv => ({
   DEPLOY_DOMAIN: "demo.example.com",
@@ -81,6 +93,49 @@ describe("LP-05 toolchain preflight", () => {
               : "28.2.1",
       }),
     ).rejects.toThrow("TOOLCHAIN_UNSUPPORTED:COMPOSE_RANGE");
+  });
+});
+
+describe("LP-05 runtime secret filesystem contract", () => {
+  const createSecrets = async (): Promise<string> => {
+    const temporary = await mkdtemp(join(tmpdir(), "lp05-secrets-"));
+    roots.push(temporary);
+    const root = join(temporary, "runtime");
+    await mkdir(root, { mode: 0o700 });
+    await Promise.all([
+      writeFile(join(root, "postgres_password"), "p".repeat(32), {
+        mode: 0o644,
+      }),
+      writeFile(join(root, "ai_api_token"), "a".repeat(32), {
+        mode: 0o644,
+      }),
+      writeFile(join(root, "human_control_token"), "H".repeat(43), {
+        mode: 0o644,
+      }),
+    ]);
+    return root;
+  };
+
+  it("accepts a non-traversable host directory with Compose-readable files", async () => {
+    const root = await createSecrets();
+    expect(await readValidatedRuntimeSecrets(root)).toEqual([
+      "p".repeat(32),
+      "a".repeat(32),
+      "H".repeat(43),
+    ]);
+  });
+
+  it("rejects a traversable directory or a file unreadable by non-root containers", async () => {
+    const root = await createSecrets();
+    await chmod(root, 0o711);
+    await expect(readValidatedRuntimeSecrets(root)).rejects.toThrow(
+      "PREFLIGHT_SECRETS_ROOT_INVALID",
+    );
+    await chmod(root, 0o700);
+    await chmod(join(root, "ai_api_token"), 0o600);
+    await expect(readValidatedRuntimeSecrets(root)).rejects.toThrow(
+      "PREFLIGHT_SECRET_INVALID:ai_api_token",
+    );
   });
 });
 

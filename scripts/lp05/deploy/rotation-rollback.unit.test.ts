@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -55,6 +55,10 @@ describe("LP-05 credential rotation", () => {
       "human:new:ACCEPT",
     ]);
     expect(await readFile(join(root, "ai_api_token"), "utf8")).toBe(nextAi);
+    expect((await stat(join(root, "ai_api_token"))).mode & 0o777).toBe(0o644);
+    expect((await stat(join(root, "human_control_token"))).mode & 0o777).toBe(
+      0o644,
+    );
   });
 
   it("restores both old files if proof fails", async () => {
@@ -83,6 +87,10 @@ describe("LP-05 credential rotation", () => {
     expect(await readFile(join(root, "ai_api_token"), "utf8")).toBe(oldAi);
     expect(await readFile(join(root, "human_control_token"), "utf8")).toBe(
       oldHuman,
+    );
+    expect((await stat(join(root, "ai_api_token"))).mode & 0o777).toBe(0o644);
+    expect((await stat(join(root, "human_control_token"))).mode & 0o777).toBe(
+      0o644,
     );
   });
 });

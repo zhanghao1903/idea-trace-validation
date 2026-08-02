@@ -42,10 +42,10 @@ export const rotateCredentials = async (input: {
   const aiNext = `${aiPath}.next`;
   const humanNext = `${humanPath}.next`;
   await Promise.all([
-    writeFile(aiNext, input.nextAi, { mode: 0o600, flag: "wx" }),
-    writeFile(humanNext, input.nextHuman, { mode: 0o600, flag: "wx" }),
+    writeFile(aiNext, input.nextAi, { mode: 0o644, flag: "wx" }),
+    writeFile(humanNext, input.nextHuman, { mode: 0o644, flag: "wx" }),
   ]);
-  await Promise.all([chmod(aiNext, 0o600), chmod(humanNext, 0o600)]);
+  await Promise.all([chmod(aiNext, 0o644), chmod(humanNext, 0o644)]);
   try {
     await rename(aiNext, aiPath);
     await rename(humanNext, humanPath);
@@ -56,8 +56,8 @@ export const rotateCredentials = async (input: {
     await input.adapter.verifyHumanCredential(input.nextHuman, "ACCEPT");
   } catch (error) {
     await Promise.all([
-      writeFile(aiPath, oldAi, { mode: 0o600 }),
-      writeFile(humanPath, oldHuman, { mode: 0o600 }),
+      writeFile(aiPath, oldAi, { mode: 0o644 }),
+      writeFile(humanPath, oldHuman, { mode: 0o644 }),
     ]);
     await input.adapter.restartApp();
     throw error;

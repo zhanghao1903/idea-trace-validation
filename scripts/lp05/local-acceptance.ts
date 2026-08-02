@@ -92,11 +92,11 @@ export const runLocalAcceptance = async (
     writeFile(
       join(secretsRoot, "postgres_password"),
       "lp05-local-postgres-password-000001",
-      { mode: 0o600 },
+      { mode: 0o644 },
     ),
-    writeFile(join(secretsRoot, "ai_api_token"), aiToken, { mode: 0o600 }),
+    writeFile(join(secretsRoot, "ai_api_token"), aiToken, { mode: 0o644 }),
     writeFile(join(secretsRoot, "human_control_token"), humanToken, {
-      mode: 0o600,
+      mode: 0o644,
     }),
   ]);
   const project = `lp05-local-${process.pid}`;

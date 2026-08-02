@@ -5,6 +5,38 @@ import { loadDeploymentConfig } from "./config.js";
 import { inspectToolchain, type ToolchainOptions } from "./toolchain.js";
 import { sha256 } from "../shared/canonical-json.js";
 
+export const readValidatedRuntimeSecrets = async (
+  secretsRoot: string,
+): Promise<string[]> => {
+  const root = await lstat(secretsRoot);
+  if (
+    !root.isDirectory() ||
+    root.isSymbolicLink() ||
+    (root.mode & 0o777) !== 0o700
+  )
+    throw new Error("PREFLIGHT_SECRETS_ROOT_INVALID");
+
+  const secrets: string[] = [];
+  for (const name of [
+    "postgres_password",
+    "ai_api_token",
+    "human_control_token",
+  ]) {
+    const path = join(secretsRoot, name);
+    const stat = await lstat(path);
+    if (
+      !stat.isFile() ||
+      stat.isSymbolicLink() ||
+      (stat.mode & 0o777) !== 0o644 ||
+      stat.size < 1 ||
+      stat.size > 4096
+    )
+      throw new Error(`PREFLIGHT_SECRET_INVALID:${name}`);
+    secrets.push((await readFile(path, "utf8")).trim());
+  }
+  return secrets;
+};
+
 export const preflight = async (
   environment: NodeJS.ProcessEnv,
   toolchain: ToolchainOptions = {},
@@ -17,24 +49,7 @@ export const preflight = async (
   );
   if (new Set(roots).size !== roots.length)
     throw new Error("PREFLIGHT_ROOT_COLLISION");
-  const secrets: string[] = [];
-  for (const name of [
-    "postgres_password",
-    "ai_api_token",
-    "human_control_token",
-  ]) {
-    const path = join(config.secretsRoot, name);
-    const stat = await lstat(path);
-    if (
-      !stat.isFile() ||
-      stat.isSymbolicLink() ||
-      stat.mode % 8 > 0 ||
-      stat.size < 1 ||
-      stat.size > 4096
-    )
-      throw new Error(`PREFLIGHT_SECRET_INVALID:${name}`);
-    secrets.push((await readFile(path, "utf8")).trim());
-  }
+  const secrets = await readValidatedRuntimeSecrets(config.secretsRoot);
   if (
     secrets[0].length < 32 ||
     secrets[1].length < 32 ||
