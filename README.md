@@ -131,7 +131,7 @@ LP-05 的生产资产位于 [`deploy/`](./deploy)，运维手册位于
 ```bash
 npm run test:deployment:unit
 npm run deploy:lp05:validate
-npm run release:lp05:candidate -- --source-commit "$(git rev-parse HEAD)"
+npm run release:lp05:candidate -- --platform linux/amd64
 ```
 
 最后一条会执行完整 `npm run verify`
