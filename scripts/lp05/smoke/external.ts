@@ -1,4 +1,4 @@
-import { canonicalJson, sha256 } from "../shared/canonical-json.js";
+import { canonicalJson } from "../shared/canonical-json.js";
 import { validRunId } from "../../lp04/request-identity.js";
 import {
   exactKeys,
@@ -15,7 +15,11 @@ import {
   type ExternalSmokeAdapter,
 } from "./external-observer.js";
 import { verifyPublishedPorts } from "./network.js";
-import { verifySecurityHeaders } from "./security.js";
+import { verifyHttpsRedirect, verifySecurityHeaders } from "./security.js";
+import {
+  syntheticResourceIdsSha256,
+  syntheticStorySha256 as storySha256,
+} from "./story.js";
 
 export interface ExternalSmokeRequest {
   schemaVersion: "1.0";
@@ -152,6 +156,7 @@ export const runExternalSmoke = async (
     [301, 302, 307, 308],
     "SMOKE_HTTP_REDIRECT",
   );
+  verifyHttpsRedirect(redirect, new URL("health/live", origin).href);
   const live = expectStatus(
     await adapter.observe(new URL("health/live", origin).href),
     200,
@@ -264,14 +269,8 @@ export const runExternalSmoke = async (
   )
     throw new Error("SMOKE_PUBLIC_SECRET_EXPOSED");
 
-  const syntheticStorySha256 = sha256(canonicalJson(journey));
-  const resourceIdsSha256 = sha256(
-    canonicalJson(
-      Object.values(refs)
-        .filter((value): value is string => typeof value === "string")
-        .sort(),
-    ),
-  );
+  const syntheticStorySha256 = storySha256(journey);
+  const resourceIdsSha256 = syntheticResourceIdsSha256(journey);
   const assertions: JsonRecord[] = [
     pass("attention_items", observedAt, {
       valueSha256: syntheticStorySha256,

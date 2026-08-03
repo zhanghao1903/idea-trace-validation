@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
-import { canonicalSha256 } from "../shared/canonical-json.js";
+import { canonicalJson, canonicalSha256 } from "../shared/canonical-json.js";
 import {
   parseIsolatedRestoreTarget,
   record,
@@ -31,11 +31,33 @@ const exactOne = (value: string, code: string): string => {
 
 export const inspectLiveIsolatedTarget = async (
   declared: JsonRecord,
-  credentials: { user: string; password: string; path?: string },
+  credentials: { user: string; path?: string },
 ): Promise<JsonRecord> => {
   const target = parseIsolatedRestoreTarget(declared);
-  const project = String(target.composeProject);
-  const baseEnvironment: NodeJS.ProcessEnv = { PATH: credentials.path };
+  const observed = await discoverLiveIsolatedTarget({
+    composeProject: String(target.composeProject),
+    origin: String(target.origin),
+    databaseHost: String(target.databaseHost),
+    databasePort: Number(target.databasePort),
+    databaseName: String(target.databaseName),
+    credentials,
+  });
+  if (canonicalJson(target) !== canonicalJson(observed))
+    throw new Error("RESTORE_LIVE_TARGET_MISMATCH");
+  return parseIsolatedRestoreTarget(observed);
+};
+
+export const discoverLiveIsolatedTarget = async (input: {
+  composeProject: string;
+  origin: string;
+  databaseHost: string;
+  databasePort: number;
+  databaseName: string;
+  credentials: { user: string; path?: string };
+}): Promise<JsonRecord> => {
+  const project = input.composeProject;
+  if (!project.startsWith("lp05-restore-")) throw new Error("RESTORE_PROJECT");
+  const baseEnvironment: NodeJS.ProcessEnv = { PATH: input.credentials.path };
   const containerId = exactOne(
     await run(
       "docker",
@@ -88,32 +110,40 @@ export const inspectLiveIsolatedTarget = async (
   const volumeLabels = record(volume.Labels, "RESTORE_LIVE_VOLUME_LABELS");
   if (volumeLabels["com.docker.compose.project"] !== project)
     throw new Error("RESTORE_LIVE_VOLUME_LABELS");
-  const databaseEnvironment: NodeJS.ProcessEnv = {
-    PATH: credentials.path,
-    PGHOST: String(target.databaseHost),
-    PGPORT: String(target.databasePort),
-    PGDATABASE: String(target.databaseName),
-    PGUSER: credentials.user,
-    PGPASSWORD: credentials.password,
-  };
   const systemIdentifier = exactOne(
     await run(
-      "psql",
+      "docker",
       [
+        "exec",
+        "--user",
+        "postgres",
+        containerId,
+        "psql",
         "--no-psqlrc",
         "--tuples-only",
         "--no-align",
+        "--username",
+        input.credentials.user,
+        "--dbname",
+        input.databaseName,
         "--command",
         "SELECT system_identifier FROM pg_control_system()",
       ],
-      databaseEnvironment,
+      baseEnvironment,
     ),
     "RESTORE_LIVE_SYSTEM_IDENTIFIER",
   );
   return {
-    ...target,
+    kind: "ISOLATED",
+    composeProject: project,
+    containerId,
+    volumeName,
     systemIdentifier,
     containerLabelSha256: canonicalSha256(labels),
     volumeLabelSha256: canonicalSha256(volumeLabels),
+    origin: input.origin,
+    databaseHost: input.databaseHost,
+    databasePort: input.databasePort,
+    databaseName: input.databaseName,
   };
 };

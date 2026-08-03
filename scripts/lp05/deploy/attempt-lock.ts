@@ -9,6 +9,7 @@ export interface AttemptLock {
   path: string;
   attemptId: string;
   nonce: string;
+  recovered: boolean;
 }
 
 const processAlive = (pid: number): boolean => {
@@ -54,33 +55,69 @@ export const acquireAttemptLock = async (
       await file.close();
     }
   };
+  let recovered = false;
   try {
     await create();
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
-    let existing;
+    const recoveryPath = `${destination}.recovery`;
+    let recovery;
     try {
-      existing = record(
-        JSON.parse(await readFile(destination, "utf8")),
-        "DEPLOYMENT_LOCK",
-      );
-    } catch {
-      throw new Error("DEPLOYMENT_LOCK_CORRUPT");
+      recovery = await open(recoveryPath, "wx", 0o600);
+    } catch (recoveryError) {
+      if ((recoveryError as NodeJS.ErrnoException).code === "EEXIST")
+        throw new Error("DEPLOYMENT_TARGET_LOCKED");
+      throw recoveryError;
     }
-    if (
-      typeof existing.pid !== "number" ||
-      !Number.isSafeInteger(existing.pid) ||
-      existing.pid < 1 ||
-      typeof existing.attemptId !== "string"
-    )
-      throw new Error("DEPLOYMENT_LOCK_CORRUPT");
-    if (processAlive(existing.pid)) throw new Error("DEPLOYMENT_TARGET_LOCKED");
-    if (existing.attemptId !== attemptId)
-      throw new Error("DEPLOYMENT_LOCK_ATTEMPT_MISMATCH");
-    await unlink(destination);
-    await create();
+    try {
+      let existing;
+      try {
+        existing = record(
+          JSON.parse(await readFile(destination, "utf8")),
+          "DEPLOYMENT_LOCK",
+        );
+      } catch (readError) {
+        if ((readError as NodeJS.ErrnoException).code === "ENOENT") {
+          try {
+            await create();
+            return { path: destination, attemptId, nonce, recovered: false };
+          } catch (createError) {
+            if ((createError as NodeJS.ErrnoException).code === "EEXIST")
+              throw new Error("DEPLOYMENT_TARGET_LOCKED");
+            throw createError;
+          }
+        }
+        throw new Error("DEPLOYMENT_LOCK_CORRUPT");
+      }
+      if (
+        typeof existing.pid !== "number" ||
+        !Number.isSafeInteger(existing.pid) ||
+        existing.pid < 1 ||
+        typeof existing.attemptId !== "string"
+      )
+        throw new Error("DEPLOYMENT_LOCK_CORRUPT");
+      if (processAlive(existing.pid))
+        throw new Error("DEPLOYMENT_TARGET_LOCKED");
+      if (existing.attemptId !== attemptId)
+        throw new Error("DEPLOYMENT_LOCK_ATTEMPT_MISMATCH");
+      await unlink(destination);
+      try {
+        await create();
+      } catch (createError) {
+        if ((createError as NodeJS.ErrnoException).code === "EEXIST")
+          throw new Error("DEPLOYMENT_TARGET_LOCKED");
+        throw createError;
+      }
+      recovered = true;
+    } finally {
+      await recovery.close();
+      await unlink(recoveryPath).catch((cleanupError: unknown) => {
+        if ((cleanupError as NodeJS.ErrnoException).code !== "ENOENT")
+          throw cleanupError;
+      });
+    }
   }
-  return { path: destination, attemptId, nonce };
+  return { path: destination, attemptId, nonce, recovered };
 };
 
 export const releaseAttemptLock = async (lock: AttemptLock): Promise<void> => {

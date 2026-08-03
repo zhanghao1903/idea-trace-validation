@@ -14,6 +14,9 @@ export const validateComposeStatic = async (
     "utf8",
   );
   const test = await readFile(`${root}/deploy/compose.test.yaml`, "utf8");
+  const restore = await readFile(`${root}/deploy/compose.restore.yaml`, "utf8");
+  const caddy = await readFile(`${root}/deploy/Caddyfile`, "utf8");
+  const caddyTest = await readFile(`${root}/deploy/Caddyfile.test`, "utf8");
   const postgresSection = production.slice(
     production.indexOf("  postgres:"),
     production.indexOf("  migrate:"),
@@ -47,6 +50,32 @@ export const validateComposeStatic = async (
   }
   if (!test.includes("host_ip: 127.0.0.1") || !test.includes("local-test"))
     throw new Error("COMPOSE_TEST_NOT_ISOLATED");
+  for (const token of [
+    "host_ip: 127.0.0.1",
+    "isolated-restore",
+    "production-edge-only",
+    "RESTORE_APP_PORT",
+  ])
+    if (!restore.includes(token))
+      throw new Error(`COMPOSE_RESTORE_REQUIRED:${token}`);
+  const policy =
+    "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'";
+  for (const [name, source] of [
+    ["production", caddy],
+    ["test", caddyTest],
+  ] as const)
+    if (!source.includes(`Content-Security-Policy \"${policy}\"`))
+      throw new Error(`CADDY_CSP_REQUIRED:${name}`);
+  if (
+    !caddy.includes("auto_https disable_redirects") ||
+    !caddy.includes("redir https://{$DEPLOY_DOMAIN}{uri} permanent")
+  )
+    throw new Error("CADDY_REDIRECT_REQUIRED:production");
+  if (
+    !caddyTest.includes("auto_https disable_redirects") ||
+    !caddyTest.includes("redir https://localhost:18443{uri} permanent")
+  )
+    throw new Error("CADDY_REDIRECT_REQUIRED:test");
 };
 
 export const renderCompose = async (

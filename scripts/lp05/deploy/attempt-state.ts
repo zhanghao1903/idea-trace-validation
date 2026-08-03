@@ -446,6 +446,29 @@ export const resumeInterruptedAttempt = (
   });
 };
 
+export const interruptAttempt = (
+  attempt: JsonRecord,
+  input: { occurredAt: string; reasonCode: string },
+): JsonRecord => {
+  projectAttemptState(attempt);
+  const state = attempt.currentState as AttemptState;
+  if (!forward.slice(0, -1).includes(state))
+    throw new Error("ATTEMPT_INTERRUPT_STATE");
+  const resume = record(attempt.resume, "ATTEMPT_RESUME");
+  if (resume.count !== 0) throw new Error("ATTEMPT_RESUME_LIMIT");
+  return transitionAttempt(attempt, {
+    to: "INTERRUPTED",
+    occurredAt: time(input.occurredAt, "ATTEMPT_INTERRUPT_TIME"),
+    reasonCode: input.reasonCode,
+    evidenceSha256: canonicalSha256({
+      state,
+      reasonCode: input.reasonCode,
+      lastTransitionSha256: verifyTransitionLog(attempt.transitionLog).at(-1)
+        ?.transitionSha256,
+    }),
+  });
+};
+
 export const transitionAttempt = (
   attempt: JsonRecord,
   input: {

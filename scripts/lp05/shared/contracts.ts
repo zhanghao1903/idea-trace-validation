@@ -1120,6 +1120,8 @@ export const parseIsolatedRestoreTarget = (value: unknown): JsonRecord => {
     [
       "kind",
       "composeProject",
+      "containerId",
+      "volumeName",
       "systemIdentifier",
       "volumeLabelSha256",
       "containerLabelSha256",
@@ -1133,6 +1135,8 @@ export const parseIsolatedRestoreTarget = (value: unknown): JsonRecord => {
   literal(isolated.kind, "ISOLATED", "RESTORE_TARGET_KIND");
   if (!String(isolated.composeProject).startsWith("lp05-restore-"))
     throw new Error("RESTORE_PROJECT");
+  safe(isolated.containerId, "RESTORE_CONTAINER_ID");
+  safe(isolated.volumeName, "RESTORE_VOLUME_NAME");
   if (!/^\d+$/u.test(string(isolated.systemIdentifier, "RESTORE_SYSTEM_ID")))
     throw new Error("RESTORE_SYSTEM_ID");
   digest(isolated.volumeLabelSha256, "RESTORE_VOLUME_LABEL");

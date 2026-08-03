@@ -25,6 +25,11 @@
 - Code Review Cycle 1 remediation makes external smoke an active observer, makes every deployment state consume a
   closed authority-bound projection under a single-target lock with persisted rollback, and binds `pg_restore` to
   the exact re-inspected isolated DB destination before either subprocess starts.
+- Code Review Cycle 2 remediation removes future evidence from the production controller request, makes every phase
+  an active host operation with a controller-owned reconciled output, adds race-safe stale-lock recovery plus the
+  explicit bounded interruption transition, binds restore mutation to the exact inspected Compose DB container and
+  a complete actively revalidated production identity, and requires exact same-host HTTPS redirect and CSP
+  semantics.
 
 ## Objective repository results
 
@@ -33,12 +38,13 @@
 | `npm run format:check` | PASS |
 | `npm run lint` | PASS |
 | `npm run skill:check` | PASS |
-| `npm run typecheck` | PASS |
+| `npm run typecheck` and `npm run typecheck:lp05` | PASS; application workspaces and deploy/runtime scripts are both checked |
 | `npm run build` and frozen OpenAPI/report-type checks | PASS; Web bundle 97.35 KiB gzip |
-| repository unit/contract/integration/Web component tests | PASS; 82 + 23 + 31 + 8 tests |
+| repository unit/contract/integration/Web component tests | PASS; 107 + 23 + 31 + 8 tests |
 | LP-01–LP-04 acceptance tests | PASS; 13 tests on the isolated PostgreSQL database |
-| `npm run test:deployment:unit` | PASS; 6 files, 41 tests after Cycle 1 trust-boundary regressions |
+| `npm run test:deployment:unit` | PASS; 6 files, 52 tests after Cycle 2 active-operation, resume, restore-target and HTTP-boundary regressions |
 | `npm run deploy:lp05:validate` | PASS; `LP05_RELEASE_READINESS_PASS` |
+| digest-pinned Caddy validation | PASS; production and local-test files are valid with explicit redirects and exact CSP |
 | Playwright LP-03/LP-04 stories | PASS; 7 + 1 scenarios |
 | `npm run verify` | PASS; complete ordered gate |
 | immutable `linux/amd64` candidate | PASS; ignored manifest binds the exact source commit/tree |
@@ -47,9 +53,10 @@
 
 The candidate build itself reran the complete repository gate from a clean tree before creating the OCI archive.
 The loopback test loaded that archive, started digest-pinned PostgreSQL and Caddy, ran all three migrations, proved
-the app is non-root/read-only, proved app/PostgreSQL ports are not published, and read readiness/OpenAPI through
-local TLS with the required security headers. It then removed only its unique temporary project resources. GitHub
-CI independently rebuilds and repeats the same process from the exact PR head and checks a clean tree afterward.
+the app is non-root/read-only, proved app/PostgreSQL ports are not published, and verified the exact HTTP-to-HTTPS
+redirect plus readiness/OpenAPI through local TLS with the required CSP/security headers. It then removed only its
+unique temporary project resources. GitHub CI independently rebuilds and repeats the same process from the exact PR
+head and checks a clean tree afterward.
 
 ## External boundary and blockers
 

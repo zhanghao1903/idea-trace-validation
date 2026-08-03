@@ -1,3 +1,6 @@
+import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -80,6 +83,8 @@ describe("LP-05 isolated recovery", () => {
       {
         kind: "ISOLATED",
         composeProject: "lp05-restore-abc",
+        containerId: "restore-postgres",
+        volumeName: "restore-data",
         systemIdentifier: "200",
         volumeLabelSha256: "d".repeat(64),
         containerLabelSha256: "e".repeat(64),
@@ -95,6 +100,8 @@ describe("LP-05 isolated recovery", () => {
         {
           kind: "ISOLATED",
           composeProject: "idea-validation-prod",
+          containerId: "production-postgres",
+          volumeName: "production-data",
           systemIdentifier: "100",
           volumeLabelSha256: "a".repeat(64),
           containerLabelSha256: "b".repeat(64),
@@ -175,6 +182,8 @@ describe("LP-05 isolated recovery", () => {
     const declared: JsonRecord = {
       kind: "ISOLATED",
       composeProject: "lp05-restore-abc",
+      containerId: "restore-postgres",
+      volumeName: "restore-data",
       systemIdentifier: "200",
       volumeLabelSha256: "4".repeat(64),
       containerLabelSha256: "5".repeat(64),
@@ -188,6 +197,8 @@ describe("LP-05 isolated recovery", () => {
       ["databasePort", 15434],
       ["databaseName", "other_restore"],
       ["composeProject", "lp05-restore-other"],
+      ["containerId", "restore-postgres-other"],
+      ["volumeName", "restore-data-other"],
       ["systemIdentifier", "201"],
       ["volumeLabelSha256", "6".repeat(64)],
       ["containerLabelSha256", "7".repeat(64)],
@@ -209,10 +220,10 @@ describe("LP-05 isolated recovery", () => {
           identityPath: "/safe/identity.txt",
           isolatedTarget: declared,
           productionIdentity: production,
+          inspectProduction: async () => production,
           restoreEnvironment: {
             PATH: process.env.PATH,
             PGUSER: "restore_user",
-            PGPASSWORD: "not-a-real-secret",
           },
           inspectTarget: async () => ({ ...declared, [field]: value }),
           spawnProcess: (() => {
@@ -224,5 +235,154 @@ describe("LP-05 isolated recovery", () => {
       expect(spawnCalls).toBe(0);
     }
     expect(() => assertLiveIsolatedTarget(declared, declared)).not.toThrow();
+  });
+
+  it("rejects incomplete or stale production identity before mutation", async () => {
+    expect(() =>
+      assertIsolatedTarget(
+        {
+          kind: "ISOLATED",
+          composeProject: "lp05-restore-abc",
+          containerId: "restore-postgres",
+          volumeName: "restore-data",
+          systemIdentifier: "200",
+          volumeLabelSha256: "4".repeat(64),
+          containerLabelSha256: "5".repeat(64),
+          origin: "http://127.0.0.1:18081/",
+          databaseHost: "127.0.0.1",
+          databasePort: 15433,
+          databaseName: "idea_validation_restore",
+        },
+        {
+          composeProject: "idea-validation-prod",
+          database: { systemIdentifier: "100" },
+        },
+      ),
+    ).toThrow("PRODUCTION_IDENTITY:");
+  });
+
+  it("pipes the restore into the exact inspected container, never a host socket", async () => {
+    const database: JsonRecord = {
+      targetId: "target_prod",
+      project: "idea-validation-prod",
+      containerId: "prod-postgres",
+      volumeName: "prod-data",
+      volumeMountId: "prod-mount",
+      systemIdentifier: "100",
+      databaseName: "idea_validation",
+      postgresVersion: "17.10",
+      databaseInstanceSha256: "",
+    };
+    database.databaseInstanceSha256 = canonicalSha256(database, [
+      "databaseInstanceSha256",
+    ]);
+    const manifest = finalizeBackupManifest({
+      schemaVersion: "1.0",
+      backupId: "backup_container_bound",
+      purpose: "POST_DEPLOY_RECOVERABILITY",
+      envelopeId: "auth_container_bound",
+      attemptId: "deploy_container_bound",
+      targetId: "target_prod",
+      sourceDatabase: database,
+      sourceRelease: {
+        releaseId: "release-prod",
+        sourceCommit: "a".repeat(40),
+        imageId: `sha256:${"b".repeat(64)}`,
+        configSha256: "c".repeat(64),
+      },
+      candidateManifestSha256: "d".repeat(64),
+      migrationCatalogSha256: "e".repeat(64),
+      syntheticStorySha256: "f".repeat(64),
+      createdAt: "2026-08-03T00:00:00.000Z",
+      ciphertext: {
+        basename: "backup_container_bound.dump.age",
+        sizeBytes: 1024,
+        sha256: "1".repeat(64),
+      },
+      encryption: {
+        algorithm: "age-v1",
+        recipientFingerprint: "2".repeat(64),
+      },
+      tool: {
+        pgDumpVersion: "17.10",
+        ageVersion: "1.2.1",
+        format: "custom",
+      },
+      verification: {
+        status: "PASS",
+        verifiedAt: "2026-08-03T00:00:01.000Z",
+        pgRestoreListSha256: "3".repeat(64),
+      },
+    });
+    const isolated: JsonRecord = {
+      kind: "ISOLATED",
+      composeProject: "lp05-restore-container-bound",
+      containerId: "restore-postgres-exact",
+      volumeName: "restore-data-exact",
+      systemIdentifier: "200",
+      volumeLabelSha256: "4".repeat(64),
+      containerLabelSha256: "5".repeat(64),
+      origin: "http://127.0.0.1:18081/",
+      databaseHost: "127.0.0.1",
+      databasePort: 65534,
+      databaseName: "idea_validation_restore",
+    };
+    const calls: { command: string; args: string[] }[] = [];
+    const spawnProcess = ((command: string, args: string[]) => {
+      calls.push({ command, args });
+      const child = new EventEmitter() as EventEmitter & {
+        stdout: PassThrough | null;
+        stdin: PassThrough | null;
+      };
+      child.stdout = command === "age" ? new PassThrough() : null;
+      child.stdin = command === "docker" ? new PassThrough() : null;
+      child.stdin?.resume();
+      queueMicrotask(() => {
+        child.stdout?.end("encrypted dump");
+        child.emit("exit", 0);
+      });
+      return child;
+    }) as never;
+    await restoreEncryptedBackup({
+      manifest,
+      expected: {
+        envelopeId: "auth_container_bound",
+        attemptId: "deploy_container_bound",
+        targetId: "target_prod",
+        candidateManifestSha256: "d".repeat(64),
+        databaseInstanceSha256: String(database.databaseInstanceSha256),
+        syntheticStorySha256: "f".repeat(64),
+      },
+      ciphertextPath: "/safe/backup.dump.age",
+      identityPath: "/safe/identity.txt",
+      isolatedTarget: isolated,
+      productionIdentity: production,
+      inspectProduction: async () => production,
+      inspectTarget: async () => isolated,
+      restoreEnvironment: {
+        PATH: process.env.PATH,
+        PGUSER: "restore_user",
+      },
+      spawnProcess,
+    });
+    expect(calls[1]).toEqual({
+      command: "docker",
+      args: [
+        "exec",
+        "--interactive",
+        "--user",
+        "postgres",
+        "restore-postgres-exact",
+        "pg_restore",
+        "--exit-on-error",
+        "--no-owner",
+        "--no-privileges",
+        "--username",
+        "restore_user",
+        "--dbname",
+        "idea_validation_restore",
+      ],
+    });
+    expect(calls.flatMap((call) => call.args)).not.toContain("65534");
   });
 });

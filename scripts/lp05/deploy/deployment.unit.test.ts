@@ -11,8 +11,22 @@ import {
   releaseAttemptLock,
 } from "./attempt-lock.js";
 import { finalizeAuthorizationEnvelope } from "./authorization-envelope.js";
-import { createAttemptRecord } from "./attempt-record.js";
-import { runDeployment, type DeploymentOracles } from "./controller.js";
+import {
+  createAttemptRecord,
+  finalizeAttemptRecord,
+} from "./attempt-record.js";
+import { interruptAttempt, resumeInterruptedAttempt } from "./attempt-state.js";
+import {
+  assertControllerInitialAttempt,
+  runDeployment,
+  type DeploymentOracles,
+} from "./controller.js";
+import {
+  createActiveDeploymentOracles,
+  finalizeActivePhaseOutput,
+  type ActiveDeploymentOperations,
+} from "./active-oracles.js";
+import { parseHostActiveRuntime } from "./host-active-operations.js";
 import { evaluateOperations } from "./ops-status.js";
 import { readValidatedRuntimeSecrets } from "./preflight.js";
 import { parseSemver, inspectToolchain } from "./toolchain.js";
@@ -21,6 +35,7 @@ import { canonicalSha256, sha256 } from "../shared/canonical-json.js";
 import {
   REQUIRED_EXCLUSIONS,
   REQUIRED_OPERATIONS,
+  record,
   type JsonRecord,
 } from "../shared/contracts.js";
 
@@ -234,6 +249,43 @@ describe("LP-05 deployment attempt lock", () => {
     await releaseAttemptLock(next);
   });
 
+  it("serializes stale-lock recovery and marks the recovered owner", async () => {
+    const root = await mkdtemp(join(tmpdir(), "lp05-state-"));
+    roots.push(root);
+    const targetId = "target_production";
+    const locks = join(root, "locks");
+    await mkdir(locks, { recursive: true });
+    const destination = join(locks, `${sha256(targetId)}.lock`);
+    await writeFile(
+      destination,
+      JSON.stringify({
+        schemaVersion: "1.0",
+        targetId,
+        attemptId: "deploy_attempt_one",
+        pid: 2_147_483_647,
+        nonce: "stale",
+      }),
+    );
+    const lock = await acquireAttemptLock(root, targetId, "deploy_attempt_one");
+    expect(lock.recovered).toBe(true);
+    await releaseAttemptLock(lock);
+
+    await writeFile(`${destination}.recovery`, "held");
+    await writeFile(
+      destination,
+      JSON.stringify({
+        schemaVersion: "1.0",
+        targetId,
+        attemptId: "deploy_attempt_one",
+        pid: 2_147_483_647,
+        nonce: "stale-again",
+      }),
+    );
+    await expect(
+      acquireAttemptLock(root, targetId, "deploy_attempt_one"),
+    ).rejects.toThrow("DEPLOYMENT_TARGET_LOCKED");
+  });
+
   it("binds one envelope idempotently to exactly one attempt", async () => {
     const root = await mkdtemp(join(tmpdir(), "lp05-state-"));
     roots.push(root);
@@ -242,6 +294,162 @@ describe("LP-05 deployment attempt lock", () => {
     await expect(
       bindEnvelopeToAttempt(root, "auth_one", "deploy_attempt_two"),
     ).rejects.toThrow("DEPLOYMENT_ENVELOPE_ALREADY_BOUND");
+  });
+});
+
+describe("LP-05 active runtime input", () => {
+  it("rejects a future-complete evidence bundle at the production boundary", () => {
+    expect(() =>
+      parseHostActiveRuntime({
+        schemaVersion: "1.0",
+        evidenceRoot: "/safe/evidence",
+        candidateManifestPath: "/safe/manifest.json",
+        preMigrationBackupId: "backup_preflight1",
+        postDeployBackupId: "backup_postdeploy1",
+        initialSmoke: {
+          smokeId: "smoke_initial1",
+          proofRoot: "/safe/proofs",
+          runId: "runtime-initial",
+        },
+        postRestoreSmoke: {
+          smokeId: "smoke_postrestore1",
+          proofRoot: "/safe/proofs",
+          runId: "runtime-post",
+        },
+        restore: {
+          composeProject: "lp05-restore-runtime",
+          databaseName: "idea_validation_restore",
+          appPort: 18081,
+          restoreId: "restore_runtime1",
+          proofRoot: "/safe/restore-proofs",
+          runId: "restore-runtime",
+        },
+        evidence: { status: "PASS" },
+      }),
+    ).toThrow("ACTIVE_RUNTIME:evidence");
+  });
+
+  it("persists controller-owned phase output and actively reconciles it", async () => {
+    const root = await mkdtemp(join(tmpdir(), "lp05-active-evidence-"));
+    roots.push(root);
+    const candidate = {
+      manifestSha256: "1".repeat(64),
+      releaseId: "lp05-controller-test",
+      sourceCommit: "a".repeat(40),
+      sourceTree: "b".repeat(40),
+      imageId: `sha256:${"c".repeat(64)}`,
+      archiveSha256: "d".repeat(64),
+      platform: "linux/amd64",
+    };
+    const seed = {
+      hostFingerprintSha256: "2".repeat(64),
+      domain: "demo.example.com",
+      deployRoot: "/srv/idea-validation",
+    };
+    const attempt = createAttemptRecord({
+      attemptId: "deploy_phase_output",
+      envelopeId: `auth_${"e".repeat(32)}`,
+      envelopeSha256: "f".repeat(64),
+      candidate,
+      target: {
+        targetId: `target_${canonicalSha256(seed).slice(0, 32)}`,
+        ...seed,
+        expectedIps: ["8.8.8.8"],
+        platform: "linux/amd64",
+        os: { id: "ubuntu", versionId: "24.04" },
+        composeProject: "idea-validation-prod",
+      },
+      previousRelease: null,
+      startedAt: "2026-08-03T00:00:00.000Z",
+    });
+    let executeCalls = 0;
+    let reconcileCalls = 0;
+    const operations: ActiveDeploymentOperations = {
+      execute: async (phase, current) => {
+        executeCalls += 1;
+        return finalizeActivePhaseOutput({
+          phase,
+          attempt: current,
+          observedAt: "2026-08-03T00:01:00.000Z",
+          payload: { activeRead: "performed" },
+        });
+      },
+      reconcile: async (_phase, _current, persisted) => {
+        reconcileCalls += 1;
+        return persisted;
+      },
+      rollback: async () => {
+        throw new Error("UNEXPECTED_ROLLBACK");
+      },
+    };
+    const active = createActiveDeploymentOracles({
+      evidenceRoot: root,
+      operations,
+    });
+    const first = await active.preflight(attempt);
+    const second = await active.preflight(attempt);
+    expect(first.evidenceSha256).toBe(second.evidenceSha256);
+    expect(executeCalls).toBe(1);
+    expect(reconcileCalls).toBe(1);
+    expect(() =>
+      assertControllerInitialAttempt({
+        ...attempt,
+        currentState: "DEPLOYED",
+      }),
+    ).toThrow("CONTROLLER_INITIAL_ATTEMPT_NOT_PREPARED");
+  });
+
+  it("records one explicit bounded interruption and resume", () => {
+    const candidate = {
+      manifestSha256: "1".repeat(64),
+      releaseId: "lp05-controller-test",
+      sourceCommit: "a".repeat(40),
+      sourceTree: "b".repeat(40),
+      imageId: `sha256:${"c".repeat(64)}`,
+      archiveSha256: "d".repeat(64),
+      platform: "linux/amd64",
+    };
+    const seed = {
+      hostFingerprintSha256: "2".repeat(64),
+      domain: "demo.example.com",
+      deployRoot: "/srv/idea-validation",
+    };
+    const attempt = createAttemptRecord({
+      attemptId: "deploy_resume123",
+      envelopeId: `auth_${"e".repeat(32)}`,
+      envelopeSha256: "f".repeat(64),
+      candidate,
+      target: {
+        targetId: `target_${canonicalSha256(seed).slice(0, 32)}`,
+        ...seed,
+        expectedIps: ["8.8.8.8"],
+        platform: "linux/amd64",
+        os: { id: "ubuntu", versionId: "24.04" },
+        composeProject: "idea-validation-prod",
+      },
+      previousRelease: null,
+      startedAt: "2026-08-03T00:00:00.000Z",
+    });
+    const interrupted = finalizeAttemptRecord(
+      interruptAttempt(attempt, {
+        occurredAt: "2026-08-03T00:10:00.000Z",
+        reasonCode: "STALE_PROCESS_LOCK_RECOVERED",
+      }),
+    );
+    const resumed = finalizeAttemptRecord(
+      resumeInterruptedAttempt(interrupted, {
+        occurredAt: "2026-08-03T00:11:00.000Z",
+        reasonCode: "BOUNDED_PROCESS_RESUME",
+      }),
+    );
+    expect(resumed.currentState).toBe("RESUMING");
+    expect(record(resumed.resume).count).toBe(1);
+    expect(() =>
+      resumeInterruptedAttempt(interrupted, {
+        occurredAt: "2026-08-03T03:00:00.000Z",
+        reasonCode: "TOO_LATE",
+      }),
+    ).toThrow("ATTEMPT_RESUME_WINDOW");
   });
 });
 
@@ -369,5 +577,352 @@ describe("LP-05 deployment failure recovery", () => {
       "ROLLING_BACK",
       "ROLLED_BACK",
     ]);
+  });
+});
+
+describe("LP-05 ordered active deployment", () => {
+  const fixture = (upgrade: boolean) => {
+    const candidate = {
+      manifestSha256: "1".repeat(64),
+      releaseId: "lp05-controller-test",
+      sourceCommit: "a".repeat(40),
+      sourceTree: "b".repeat(40),
+      imageId: `sha256:${"c".repeat(64)}`,
+      archiveSha256: "d".repeat(64),
+      platform: "linux/amd64",
+    };
+    const targetSeed = {
+      hostFingerprintSha256: "2".repeat(64),
+      domain: "demo.example.com",
+      deployRoot: "/srv/idea-validation",
+    };
+    const target = {
+      targetId: `target_${canonicalSha256(targetSeed).slice(0, 32)}`,
+      ...targetSeed,
+      expectedIps: ["8.8.8.8"],
+      platform: "linux/amd64",
+      os: { id: "ubuntu", versionId: "24.04" },
+      composeProject: "idea-validation-prod",
+    };
+    const previousRelease = upgrade
+      ? {
+          releaseId: "lp04-previous",
+          sourceCommit: "9".repeat(40),
+          imageId: `sha256:${"8".repeat(64)}`,
+          configSha256: "7".repeat(64),
+        }
+      : null;
+    const envelope = finalizeAuthorizationEnvelope({
+      proposal: {
+        workflowId: "ab5accf2-4bea-4ea2-b3c5-4f3f115d45ff",
+        featureId: "lp-05-deployment-release-8c3f1a6d5e20",
+        mergeCommitSha: "a".repeat(40),
+        candidate,
+        target,
+        backupPolicy: {
+          backupRoot: "/srv/idea-validation-backups",
+          retentionCount: 7,
+          schedule: "daily",
+          ageRecipientFingerprint: "3".repeat(64),
+          minimumFreeBytes: 10_000_000,
+          responsibleOperator: "operator",
+        },
+        operations: [...REQUIRED_OPERATIONS],
+        excludedOperations: [...REQUIRED_EXCLUSIONS],
+        syntheticPublicReadConsent: true,
+        previousRelease,
+        toolchain: {
+          dockerEngineVersion: "28.0.0",
+          composeVersion: "2.35.0",
+          ageVersion: "1.2.1",
+          dockerInstallationSource: "OFFICIAL_DOCKER_PACKAGE",
+          ageInstallationSource: "OS_VENDOR_PACKAGE",
+          observedAt: "2026-08-03T00:00:00.000Z",
+        },
+        proposedAt: "2026-08-03T00:00:00.000Z",
+      },
+      authorization: {
+        authorizedBy: "User",
+        sourceThreadId: "019fa641-0154-70f3-9d06-4905baa7e186",
+        authorizedAt: "2026-08-03T00:01:00.000Z",
+        expiresAt: "2026-08-03T12:01:00.000Z",
+        authorizationEvidenceSha256: sha256("active controller authority"),
+      },
+      createdAt: "2026-08-03T00:01:00.000Z",
+    });
+    const attemptId = upgrade ? "deploy_active_upgrade" : "deploy_active_fresh";
+    const database: JsonRecord = {
+      targetId: target.targetId,
+      project: target.composeProject,
+      containerId: "postgres-active",
+      volumeName: "postgres-data-active",
+      volumeMountId: "mount-active",
+      systemIdentifier: "123456789",
+      databaseName: "idea_validation",
+      postgresVersion: "17.10",
+      databaseInstanceSha256: "",
+    };
+    database.databaseInstanceSha256 = canonicalSha256(database, [
+      "databaseInstanceSha256",
+    ]);
+    const safety: JsonRecord = upgrade
+      ? {
+          backupId: "backup_safety_active",
+          backupManifestSha256: "4".repeat(64),
+          ciphertextSha256: "5".repeat(64),
+          purpose: "PRE_MIGRATION_SAFETY",
+          targetId: target.targetId,
+          databaseInstanceSha256: database.databaseInstanceSha256,
+          attemptId,
+          candidateManifestSha256: candidate.manifestSha256,
+        }
+      : {
+          kind: "FRESH_TARGET",
+          targetId: target.targetId,
+          verifiedAt: "2026-08-03T00:02:00.000Z",
+          assertions: [
+            { id: "no_application_data", status: "PASS" },
+            { id: "no_prior_release", status: "PASS" },
+            { id: "no_production_volume", status: "PASS" },
+          ],
+        };
+    const migration: JsonRecord = {
+      catalogSha256: "6".repeat(64),
+      appliedLedgerSha256: "7".repeat(64),
+      entries: [
+        { id: "0001_lp01_core", sha256: "8".repeat(64), ledger: "legacy" },
+        {
+          id: "0002_lp02_execution_decisions",
+          sha256: "9".repeat(64),
+          ledger: "legacy",
+        },
+        {
+          id: "0003_lp03_reporting_experience",
+          sha256: "a".repeat(64),
+          ledger: "feature",
+        },
+      ],
+      status: "PASS",
+      verifiedAt: "2026-08-03T00:03:00.000Z",
+    };
+    const smokeRef = (
+      mode: "EXTERNAL_INITIAL" | "EXTERNAL_POST_RESTORE",
+      digest: string,
+    ): JsonRecord => ({
+      smokeId: `smoke_${mode.toLowerCase()}`,
+      smokeSha256: digest,
+      mode,
+      targetId: target.targetId,
+      candidateManifestSha256: candidate.manifestSha256,
+      attemptId,
+      observedAt: "2026-08-03T00:06:00.000Z",
+      origin: "https://demo.example.com/",
+      syntheticStorySha256: "b".repeat(64),
+      resourceIdsSha256: "c".repeat(64),
+      assertionSetSha256: "d".repeat(64),
+      status: "PASS",
+    });
+    const initial = smokeRef("EXTERNAL_INITIAL", "e".repeat(64));
+    const postBackup: JsonRecord = {
+      backupId: "backup_post_active",
+      backupManifestSha256: "f".repeat(64),
+      ciphertextSha256: "1".repeat(64),
+      purpose: "POST_DEPLOY_RECOVERABILITY",
+      targetId: target.targetId,
+      databaseInstanceSha256: database.databaseInstanceSha256,
+      attemptId,
+      candidateManifestSha256: candidate.manifestSha256,
+    };
+    const unchanged = "2".repeat(64);
+    const restore: JsonRecord = {
+      restoreId: "restore_active",
+      restoreEvidenceSha256: "3".repeat(64),
+      attemptId,
+      targetId: target.targetId,
+      candidateManifestSha256: candidate.manifestSha256,
+      backupId: postBackup.backupId,
+      backupManifestSha256: postBackup.backupManifestSha256,
+      ciphertextSha256: postBackup.ciphertextSha256,
+      sourceDatabaseInstanceSha256: database.databaseInstanceSha256,
+      productionUnchangedSha256: unchanged,
+      syntheticStorySha256: initial.syntheticStorySha256,
+      resourceIdsSha256: initial.resourceIdsSha256,
+      assertionSetSha256: initial.assertionSetSha256,
+      status: "PASS",
+    };
+    const post = smokeRef("EXTERNAL_POST_RESTORE", "4".repeat(64));
+    const rollbackEvidence = {
+      status: "NOT_APPLICABLE",
+      reasonCode: "FRESH_INSTALL_INGRESS_DISABLED",
+      previousRelease: null,
+      readinessSha256: null,
+      smokeSha256: null,
+      startedAt: "2026-08-03T00:20:00.000Z",
+      finishedAt: "2026-08-03T00:20:01.000Z",
+    };
+    return {
+      envelope,
+      attempt: createAttemptRecord({
+        attemptId,
+        envelopeId: String(envelope.envelopeId),
+        envelopeSha256: String(envelope.envelopeSha256),
+        candidate,
+        target,
+        previousRelease,
+        startedAt: "2026-08-03T00:01:00.000Z",
+      }),
+      records: {
+        database,
+        safety,
+        migration,
+        initial,
+        postBackup,
+        restore,
+        unchanged,
+        post,
+        rollbackEvidence,
+      },
+    };
+  };
+
+  const oracles = (
+    records: ReturnType<typeof fixture>["records"],
+    calls: string[],
+    failAt = -1,
+  ): DeploymentOracles => {
+    const invoke = async <T>(
+      name: string,
+      index: number,
+      value: T,
+    ): Promise<T> => {
+      calls.push(name);
+      if (index === failAt) throw new Error(`FAULT_AT:${name}`);
+      return value;
+    };
+    return {
+      preflight: () =>
+        invoke("preflight", 0, {
+          reasonCode: "ACTIVE_PREFLIGHT",
+          evidenceSha256: "5".repeat(64),
+          projection: { sourceDatabase: records.database },
+        }),
+      safetyBackup: () =>
+        invoke("safetyBackup", 1, {
+          reasonCode: "ACTIVE_SAFETY",
+          evidenceSha256:
+            records.safety.kind === "FRESH_TARGET"
+              ? canonicalSha256(records.safety)
+              : String(records.safety.backupManifestSha256),
+          projection: { safetyBackup: records.safety },
+        }),
+      migrate: () =>
+        invoke("migrate", 2, {
+          reasonCode: "ACTIVE_MIGRATE",
+          evidenceSha256: canonicalSha256(records.migration),
+          projection: { migration: records.migration },
+        }),
+      appReady: () =>
+        invoke("appReady", 3, {
+          reasonCode: "ACTIVE_APP_READY",
+          evidenceSha256: "6".repeat(64),
+        }),
+      httpsReady: () =>
+        invoke("httpsReady", 4, {
+          reasonCode: "ACTIVE_HTTPS_READY",
+          evidenceSha256: "7".repeat(64),
+        }),
+      initialSmoke: () =>
+        invoke("initialSmoke", 5, {
+          reasonCode: "ACTIVE_INITIAL_SMOKE",
+          evidenceSha256: String(records.initial.smokeSha256),
+          projection: { initialSmoke: records.initial },
+        }),
+      postDeployBackup: () =>
+        invoke("postDeployBackup", 6, {
+          reasonCode: "ACTIVE_POST_BACKUP",
+          evidenceSha256: String(records.postBackup.backupManifestSha256),
+          projection: { postDeployBackup: records.postBackup },
+        }),
+      restoreEnvironment: () =>
+        invoke("restoreEnvironment", 7, {
+          reasonCode: "ACTIVE_RESTORE_ENV",
+          evidenceSha256: "8".repeat(64),
+        }),
+      restore: () =>
+        invoke("restore", 8, {
+          reasonCode: "ACTIVE_RESTORE",
+          evidenceSha256: String(records.restore.restoreEvidenceSha256),
+          projection: { restoreEvidence: records.restore },
+        }),
+      productionUnchanged: () =>
+        invoke("productionUnchanged", 9, {
+          reasonCode: "ACTIVE_PRODUCTION_UNCHANGED",
+          evidenceSha256: records.unchanged,
+          projection: { productionUnchangedSha256: records.unchanged },
+        }),
+      postRestoreSmoke: () =>
+        invoke("postRestoreSmoke", 10, {
+          reasonCode: "ACTIVE_POST_SMOKE",
+          evidenceSha256: String(records.post.smokeSha256),
+          projection: { postRestoreSmoke: records.post },
+        }),
+      rollback: async () => {
+        calls.push("rollback");
+        return {
+          reasonCode: String(records.rollbackEvidence.reasonCode),
+          evidenceSha256: canonicalSha256(records.rollbackEvidence),
+          projection: { rollback: records.rollbackEvidence },
+        };
+      },
+    };
+  };
+
+  it.each([false, true])(
+    "executes every live phase before DEPLOYED (upgrade=%s)",
+    async (upgrade) => {
+      const current = fixture(upgrade);
+      const calls: string[] = [];
+      let revalidations = 0;
+      const result = await runDeployment({
+        envelope: current.envelope,
+        attempt: current.attempt,
+        oracles: oracles(current.records, calls),
+        now: () => new Date("2026-08-03T00:10:00.000Z"),
+        revalidate: async () => {
+          revalidations += 1;
+        },
+      });
+      expect(result.currentState).toBe("DEPLOYED");
+      expect(calls).toEqual([
+        "preflight",
+        "safetyBackup",
+        "migrate",
+        "appReady",
+        "httpsReady",
+        "initialSmoke",
+        "postDeployBackup",
+        "restoreEnvironment",
+        "restore",
+        "productionUnchanged",
+        "postRestoreSmoke",
+      ]);
+      expect(revalidations).toBeGreaterThanOrEqual(12);
+    },
+  );
+
+  it("stops at every failed phase and never executes a later phase", async () => {
+    for (let failAt = 0; failAt < 11; failAt += 1) {
+      const current = fixture(false);
+      const calls: string[] = [];
+      const result = await runDeployment({
+        envelope: current.envelope,
+        attempt: current.attempt,
+        oracles: oracles(current.records, calls, failAt),
+        now: () => new Date("2026-08-03T00:20:00.000Z"),
+      });
+      expect(result.currentState).toBe("ROLLED_BACK");
+      expect(calls).toHaveLength(failAt + 2);
+      expect(calls.at(-1)).toBe("rollback");
+    }
   });
 });

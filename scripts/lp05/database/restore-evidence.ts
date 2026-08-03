@@ -1,6 +1,7 @@
 import { canonicalSha256 } from "../shared/canonical-json.js";
 import {
   parseIsolatedRestoreTarget,
+  parseProductionResourceIdentity,
   verifyRestoreEvidence,
   type JsonRecord,
 } from "../shared/contracts.js";
@@ -20,17 +21,16 @@ export const assertIsolatedTarget = (
   isolated: JsonRecord,
   production: JsonRecord,
 ): void => {
-  parseIsolatedRestoreTarget(isolated);
+  const target = parseIsolatedRestoreTarget(isolated);
+  const productionIdentity = parseProductionResourceIdentity(production);
+  const productionDatabase = productionIdentity.database as JsonRecord;
   if (
-    isolated.kind !== "ISOLATED" ||
-    !String(isolated.composeProject).startsWith("lp05-restore-") ||
-    isolated.composeProject === production.composeProject ||
-    isolated.systemIdentifier ===
-      (production.database as JsonRecord).systemIdentifier ||
-    isolated.volumeLabelSha256 ===
-      (production.database as JsonRecord).volumeLabelSha256 ||
-    isolated.containerLabelSha256 ===
-      (production.database as JsonRecord).containerLabelSha256
+    target.composeProject === productionIdentity.composeProject ||
+    target.containerId === productionDatabase.containerId ||
+    target.volumeName === productionDatabase.volumeName ||
+    target.systemIdentifier === productionDatabase.systemIdentifier ||
+    target.volumeLabelSha256 === productionDatabase.volumeLabelSha256 ||
+    target.containerLabelSha256 === productionDatabase.containerLabelSha256
   )
     throw new Error("RESTORE_TARGET_NOT_ISOLATED");
 };
@@ -43,6 +43,8 @@ export const assertLiveIsolatedTarget = (
   const actual = parseIsolatedRestoreTarget(observed);
   for (const field of [
     "composeProject",
+    "containerId",
+    "volumeName",
     "systemIdentifier",
     "volumeLabelSha256",
     "containerLabelSha256",
@@ -69,7 +71,9 @@ export const restoreReference = (value: unknown): JsonRecord => {
     backupManifestSha256: backup.backupManifestSha256,
     ciphertextSha256: backup.ciphertextSha256,
     sourceDatabaseInstanceSha256: evidence.sourceDatabaseInstanceSha256,
-    productionUnchangedSha256: canonicalSha256(evidence.productionBefore),
+    productionUnchangedSha256: canonicalSha256(
+      parseProductionResourceIdentity(evidence.productionBefore),
+    ),
     syntheticStorySha256: story.syntheticStorySha256,
     resourceIdsSha256: story.resourceIdsSha256,
     assertionSetSha256: story.assertionSetSha256,

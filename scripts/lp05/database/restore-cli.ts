@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 
 import { restoreEncryptedBackup } from "./restore.js";
-import { record } from "../shared/contracts.js";
+import { inspectLiveProductionIdentity } from "./production-runtime.js";
+import { exactKeys, record } from "../shared/contracts.js";
 
 const requiredEnvironment = (key: string): string => {
   const value = process.env[key];
@@ -18,6 +19,19 @@ const main = async (): Promise<void> => {
     JSON.parse(await readFile(path, "utf8")),
     "RESTORE_REQUEST",
   );
+  exactKeys(
+    request,
+    [
+      "manifest",
+      "expected",
+      "ciphertextPath",
+      "isolatedTarget",
+      "productionIdentity",
+      "productionTarget",
+      "candidate",
+    ],
+    "RESTORE_REQUEST",
+  );
   await restoreEncryptedBackup({
     manifest: request.manifest,
     expected: record(
@@ -31,10 +45,15 @@ const main = async (): Promise<void> => {
       request.productionIdentity,
       "RESTORE_PRODUCTION_IDENTITY",
     ),
+    inspectProduction: async () =>
+      inspectLiveProductionIdentity({
+        target: request.productionTarget,
+        candidate: request.candidate,
+        databaseName: requiredEnvironment("PGDATABASE"),
+      }),
     restoreEnvironment: {
       PATH: process.env.PATH,
       PGUSER: requiredEnvironment("PGUSER"),
-      PGPASSWORD: requiredEnvironment("PGPASSWORD"),
     },
   });
   process.stdout.write("LP05_ISOLATED_RESTORE_PASS\n");

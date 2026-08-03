@@ -288,11 +288,19 @@ exclusions, consent, prior release and host toolchain must deep-equal preflight 
 credential and does not implement a generic SSH client; the authorized operator chooses how the command is invoked
 on the already approved server.
 
+The production request has a closed `HostActiveRuntimeV1` and no caller-provided future evidence. Every phase must
+perform its host operation, atomically persist a controller-owned `ActivePhaseOutputV1`, and reconcile that output
+against the live resource before reuse. The complete bundle parser remains an offline final-verification tool only;
+it cannot drive the controller or authorize a state transition.
+
 Implement `DeploymentAttemptV1` as the append-only, hash-chained transition journal and projection from Design
 §5.3–5.4 using mode-0600 atomic replacement and a single-target lock. Before every transition/resume, re-read the
 exact candidate/image/container/database/backup/smoke facts and recompute the full journal. One envelope binds one
 attempt. Oracle failure is terminal and requires a new proposal/authorization; only one process/transport
 interruption may resume within the stated time bounds after full equality revalidation.
+Stale-lock recovery first acquires a separate exclusive recovery lease and can only remove the exact dead owner's
+lock; it then records `INTERRUPTED -> RESUMING`. Direct forward re-entry, a live owner, or a new contender fails
+closed.
 
 Ordered execution is:
 

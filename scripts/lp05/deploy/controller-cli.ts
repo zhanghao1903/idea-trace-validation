@@ -7,21 +7,26 @@ import {
   releaseAttemptLock,
 } from "./attempt-lock.js";
 import {
-  verifyAttemptRecord,
   finalizeAttemptRecord,
+  verifyAttemptRecord,
   writeAttemptRecord,
 } from "./attempt-record.js";
-import { resumeInterruptedAttempt } from "./attempt-state.js";
-import { runDeployment } from "./controller.js";
+import { interruptAttempt, resumeInterruptedAttempt } from "./attempt-state.js";
+import { assertControllerInitialAttempt, runDeployment } from "./controller.js";
 import {
-  createEvidenceOracles,
-  verifyCompleteEvidenceBundle,
-} from "./evidence-oracles.js";
+  createHostActiveDeploymentOperations,
+  parseHostActiveRuntime,
+} from "./host-active-operations.js";
+import { createActiveDeploymentOracles } from "./active-oracles.js";
 import { createHostRollbackAdapter } from "./host-rollback.js";
 import { rollbackApplication } from "./rollback.js";
-import { parseDeploymentEvidenceBundle } from "./runtime-evidence.js";
 import { canonicalJson } from "../shared/canonical-json.js";
-import { exactKeys, record } from "../shared/contracts.js";
+import {
+  exactKeys,
+  record,
+  verifyDeploymentAuthorizationEnvelope,
+  type JsonRecord,
+} from "../shared/contracts.js";
 import { exists } from "../shared/filesystem.js";
 
 const argument = (name: string): string => {
@@ -33,8 +38,9 @@ const argument = (name: string): string => {
 };
 
 const main = async (): Promise<void> => {
+  const requestPath = argument("--request");
   const request = record(
-    JSON.parse(await readFile(argument("--request"), "utf8")),
+    JSON.parse(await readFile(requestPath, "utf8")),
     "DEPLOYMENT_CONTROLLER_REQUEST",
   );
   exactKeys(
@@ -44,7 +50,7 @@ const main = async (): Promise<void> => {
       "stateRoot",
       "envelope",
       "attempt",
-      "evidence",
+      "runtime",
       "previousEnvironment",
     ],
     "DEPLOYMENT_CONTROLLER_REQUEST",
@@ -59,6 +65,78 @@ const main = async (): Promise<void> => {
     mode: 0o700,
   });
   let attempt = verifyAttemptRecord(request.attempt);
+  const requestedAttempt = attempt;
+  const runtime = parseHostActiveRuntime(request.runtime);
+  const authorityFields = [
+    "attemptId",
+    "envelopeId",
+    "envelopeSha256",
+    "candidate",
+    "target",
+    "previousRelease",
+  ] as const;
+  const verifyCurrentAuthority = async (
+    currentAttempt: JsonRecord,
+  ): Promise<void> => {
+    const currentRequest = record(
+      JSON.parse(await readFile(requestPath, "utf8")),
+      "DEPLOYMENT_CONTROLLER_REQUEST",
+    );
+    exactKeys(
+      currentRequest,
+      [
+        "schemaVersion",
+        "stateRoot",
+        "envelope",
+        "attempt",
+        "runtime",
+        "previousEnvironment",
+      ],
+      "DEPLOYMENT_CONTROLLER_REQUEST",
+    );
+    if (
+      currentRequest.schemaVersion !== "1.0" ||
+      currentRequest.stateRoot !== request.stateRoot ||
+      canonicalJson(currentRequest.envelope) !==
+        canonicalJson(request.envelope) ||
+      canonicalJson(parseHostActiveRuntime(currentRequest.runtime)) !==
+        canonicalJson(runtime) ||
+      canonicalJson(currentRequest.previousEnvironment) !==
+        canonicalJson(request.previousEnvironment)
+    )
+      throw new Error("DEPLOYMENT_AUTHORITY_CHANGED");
+    const envelope = verifyDeploymentAuthorizationEnvelope(
+      currentRequest.envelope,
+      new Date(),
+      {
+        workflowId: "ab5accf2-4bea-4ea2-b3c5-4f3f115d45ff",
+        featureId: "lp-05-deployment-release-8c3f1a6d5e20",
+        sourceThreadId: "019fa641-0154-70f3-9d06-4905baa7e186",
+      },
+    );
+    const currentRequestedAttempt = verifyAttemptRecord(currentRequest.attempt);
+    const proposal = record(envelope.proposal, "DEPLOYMENT_PROPOSAL");
+    if (
+      currentAttempt.envelopeId !== envelope.envelopeId ||
+      currentAttempt.envelopeSha256 !== envelope.envelopeSha256 ||
+      canonicalJson(currentAttempt.candidate) !==
+        canonicalJson(proposal.candidate) ||
+      canonicalJson(currentAttempt.target) !== canonicalJson(proposal.target) ||
+      canonicalJson(currentAttempt.previousRelease) !==
+        canonicalJson(proposal.previousRelease)
+    )
+      throw new Error("DEPLOYMENT_ATTEMPT_AUTHORITY_MISMATCH");
+    for (const field of authorityFields) {
+      if (
+        canonicalJson(currentAttempt[field]) !==
+          canonicalJson(requestedAttempt[field]) ||
+        canonicalJson(currentRequestedAttempt[field]) !==
+          canonicalJson(requestedAttempt[field])
+      )
+        throw new Error(`DEPLOYMENT_AUTHORITY_CHANGED:${field}`);
+    }
+  };
+  await verifyCurrentAuthority(attempt);
   const target = record(attempt.target, "DEPLOYMENT_CONTROLLER_TARGET");
   const attemptPath = path.join(
     stateRoot,
@@ -71,6 +149,7 @@ const main = async (): Promise<void> => {
     String(attempt.attemptId),
   );
   try {
+    await verifyCurrentAuthority(attempt);
     await bindEnvelopeToAttempt(
       stateRoot,
       String(attempt.envelopeId),
@@ -80,12 +159,47 @@ const main = async (): Promise<void> => {
       const existing = verifyAttemptRecord(
         JSON.parse(await readFile(attemptPath, "utf8")),
       );
-      if (canonicalJson(existing) !== canonicalJson(attempt))
-        throw new Error("DEPLOYMENT_ATTEMPT_STATE_MISMATCH");
+      for (const field of [
+        "attemptId",
+        "envelopeId",
+        "envelopeSha256",
+        "candidate",
+        "target",
+        "previousRelease",
+      ] as const)
+        if (canonicalJson(existing[field]) !== canonicalJson(attempt[field]))
+          throw new Error(`DEPLOYMENT_ATTEMPT_AUTHORITY_MISMATCH:${field}`);
+      attempt = existing;
     } else {
+      assertControllerInitialAttempt(attempt);
+      await verifyCurrentAuthority(attempt);
       await writeAttemptRecord(attemptPath, null, attempt);
     }
+    if (
+      lock.recovered &&
+      !["INTERRUPTED", "DEPLOYED", "ROLLED_BACK", "ROLLBACK_FAILED"].includes(
+        String(attempt.currentState),
+      )
+    ) {
+      await verifyCurrentAuthority(attempt);
+      const interrupted = finalizeAttemptRecord(
+        interruptAttempt(attempt, {
+          occurredAt: new Date().toISOString(),
+          reasonCode: "STALE_PROCESS_LOCK_RECOVERED",
+        }),
+      );
+      await writeAttemptRecord(attemptPath, attempt, interrupted);
+      attempt = interrupted;
+    } else if (
+      !lock.recovered &&
+      !["PREPARED", "INTERRUPTED", "DEPLOYED"].includes(
+        String(attempt.currentState),
+      )
+    ) {
+      throw new Error("DEPLOYMENT_FORWARD_REENTRY_REQUIRES_STALE_LOCK");
+    }
     if (attempt.currentState === "INTERRUPTED") {
+      await verifyCurrentAuthority(attempt);
       const resumed = finalizeAttemptRecord(
         resumeInterruptedAttempt(attempt, {
           occurredAt: new Date().toISOString(),
@@ -95,8 +209,6 @@ const main = async (): Promise<void> => {
       await writeAttemptRecord(attemptPath, attempt, resumed);
       attempt = resumed;
     }
-    const bundle = parseDeploymentEvidenceBundle(request.evidence);
-    verifyCompleteEvidenceBundle(bundle, attempt);
     if (
       (attempt.previousRelease === null) !==
       (request.previousEnvironment === null)
@@ -113,23 +225,30 @@ const main = async (): Promise<void> => {
               "DEPLOYMENT_PREVIOUS_ENVIRONMENT",
             ),
     });
+    const rollback = async (currentAttempt: JsonRecord): Promise<JsonRecord> =>
+      rollbackApplication({
+        previousRelease:
+          currentAttempt.previousRelease === null
+            ? null
+            : record(
+                currentAttempt.previousRelease,
+                "DEPLOYMENT_PREVIOUS_RELEASE",
+              ),
+        adapter: rollbackAdapter,
+      });
+    const operations = createHostActiveDeploymentOperations({
+      runtime,
+      envelope: request.envelope,
+      rollback,
+    });
     const finalAttempt = await runDeployment({
       envelope: request.envelope,
       attempt,
-      oracles: createEvidenceOracles({
-        bundle,
-        rollback: async () =>
-          rollbackApplication({
-            previousRelease:
-              attempt.previousRelease === null
-                ? null
-                : record(
-                    attempt.previousRelease,
-                    "DEPLOYMENT_PREVIOUS_RELEASE",
-                  ),
-            adapter: rollbackAdapter,
-          }),
+      oracles: createActiveDeploymentOracles({
+        evidenceRoot: runtime.evidenceRoot,
+        operations,
       }),
+      revalidate: verifyCurrentAuthority,
       persist: async (previous, next) =>
         writeAttemptRecord(attemptPath, previous, next),
     });

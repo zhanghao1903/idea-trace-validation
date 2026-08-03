@@ -6,7 +6,10 @@ import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { verifyCandidateFiles } from "./candidate/verify.js";
-import { verifySecurityHeaders } from "./smoke/security.js";
+import {
+  verifyHttpsRedirect,
+  verifySecurityHeaders,
+} from "./smoke/security.js";
 import type { HttpObservation } from "./smoke/http.js";
 import type { JsonRecord } from "./shared/contracts.js";
 import { inspectLoadedImageConfigId } from "./candidate/loaded-image.js";
@@ -51,6 +54,18 @@ const observeLocalTls = (path: string): Promise<HttpObservation> =>
     operation.once("error", reject);
     operation.end();
   });
+
+const observeLocalRedirect = async (path: string): Promise<HttpObservation> => {
+  const response = await fetch(new URL(path, "http://localhost:18080"), {
+    redirect: "manual",
+    signal: AbortSignal.timeout(10_000),
+  });
+  return {
+    status: response.status,
+    headers: Object.fromEntries(response.headers.entries()),
+    requestId: response.headers.get("x-request-id"),
+  };
+};
 
 export const runLocalAcceptance = async (
   manifestPath: string,
@@ -190,6 +205,10 @@ export const runLocalAcceptance = async (
     const readiness = await observeLocalTls("/health/ready");
     if (readiness.status !== 200) throw new Error("LOCAL_READINESS_FAILED");
     verifySecurityHeaders(readiness, true);
+    verifyHttpsRedirect(
+      await observeLocalRedirect("/health/live"),
+      "https://localhost:18443/health/live",
+    );
     const openapi = await observeLocalTls("/openapi.json");
     if (openapi.status !== 200) throw new Error("LOCAL_OPENAPI_FAILED");
   } catch (error) {

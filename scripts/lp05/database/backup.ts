@@ -36,6 +36,7 @@ export interface EncryptedBackupOptions {
   pgEnvironment: NodeJS.ProcessEnv;
   manifestFields: JsonRecord;
   toolVersions: { pgDumpVersion: string; ageVersion: string };
+  databaseContainerId?: string;
   now?: Date;
 }
 
@@ -53,8 +54,23 @@ export const createEncryptedBackup = async (
   );
   const temporary = `${ciphertextPath}.tmp-${process.pid}`;
   const dump = spawn(
-    "pg_dump",
-    ["--format=custom", "--no-owner", "--no-privileges"],
+    options.databaseContainerId === undefined ? "pg_dump" : "docker",
+    options.databaseContainerId === undefined
+      ? ["--format=custom", "--no-owner", "--no-privileges"]
+      : [
+          "exec",
+          "--user",
+          "postgres",
+          options.databaseContainerId,
+          "pg_dump",
+          "--format=custom",
+          "--no-owner",
+          "--no-privileges",
+          "--username",
+          String(options.pgEnvironment.PGUSER),
+          "--dbname",
+          String(options.pgEnvironment.PGDATABASE),
+        ],
     {
       env: options.pgEnvironment,
       stdio: ["ignore", "pipe", "ignore"],

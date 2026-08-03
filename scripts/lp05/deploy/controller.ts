@@ -52,16 +52,37 @@ const sequence: { to: AttemptState; oracle: keyof DeploymentOracles }[] = [
 const remainingSequence = (
   attempt: JsonRecord,
 ): { to: AttemptState; oracle: keyof DeploymentOracles }[] => {
-  let state = attempt.currentState as AttemptState;
+  const state = attempt.currentState as AttemptState;
   if (state === "RESUMING") {
     const resume = attempt.resume as JsonRecord;
-    state = resume.interruptedState as AttemptState;
+    const interruptedState = resume.interruptedState as AttemptState;
+    const completedIndex = sequence.findIndex(
+      (step) => step.to === interruptedState,
+    );
+    if (interruptedState === "PREPARED") return sequence;
+    if (completedIndex >= 0) return sequence.slice(completedIndex + 1);
+    throw new Error(`CONTROLLER_RESUME_STATE_NOT_RUNNABLE:${interruptedState}`);
   }
   if (state === "DEPLOYED") return [];
-  const completedIndex = sequence.findIndex((step) => step.to === state);
   if (state === "PREPARED") return sequence;
-  if (completedIndex >= 0) return sequence.slice(completedIndex + 1);
   throw new Error(`CONTROLLER_STATE_NOT_RUNNABLE:${state}`);
+};
+
+export const assertControllerInitialAttempt = (
+  attemptValue: unknown,
+): JsonRecord => {
+  const attempt = record(attemptValue, "CONTROLLER_INITIAL_ATTEMPT");
+  if (attempt.currentState !== "PREPARED")
+    throw new Error("CONTROLLER_INITIAL_ATTEMPT_NOT_PREPARED");
+  const transitions = attempt.transitionLog;
+  if (
+    !Array.isArray(transitions) ||
+    transitions.length !== 1 ||
+    record(transitions[0], "CONTROLLER_INITIAL_TRANSITION").from !== null ||
+    record(transitions[0], "CONTROLLER_INITIAL_TRANSITION").to !== "PREPARED"
+  )
+    throw new Error("CONTROLLER_INITIAL_ATTEMPT_HISTORY");
+  return attempt;
 };
 
 export const runDeployment = async (input: {
@@ -70,6 +91,7 @@ export const runDeployment = async (input: {
   oracles: DeploymentOracles;
   now?: () => Date;
   persist?: (previous: JsonRecord, next: JsonRecord) => Promise<void>;
+  revalidate?: (attempt: JsonRecord) => Promise<void>;
 }): Promise<JsonRecord> => {
   const now = input.now ?? (() => new Date());
   const envelope = verifyDeploymentAuthorizationEnvelope(
@@ -98,11 +120,13 @@ export const runDeployment = async (input: {
   let attempt = finalizeAttemptRecord(input.attempt);
   if (attempt.currentState === "DEPLOYED") return attempt;
   const advance = async (next: JsonRecord): Promise<void> => {
+    await input.revalidate?.(attempt);
     await input.persist?.(attempt, next);
     attempt = next;
   };
   try {
     for (const step of remainingSequence(attempt)) {
+      await input.revalidate?.(attempt);
       const result = await input.oracles[step.oracle](attempt);
       if (!/^[0-9a-f]{64}$/u.test(result.evidenceSha256))
         throw new Error("CONTROLLER_EVIDENCE_DIGEST");

@@ -109,3 +109,8 @@
   at every persisted deployment transition, execute idempotent host rollback,
   and derive `pg_restore` connectivity only from a live re-inspected isolated
   target.
+- Remove caller-authored future evidence from the LP-05 production controller;
+  actively execute and reconcile controller-owned phase outputs, recover stale
+  locks through an exclusive bounded-resume lease, run restore inside the exact
+  re-inspected isolated DB container after complete production-identity checks,
+  and require exact same-host HTTPS redirects plus the production CSP.

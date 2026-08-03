@@ -458,6 +458,14 @@ if the envelope is unexpired at resume and every completed external fact still d
 controller skips proven idempotent steps, re-runs read-only oracles, and never blindly repeats migration/backup.
 Otherwise a new proposal/authorization/attempt is required.
 
+The production controller request contains no future evidence bundle and no caller-authored phase result. Each
+phase is an active operation that writes one controller-owned, closed `ActivePhaseOutputV1` under the exact
+attempt/phase path before the journal can advance. Existing outputs are accepted only after their phase-specific
+reconciliation re-observes the live resource and canonical bytes still match. Authorization, candidate, target and
+deadlines are re-read before each append. Crash recovery uses a separate exclusive recovery lease before removing a
+dead owner's stale lock, then explicitly appends `INTERRUPTED -> RESUMING`; an ordinary second invocation cannot
+continue a forward state. A competing live owner or a lock acquired during recovery is never removed.
+
 An upgrade must have a verified `PRE_MIGRATION_SAFETY` backup. A fresh install may use `FreshTargetProofV1` only
 before any production volume/release marker/data exists. After initial external smoke has created or verified the
 LP-04 synthetic story, every attempt creates a new `POST_DEPLOY_RECOVERABILITY` backup from that exact production
@@ -517,12 +525,14 @@ Symlink/root/workspace/Web path escape fails. A failed new backup never triggers
 | `cleanup` | `{status,completedAt,resourceLabelSha256}` | Required | restore controller | PASS only after exact labelled project removal; failure retains diagnostic state safely | No broad cleanup |
 | `status` | literal `PASS` | Required | verifier | Every prior field/oracle PASS | No partial proof |
 
-`IsolatedRestoreTargetV1` contains required generated Compose project prefixed `lp05-restore-`, unique DB system
-identifier, volume/container label digests, loopback-only application `origin`, `databaseHost`, `databasePort`,
-restore `databaseName` ending `_restore`, and target kind literal `ISOLATED`. The restore command derives
-`PGHOST`/`PGPORT`/`PGDATABASE` only from those closed fields, re-inspects the exact Compose project/container/volume
-labels and live `pg_control_system()` identity, and rejects any mismatch before starting `age` or `pg_restore`. It
-must differ from production project, DB system identifier, volume/container identity, domain and published ports.
+`IsolatedRestoreTargetV1` contains required generated Compose project prefixed `lp05-restore-`, exact container and
+volume names, unique DB system identifier, volume/container label digests, loopback-only application `origin`,
+descriptive `databaseHost`/`databasePort`, restore `databaseName` ending `_restore`, and target kind literal
+`ISOLATED`. The restore command re-inspects the exact Compose project/container/volume labels and live
+`pg_control_system()` identity, rejects any mismatch before starting `age` or `pg_restore`, and runs `pg_restore`
+through `docker exec` in that exact inspected container. The host endpoint cannot select the mutation target. The
+complete active production identity is also re-inspected before mutation and must match the authorized identity;
+production and isolated project, DB system, volume/container, domain and published-port identities must differ.
 
 `ProductionResourceIdentityV1` contains target ID, production Compose project, DB container/volume/system/database
 identity, app container/image/config identity, Caddy container/config identity and current release marker digest. It

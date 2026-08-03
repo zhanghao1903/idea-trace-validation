@@ -14,6 +14,11 @@ import {
 } from "../shared/contracts.js";
 import { runExternalSmoke } from "./external.js";
 import type { ExternalSmokeAdapter } from "./external-observer.js";
+import {
+  APPROVED_CONTENT_SECURITY_POLICY,
+  verifyHttpsRedirect,
+  verifySecurityHeaders,
+} from "./security.js";
 
 const hex = (value: string, count = 64): string => value.repeat(count);
 
@@ -231,16 +236,21 @@ describe("LP-05 active external smoke", () => {
               : 200,
           headers: {
             "strict-transport-security": "max-age=31536000",
+            "content-security-policy": APPROVED_CONTENT_SECURITY_POLICY,
             "x-content-type-options": "nosniff",
             "x-frame-options": "DENY",
             "referrer-policy": "no-referrer",
             "cache-control": "no-store",
+            ...(url.startsWith("http:")
+              ? { location: "https://demo.example.com/health/live" }
+              : {}),
           },
           requestId: "req_observed",
           body: "safe public response",
         }),
         runJourney: async () => ({
           result: "PASS",
+          assertions: [],
           resourceRefs: {
             activeProjectId: "proj_active",
             governedProjectId: "proj_governed",
@@ -279,5 +289,63 @@ describe("LP-05 active external smoke", () => {
       if (previous === undefined) delete process.env.AI_API_TOKEN;
       else process.env.AI_API_TOKEN = previous;
     }
+  });
+});
+
+describe("LP-05 public edge security contract", () => {
+  const headers = {
+    "strict-transport-security": "max-age=31536000",
+    "content-security-policy": APPROVED_CONTENT_SECURITY_POLICY,
+    "x-content-type-options": "nosniff",
+    "x-frame-options": "DENY",
+    "referrer-policy": "no-referrer",
+  };
+
+  it("rejects missing or altered CSP", () => {
+    const missing = Object.fromEntries(
+      Object.entries(headers).filter(
+        ([key]) => key !== "content-security-policy",
+      ),
+    );
+    expect(() =>
+      verifySecurityHeaders({ status: 200, headers: missing }, false),
+    ).toThrow("SMOKE_CSP");
+    expect(() =>
+      verifySecurityHeaders(
+        {
+          status: 200,
+          headers: {
+            ...headers,
+            "content-security-policy": "default-src * 'unsafe-inline'",
+          },
+        },
+        false,
+      ),
+    ).toThrow("SMOKE_CSP");
+  });
+
+  it("requires an exact same-host HTTPS redirect", () => {
+    const expected = "https://demo.example.com/health/live";
+    expect(() =>
+      verifyHttpsRedirect({ status: 308, headers: {} }, expected),
+    ).toThrow("SMOKE_HTTP_REDIRECT_LOCATION");
+    expect(() =>
+      verifyHttpsRedirect(
+        {
+          status: 308,
+          headers: { location: "https://attacker.example/health/live" },
+        },
+        expected,
+      ),
+    ).toThrow("SMOKE_HTTP_REDIRECT_DESTINATION");
+    expect(() =>
+      verifyHttpsRedirect(
+        {
+          status: 308,
+          headers: { location: "http://demo.example.com/health/live" },
+        },
+        expected,
+      ),
+    ).toThrow("SMOKE_HTTP_REDIRECT_DESTINATION");
   });
 });

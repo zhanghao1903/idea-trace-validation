@@ -1,0 +1,30 @@
+services:
+  postgres:
+    labels:
+      io.idea-validation.environment: isolated-restore
+      io.idea-validation.restore-project:
+        ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is required}
+  migrate:
+    labels:
+      io.idea-validation.environment: isolated-restore
+      io.idea-validation.restore-project:
+        ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is required}
+  app:
+    ports:
+      - target: 3000
+        published: ${RESTORE_APP_PORT:?RESTORE_APP_PORT is required}
+        host_ip: 127.0.0.1
+        protocol: tcp
+    labels:
+      io.idea-validation.environment: isolated-restore
+      io.idea-validation.restore-project:
+        ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is required}
+  caddy:
+    profiles: [production-edge-only]
+
+volumes:
+  postgres-data:
+    labels:
+      io.idea-validation.environment: isolated-restore
+      io.idea-validation.restore-project:
+        ${COMPOSE_PROJECT_NAME:?COMPOSE_PROJECT_NAME is required}

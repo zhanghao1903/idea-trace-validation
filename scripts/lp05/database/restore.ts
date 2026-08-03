@@ -6,8 +6,10 @@ import {
   assertLiveIsolatedTarget,
 } from "./restore-evidence.js";
 import { inspectLiveIsolatedTarget } from "./restore-runtime.js";
+import { canonicalJson } from "../shared/canonical-json.js";
 import {
   parseIsolatedRestoreTarget,
+  parseProductionResourceIdentity,
   type JsonRecord,
 } from "../shared/contracts.js";
 
@@ -31,12 +33,12 @@ export interface RestoreOptions {
   restoreEnvironment: {
     PATH?: string;
     PGUSER: string;
-    PGPASSWORD: string;
   };
   inspectTarget?: (
     target: JsonRecord,
-    credentials: { user: string; password: string; path?: string },
+    credentials: { user: string; path?: string },
   ) => Promise<JsonRecord>;
+  inspectProduction?: (identity: JsonRecord) => Promise<JsonRecord>;
   spawnProcess?: typeof spawn;
 }
 
@@ -44,11 +46,23 @@ export const restoreEncryptedBackup = async (
   options: RestoreOptions,
 ): Promise<void> => {
   assertPostDeployBackup(options.manifest, options.expected);
-  assertIsolatedTarget(options.isolatedTarget, options.productionIdentity);
+  const expectedProduction = parseProductionResourceIdentity(
+    options.productionIdentity,
+  );
+  const observedProduction = parseProductionResourceIdentity(
+    await (
+      options.inspectProduction ??
+      (async () => {
+        throw new Error("RESTORE_PRODUCTION_INSPECTOR_REQUIRED");
+      })
+    )(expectedProduction),
+  );
+  if (canonicalJson(expectedProduction) !== canonicalJson(observedProduction))
+    throw new Error("RESTORE_PRODUCTION_IDENTITY_CHANGED");
+  assertIsolatedTarget(options.isolatedTarget, observedProduction);
   const target = parseIsolatedRestoreTarget(options.isolatedTarget);
   const credentials = {
     user: options.restoreEnvironment.PGUSER,
-    password: options.restoreEnvironment.PGPASSWORD,
     path: options.restoreEnvironment.PATH,
   };
   const observed = await (options.inspectTarget ?? inspectLiveIsolatedTarget)(
@@ -56,14 +70,7 @@ export const restoreEncryptedBackup = async (
     credentials,
   );
   assertLiveIsolatedTarget(target, observed);
-  const databaseEnvironment: NodeJS.ProcessEnv = {
-    PATH: options.restoreEnvironment.PATH,
-    PGHOST: String(target.databaseHost),
-    PGPORT: String(target.databasePort),
-    PGUSER: options.restoreEnvironment.PGUSER,
-    PGPASSWORD: options.restoreEnvironment.PGPASSWORD,
-    PGDATABASE: String(target.databaseName),
-  };
+  assertIsolatedTarget(target, observedProduction);
   const spawnProcess = options.spawnProcess ?? spawn;
   const decrypt = spawnProcess(
     "age",
@@ -74,16 +81,24 @@ export const restoreEncryptedBackup = async (
     },
   );
   const restore = spawnProcess(
-    "pg_restore",
+    "docker",
     [
+      "exec",
+      "--interactive",
+      "--user",
+      "postgres",
+      String(target.containerId),
+      "pg_restore",
       "--exit-on-error",
       "--no-owner",
       "--no-privileges",
+      "--username",
+      options.restoreEnvironment.PGUSER,
       "--dbname",
       String(target.databaseName),
     ],
     {
-      env: databaseEnvironment,
+      env: { PATH: options.restoreEnvironment.PATH },
       stdio: ["pipe", "ignore", "ignore"],
     },
   );
