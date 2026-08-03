@@ -1,0 +1,688 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 7,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/7",
+    "title": "LP-05 deployment and release readiness",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "46e021d261fd8a663c83430a551f5674365ccf14",
+    "head_ref": "codex/lp-05-deployment-release",
+    "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+    "reviewed_at": "2026-08-03T01:16:32Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete Cycle 2 remediation delta 8dc99e295b9021f6123c027092b4f57600cc964f..7e31f4829d3691bb1c20fa7417f68add0cfbf3eb across all 32 changed files",
+      "revalidation of PRR-001, PRR-002 and PRR-003 against exact current code and negative counterexamples",
+      "complete current 83-file base-to-head PR map with deep review of deployment authority/state, external smoke, restore mutation, rollback and security-header surfaces",
+      "exact-head GitHub PR identity, readiness, mergeability and both required CI checks"
+    ],
+    "excluded_scope": [
+      "production server, DNS, real secrets, production database, external backup target and publication",
+      "merge execution or any feature-branch mutation"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "docs/feature/lp-05-deployment-release/pr-review-7-8dc99e295b90.md",
+      "result_path": "docs/feature/lp-05-deployment-release/pr-review-7-8dc99e295b90.json",
+      "result_sha256": "2120498f498647614c823be740f09aa1995cb70241b4ba42820b3551eddb9e00",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 7,
+      "reviewed_at": "2026-08-02T20:02:50Z",
+      "base_sha": "46e021d261fd8a663c83430a551f5674365ccf14",
+      "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": ["PRR-001", "PRR-002", "PRR-003"],
+      "blocking_finding_ids": ["PRR-001", "PRR-002", "PRR-003"]
+    },
+    "delta_review": {
+      "previous_base_sha": "46e021d261fd8a663c83430a551f5674365ccf14",
+      "previous_head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+      "current_base_sha": "46e021d261fd8a663c83430a551f5674365ccf14",
+      "current_head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+      "triggers": ["HEAD_CHANGED", "EVIDENCE_CHANGED"],
+      "commit_range": "8dc99e295b9021f6123c027092b4f57600cc964f..7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+      "commits_reviewed": ["7e31f4829d3691bb1c20fa7417f68add0cfbf3eb"],
+      "changed_files": [
+        "CHANGELOG.md",
+        "docs/feature/lp-05-deployment-release/design.md",
+        "docs/feature/lp-05-deployment-release/evidence-schema.md",
+        "docs/feature/lp-05-deployment-release/verification.md",
+        "docs/implementation-plans/v0-1/lp-05-deployment-release.md",
+        "docs/operations/lp05.md",
+        "docs/project-management.md",
+        "package.json",
+        "scripts/lp05/database/backup-manifest.ts",
+        "scripts/lp05/database/database.unit.test.ts",
+        "scripts/lp05/database/production-identity.ts",
+        "scripts/lp05/database/restore-cli.ts",
+        "scripts/lp05/database/restore-evidence.ts",
+        "scripts/lp05/database/restore-runtime.ts",
+        "scripts/lp05/database/restore.ts",
+        "scripts/lp05/deploy/attempt-lock.ts",
+        "scripts/lp05/deploy/attempt-record.ts",
+        "scripts/lp05/deploy/attempt-state.ts",
+        "scripts/lp05/deploy/controller-cli.ts",
+        "scripts/lp05/deploy/controller.ts",
+        "scripts/lp05/deploy/deployment.unit.test.ts",
+        "scripts/lp05/deploy/evidence-oracles.ts",
+        "scripts/lp05/deploy/host-rollback.ts",
+        "scripts/lp05/deploy/rollback-cli.ts",
+        "scripts/lp05/deploy/rotation-rollback.unit.test.ts",
+        "scripts/lp05/deploy/runtime-evidence.ts",
+        "scripts/lp05/shared/contracts.ts",
+        "scripts/lp05/shared/contracts.unit.test.ts",
+        "scripts/lp05/smoke/external-observer.ts",
+        "scripts/lp05/smoke/external.ts",
+        "scripts/lp05/smoke/external.unit.test.ts",
+        "scripts/lp05/smoke/run.ts"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "docs/feature/lp-05-deployment-release/design.md",
+        "docs/feature/lp-05-deployment-release/evidence-schema.md",
+        "docs/feature/lp-05-deployment-release/verification.md",
+        "docs/implementation-plans/v0-1/lp-05-deployment-release.md",
+        "docs/operations/lp05.md",
+        "docs/project-management.md",
+        "package.json",
+        "scripts/lp05/database/backup-manifest.ts",
+        "scripts/lp05/database/database.unit.test.ts",
+        "scripts/lp05/database/production-identity.ts",
+        "scripts/lp05/database/restore-cli.ts",
+        "scripts/lp05/database/restore-evidence.ts",
+        "scripts/lp05/database/restore-runtime.ts",
+        "scripts/lp05/database/restore.ts",
+        "scripts/lp05/deploy/attempt-lock.ts",
+        "scripts/lp05/deploy/attempt-record.ts",
+        "scripts/lp05/deploy/attempt-state.ts",
+        "scripts/lp05/deploy/controller-cli.ts",
+        "scripts/lp05/deploy/controller.ts",
+        "scripts/lp05/deploy/deployment.unit.test.ts",
+        "scripts/lp05/deploy/evidence-oracles.ts",
+        "scripts/lp05/deploy/host-rollback.ts",
+        "scripts/lp05/deploy/rollback-cli.ts",
+        "scripts/lp05/deploy/rotation-rollback.unit.test.ts",
+        "scripts/lp05/deploy/runtime-evidence.ts",
+        "scripts/lp05/shared/contracts.ts",
+        "scripts/lp05/shared/contracts.unit.test.ts",
+        "scripts/lp05/smoke/external-observer.ts",
+        "scripts/lp05/smoke/external.ts",
+        "scripts/lp05/smoke/external.unit.test.ts",
+        "scripts/lp05/smoke/run.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "The single remediation commit adds active external observation, strict attempt projections, controller/rollback entrypoints, locking, live restore inspection and matching tests/docs. The smoke observation-import defect is closed, but the production controller still replays caller-authored evidence instead of performing live steps, and restore mutation still trusts caller production identity plus an unbound database socket. Full-PR reconciliation also found the required CSP/same-host redirect semantics absent.",
+      "evidence": "git diff/log for the exact previous-to-current range; direct call-graph inspection; 41 committed LP-05 tests; reviewer forged-bundle and caller-production-identity counterexamples; exact-head GitHub CI run 30766943275"
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "scripts/lp05/smoke/run.ts now rejects every external --observations import and routes external requests through runExternalSmoke; contracts bind the current certificate to the exact hostname/time, and the exact-head negative tests pass."
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "State-specific null/binding validation is improved, but controller-cli supplies createEvidenceOracles with a caller-authored evidence bundle. The reviewer constructed a complete forged bundle and runDeployment returned DEPLOYED with zero external mutation calls. No code produces INTERRUPTED, while remainingSequence directly continues any persisted forward state, bypassing the advertised bounded resume transition."
+      },
+      {
+        "finding_id": "PRR-003",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "PGHOST/PGPORT/PGDATABASE are now derived from isolatedTarget and checked before spawn, but the live Compose labels and live PostgreSQL connection are observed independently, and assertIsolatedTarget does not parse or actively inspect productionIdentity. The reviewer proved an incomplete caller production identity is accepted by the mutation guard."
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "External HTTPS and synthetic-story smoke evidence",
+        "risk_triggers": ["trust-boundary", "data-integrity", "security-privacy", "test-adequacy"],
+        "reason": "The delta replaces external observation import with an active engine, so the new observer and all claimed HTTP/TLS/security facts must be reconciled.",
+        "affected_paths": [
+          "scripts/lp05/smoke/run.ts",
+          "scripts/lp05/smoke/external.ts",
+          "scripts/lp05/smoke/external-observer.ts",
+          "scripts/lp05/smoke/external.unit.test.ts",
+          "scripts/lp05/shared/contracts.ts",
+          "scripts/lp05/shared/contracts.unit.test.ts",
+          "deploy/Caddyfile"
+        ],
+        "checks": [
+          "replay the previous external --observations forgery and certificate-host/time negatives",
+          "trace every active observer and compare claimed redirect/security assertions with actual response fields and Caddy headers"
+        ],
+        "finding_ids": ["PRR-001", "PRR-004"],
+        "result": "PARTIAL"
+      },
+      {
+        "surface": "Deployment attempt, evidence provenance, locking and resume",
+        "risk_triggers": ["state-transition", "data-integrity", "mutation-recovery", "concurrency", "test-adequacy"],
+        "reason": "The delta introduces production entrypoints and a persistence/rollback path; DEPLOYED must be unreachable from caller statements and interrupted execution must be bounded.",
+        "affected_paths": [
+          "scripts/lp05/deploy/controller-cli.ts",
+          "scripts/lp05/deploy/controller.ts",
+          "scripts/lp05/deploy/evidence-oracles.ts",
+          "scripts/lp05/deploy/runtime-evidence.ts",
+          "scripts/lp05/deploy/attempt-state.ts",
+          "scripts/lp05/deploy/attempt-record.ts",
+          "scripts/lp05/deploy/attempt-lock.ts",
+          "scripts/lp05/deploy/deployment.unit.test.ts",
+          "scripts/lp05/deploy/rollback-cli.ts",
+          "scripts/lp05/deploy/rotation-rollback.unit.test.ts",
+          "package.json",
+          "docs/feature/lp-05-deployment-release/implementation-plan.md",
+          "docs/operations/lp05.md"
+        ],
+        "checks": [
+          "trace each production oracle to the external read or mutation that creates its evidence",
+          "submit a hand-written closed bundle and count external calls before DEPLOYED",
+          "trace all producers/consumers of INTERRUPTED and RESUMING and inspect stale-lock reclamation"
+        ],
+        "finding_ids": ["PRR-002"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Isolated restore mutation boundary",
+        "risk_triggers": ["mutation-recovery", "data-integrity", "security-privacy", "deployment-compatibility"],
+        "reason": "The actual pg_restore socket must be proven to belong to the inspected generated Compose database and be distinct from actively observed production.",
+        "affected_paths": [
+          "scripts/lp05/database/restore-cli.ts",
+          "scripts/lp05/database/restore.ts",
+          "scripts/lp05/database/restore-runtime.ts",
+          "scripts/lp05/database/restore-evidence.ts",
+          "scripts/lp05/database/database.unit.test.ts",
+          "scripts/lp05/database/backup-manifest.ts",
+          "scripts/lp05/database/production-identity.ts",
+          "docs/feature/lp-05-deployment-release/evidence-schema.md"
+        ],
+        "checks": [
+          "trace Docker labels, port/database connection, system identifier and production identity into the mutation-time decision",
+          "submit an incomplete caller production identity and inspect whether the guard rejects before subprocess start"
+        ],
+        "finding_ids": ["PRR-003"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Candidate, production topology and rollback",
+        "risk_triggers": ["deployment-compatibility", "mutation-recovery", "security-privacy", "test-adequacy"],
+        "reason": "The complete current PR must still preserve the hardened image/topology and exact AC 4 edge behavior while adding rollback.",
+        "affected_paths": [
+          "deploy/Containerfile",
+          "deploy/compose.production.yaml",
+          "deploy/Caddyfile",
+          "scripts/lp05/candidate/verify.ts",
+          "scripts/lp05/deploy/host-rollback.ts",
+          ".github/workflows/ci.yml",
+          "CHANGELOG.md",
+          "docs/feature/lp-05-deployment-release/design.md",
+          "docs/feature/lp-05-deployment-release/verification.md",
+          "docs/implementation-plans/v0-1/lp-05-deployment-release.md",
+          "docs/project-management.md"
+        ],
+        "checks": [
+          "reconcile pins, users, filesystems, networks, ports, secret injection and rollback image/config binding",
+          "compare required CSP and same-host HTTPS redirect semantics with Caddy and external smoke"
+        ],
+        "finding_ids": ["PRR-004"],
+        "result": "PARTIAL"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": false,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "NOT_AVAILABLE",
+        "reviewer": null,
+        "summary": "A separate fresh-context reviewer was unavailable under the current no-delegation execution constraint. The same reviewer performed a distinct second pass over all new child-process, network, persistence, state, lock and restore call sites; it independently confirmed PRR-002/003 and exposed PRR-004."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "Cycle 2 resolves caller-authored external smoke import and adds substantial contract/state/rollback coverage, but three exact-head blockers remain: the production controller can reach DEPLOYED from a hand-written evidence bundle without executing deployment operations; pg_restore safety still depends on untrusted production metadata and an independently observed loopback socket; and the public edge neither emits required CSP nor proves that HTTP redirects to the same HTTPS host. Green CI does not exercise these counterexamples.",
+    "blocking_finding_ids": ["PRR-002", "PRR-003", "PRR-004"]
+  },
+  "summary": "The Cycle 2 patch is materially safer and fully closes the original smoke-import forgery. It does not yet close the production execution trust boundary: exact-head local reproduction reached DEPLOYED using only caller-authored canonical records and no external mutation, while the restore guard accepted incomplete caller production identity. Full-PR reconciliation also found explicit AC 4 CSP and redirect semantics missing from both the edge and its smoke proof.",
+  "change_map": [
+    {
+      "area": "External smoke",
+      "change": "Adds live TLS/DNS/Docker/HTTP/LP-04 observers and restricts imported observations to LOCAL.",
+      "external_behavior": "The production smoke CLI now derives external origin and assertions from an authority-bound request.",
+      "risk": "High",
+      "validation": "PRR-001 resolved; PRR-004 identifies missing CSP and redirect-location verification."
+    },
+    {
+      "area": "Attempt journal and controller",
+      "change": "Adds strict projections, complete-evidence hashing, state persistence, lock/envelope binding, controller and rollback CLIs.",
+      "external_behavior": "Purports to execute or resume a deployment and emit DEPLOYED only after the full chain.",
+      "risk": "High",
+      "validation": "PRR-002 forged-bundle reproduction reached DEPLOYED with zero external mutation calls."
+    },
+    {
+      "area": "Restore destination",
+      "change": "Derives database environment from isolatedTarget and re-inspects labels/system identifier before spawn.",
+      "external_behavior": "Mutates the declared loopback database with pg_restore after live checks.",
+      "risk": "High",
+      "validation": "PRR-003 finds production identity remains caller-controlled and the database socket is not proven to be the inspected Compose container."
+    },
+    {
+      "area": "Rollback and recovery",
+      "change": "Adds ingress disable, exact previous image/config recreation, readiness/core reads and persisted terminal rollback states.",
+      "external_behavior": "Attempts application-only recovery without production database restore.",
+      "risk": "High",
+      "validation": "Committed failure and rollback unit paths pass; controller trust/resume gaps remain within PRR-002."
+    },
+    {
+      "area": "Documentation and evidence",
+      "change": "Documents active smoke, controller, restore binding and Cycle 1 remediation claims.",
+      "external_behavior": "Guides the operator to new deploy/rollback/smoke entrypoints while retaining separate production authority.",
+      "risk": "Medium",
+      "validation": "Claims that every transition consumes active evidence and that restore is exactly bound are not yet supported by the current call graph."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "External smoke PASS is minted from caller assertions",
+      "location": {
+        "path": "scripts/lp05/smoke/run.ts",
+        "line_start": 25,
+        "line_end": 70,
+        "symbol": "buildSmokeEvidence / main",
+        "side": "RIGHT",
+        "commit_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb"
+      },
+      "observation": "Resolved. buildSmokeEvidence rejects every non-LOCAL mode, and the external request path calls runExternalSmoke, which derives origin from the authorized target and actively invokes certificate, DNS, published-port, HTTP, runtime and LP-04 journey adapters. Certificate hostname and validity are now contract-bound to observedAt.",
+      "trigger": "Replay the Cycle 1 external --observations payload with a wrong-host/expired certificate and CALLER_ASSERTED rows.",
+      "impact": "The prior direct external observation-import forgery no longer succeeds.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "External observation import is rejected and external requests route to the active engine.",
+          "reference": "scripts/lp05/smoke/run.ts:25-70"
+        },
+        {
+          "kind": "test",
+          "description": "Exact-head tests reject imported external evidence and wrong-host/expired certificates.",
+          "reference": "scripts/lp05/shared/contracts.unit.test.ts:458-483; scripts/lp05/smoke/external.unit.test.ts:170-283"
+        }
+      ],
+      "remediation": "No further action for this fingerprint; preserve the LOCAL-only import boundary and active external request path.",
+      "verification": "Keep the Cycle 1 forged/expired/wrong-host/skipped-observation negatives in the exact-head gate.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "evidence:lp05-external-smoke:caller-authored-pass"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "Production controller replays caller evidence without executing deployment",
+      "location": {
+        "path": "scripts/lp05/deploy/evidence-oracles.ts",
+        "line_start": 95,
+        "line_end": 199,
+        "symbol": "createEvidenceOracles",
+        "side": "RIGHT",
+        "commit_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb"
+      },
+      "observation": "The new deploy:lp05 entrypoint accepts a complete caller JSON evidence bundle and creates every forward oracle by parsing or projecting that bundle. No oracle runs preflight, backup, migration, Compose replacement/readiness, external smoke, isolated restore or live production-before/after inspection. verifyCompleteEvidenceBundle runs once before the journal loop and establishes only self-consistent declarations. A separate resume gap also remains: no production code creates INTERRUPTED, while remainingSequence directly continues persisted forward states without the one-resume/two-hour transition.",
+      "trigger": "Construct canonical external-shaped smoke, backup, restore, phase and database records with matching digests, then pass them to createEvidenceOracles/runDeployment without invoking any external operation.",
+      "impact": "The exact-head controller appends DEPLOYED and can be persisted as operational success without deploying, migrating, backing up, restoring or contacting the authorized origin. This defeats AC 11-16, the planned hand-written-PASS rejection, mutation recovery and bounded resume authority.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "Reviewer supplied a fully hand-written closed bundle. runDeployment returned {currentState: DEPLOYED, externalMutationCalls: 0}.",
+          "reference": "reviewer exact-head /private/tmp/lp05-forged-bundle-repro.ts counterexample"
+        },
+        {
+          "kind": "code",
+          "description": "controller-cli passes request.evidence to createEvidenceOracles, whose forward steps only parse and project bundle values.",
+          "reference": "scripts/lp05/deploy/controller-cli.ts:98-135; scripts/lp05/deploy/evidence-oracles.ts:95-199"
+        },
+        {
+          "kind": "code",
+          "description": "remainingSequence resumes any forward state directly; production code only consumes INTERRUPTED and never produces it.",
+          "reference": "scripts/lp05/deploy/controller.ts:52-64; scripts/lp05/deploy/controller-cli.ts:79-99"
+        },
+        {
+          "kind": "test",
+          "description": "The only runDeployment test covers a preflight failure; there is no production-controller fresh/upgrade success or active fault-boundary execution test.",
+          "reference": "scripts/lp05/deploy/deployment.unit.test.ts:248-372"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved plan requires the controller to execute and re-read all ten live phases, reject hand-written PASS, and permit only one explicit bounded resume.",
+          "reference": "docs/feature/lp-05-deployment-release/implementation-plan.md:286-334"
+        }
+      ],
+      "remediation": "Make production oracles perform the authorized live reads/mutations and create/load immutable evidence themselves; do not accept a future-complete bundle as operational input. Re-read the target/candidate/database and each newly produced record before every transition. Persist an explicit INTERRUPTED transition on recoverable process interruption, require the single bounded RESUMING path, and make stale-lock reclamation race-safe. Keep pure constructed external fixtures outside the production parser/persistence path.",
+      "verification": "A hand-written but internally consistent full bundle must be rejected before any success transition; fresh and upgrade controller tests must show the ordered external call graph, one call per mutation, stop/rollback at every injected boundary, exactly one bounded resume and no DEPLOYED without actual active outputs.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "state:lp05-attempt:deployed-without-evidence"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "security",
+      "title": "pg_restore live checks still do not bind the socket to the isolated container",
+      "location": {
+        "path": "scripts/lp05/database/restore-evidence.ts",
+        "line_start": 19,
+        "line_end": 55,
+        "symbol": "assertIsolatedTarget / assertLiveIsolatedTarget",
+        "side": "RIGHT",
+        "commit_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb"
+      },
+      "observation": "The restore environment is now derived from isolatedTarget and mismatch checks occur before spawn, but the mutation boundary remains composable from unrelated facts. inspectLiveIsolatedTarget obtains container/volume labels by Compose project and separately connects to caller-declared loopback host/port/database for pg_control_system(); it never proves that socket is published by that inspected container. assertIsolatedTarget also does not parse or actively inspect productionIdentity, so an incomplete caller object supplies the production inequality baseline.",
+      "trigger": "Provide a safe-looking lp05-restore-* project for label inspection, point databaseHost/Port/Name at another loopback database ending _restore, declare that database's system identifier, and provide an unrelated or incomplete productionIdentity.",
+      "impact": "The exact pg_restore socket can be a database other than the inspected isolated Compose target. Because production identity is caller-controlled at mutation time, the hard AC 10/12 guarantee against wrong-database restore is not established before age/pg_restore starts.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "Reviewer passed an incomplete caller production object containing only composeProject and three database inequality fields; assertIsolatedTarget returned successfully (CALLER_PRODUCTION_IDENTITY_ACCEPTED).",
+          "reference": "reviewer exact-head assertIsolatedTarget counterexample"
+        },
+        {
+          "kind": "code",
+          "description": "Docker labels and PostgreSQL system identity are read on independent selectors; no Docker port/network inspection binds databaseHost/databasePort to the selected container.",
+          "reference": "scripts/lp05/database/restore-runtime.ts:32-118"
+        },
+        {
+          "kind": "code",
+          "description": "The mutation guard parses only isolatedTarget and compares it with unchecked caller production fields.",
+          "reference": "scripts/lp05/database/restore-evidence.ts:19-35; scripts/lp05/database/restore.ts:43-66"
+        },
+        {
+          "kind": "test",
+          "description": "Mismatch tests inject an already combined observed record and therefore do not test that the live socket belongs to the inspected Compose container or that production identity is actively observed.",
+          "reference": "scripts/lp05/database/database.unit.test.ts:122-227"
+        }
+      ],
+      "remediation": "Actively parse and inspect the exact production identity at mutation time, and prove the declared database socket is the inspected isolated container through an exact Docker port/network/container identity binding (or execute psql/pg_restore inside that exact container). Compare live project/container/volume/system/database identities against production and the generated restore record immediately before spawn.",
+      "verification": "An incomplete/fake production identity and a mixed safe-container/unrelated-loopback-database observation must fail with zero subprocess starts; tests must prove the actual pg_restore endpoint is the exact inspected container and every production identity is independently observed.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "recovery:lp05-restore:environment-target-unbound"
+    },
+    {
+      "id": "PRR-004",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "security",
+      "title": "Required CSP and safe redirect semantics are neither configured nor proved",
+      "location": {
+        "path": "scripts/lp05/smoke/external.ts",
+        "line_start": 149,
+        "line_end": 165,
+        "symbol": "runExternalSmoke",
+        "side": "RIGHT",
+        "commit_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb"
+      },
+      "observation": "AC 4 requires CSP and HTTP redirection to the same HTTPS host. deploy/Caddyfile sets HSTS, nosniff, frame and referrer headers but no Content-Security-Policy. The active smoke accepts any 301/302/307/308 from HTTP without examining Location, and verifySecurityHeaders does not require CSP. The committed passing adapter fixture supplies neither Location nor CSP, demonstrating that evidence can claim both security assertions without them.",
+      "trigger": "Return an HTTP 3xx with no Location or a Location on another host, and omit Content-Security-Policy from every HTTPS response.",
+      "impact": "A deployment can be marked externally healthy while cleartext entry does not safely reach the authorized HTTPS origin and while the explicitly required browser content policy is absent. This fails AC 4 and weakens the public edge security boundary.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "The redirect check validates status only; security-header verification omits CSP.",
+          "reference": "scripts/lp05/smoke/external.ts:149-165; scripts/lp05/smoke/security.ts:3-16"
+        },
+        {
+          "kind": "code",
+          "description": "The production Caddy configuration contains no Content-Security-Policy header.",
+          "reference": "deploy/Caddyfile:11-29"
+        },
+        {
+          "kind": "test",
+          "description": "The exact-head success fixture has no Location and no CSP header but still emits PASS with all 22 assertions.",
+          "reference": "scripts/lp05/smoke/external.unit.test.ts:206-278"
+        },
+        {
+          "kind": "spec",
+          "description": "Requirements mandate trusted HTTPS, same-host redirect and CSP acceptance proof.",
+          "reference": "docs/feature/lp-05-deployment-release/requirements.md:86-87; docs/feature/lp-05-deployment-release/design.md:221-231"
+        }
+      ],
+      "remediation": "Add an application-compatible Content-Security-Policy to the production and test edge, require it in local/external security checks, and verify the HTTP Location resolves exactly to the authorized HTTPS hostname/path with no userinfo or downgrade. Keep negative fixtures for missing/wrong-host/downgrade redirects and missing/unsafe CSP.",
+      "verification": "The current no-Location/no-CSP fixture must fail; exact same-host HTTPS redirect and an explicit approved CSP must pass through both local candidate acceptance and external smoke.",
+      "status": "open",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "security:lp05-edge:csp-and-redirect-unproved"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Replace caller-authored external smoke PASS with active authority-bound observation and certificate validation.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Replace bundle-backed production oracles with active live deployment operations and enforce explicit bounded interruption/resume before DEPLOYED.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-003",
+      "action": "Bind pg_restore to the exact inspected isolated container/socket and independently observe the production identity before mutation.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-004",
+      "action": "Configure and prove the required CSP plus exact same-host HTTPS redirect semantics.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "data-integrity",
+      "level": "High",
+      "description": "Canonical caller statements can still become a persisted DEPLOYED result without any authorized external operation.",
+      "mitigation": "Resolve PRR-002 by making production oracles active and provenance-bound.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "security-privacy",
+      "level": "High",
+      "description": "The restore socket can be unrelated to the inspected container and production comparison is caller-controlled.",
+      "mitigation": "Resolve PRR-003 before authorizing any restore mutation.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "security-privacy",
+      "level": "Medium",
+      "description": "The public edge lacks required CSP and smoke treats status-only 3xx as a safe redirect.",
+      "mitigation": "Resolve PRR-004 in Caddy, local acceptance and external smoke.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "High",
+      "description": "No production path creates INTERRUPTED, so ordinary partial-state re-entry bypasses the advertised bounded resume journal.",
+      "mitigation": "Include explicit interruption persistence and race-safe single-target recovery in PRR-002 remediation.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm ci --ignore-scripts --engine-strict=false",
+        "environment": "macOS; Node.js 26.0.0; npm 11.12.1; isolated exact-head review worktree",
+        "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 exact locked packages without lifecycle scripts; local runtime differs from the declared Node 24/npm 11.16.0.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:deployment:unit",
+        "environment": "macOS; Node.js 26.0.0; exact head",
+        "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 6 LP-05 test files and 41 committed tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run typecheck",
+        "environment": "macOS; Node.js 26.0.0; exact head",
+        "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "TypeScript build-mode and Web E2E typechecks passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run deploy:lp05:validate",
+        "environment": "macOS; exact head; static repository validation only",
+        "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "LP05_RELEASE_READINESS_PASS for static candidate, Compose, Caddy, entrypoint and frozen-artifact checks.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "reviewer forged complete evidence bundle through createEvidenceOracles/runDeployment",
+        "environment": "exact-head modules; synthetic local records; no network, Docker, database or external mutation",
+        "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "The production controller incorrectly returned DEPLOYED with externalMutationCalls=0.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-002"
+      },
+      {
+        "command": "reviewer incomplete caller production identity mutation-guard counterexample",
+        "environment": "exact-head module; synthetic local objects; no subprocess or database",
+        "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "assertIsolatedTarget accepted an incomplete caller production identity and printed CALLER_PRODUCTION_IDENTITY_ACCEPTED.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-003"
+      },
+      {
+        "command": "git diff --check 46e021d261fd8a663c83430a551f5674365ccf14..7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+        "environment": "exact local git objects",
+        "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors across the complete current PR diff.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-03T01:16:32Z",
+        "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30766943275, verify job 91547250772 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30766943275/job/91547250772"
+      },
+      {
+        "name": "ci / lp05-candidate",
+        "observed_at": "2026-08-03T01:16:32Z",
+        "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30766943275, lp05-candidate job 91547494503 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30766943275/job/91547494503"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local full npm run verify and OCI/Compose local acceptance",
+        "reason": "The local runner is Node 26/npm 11.12.1 rather than the declared runtime; exact-head GitHub CI ran the configured verify and candidate jobs. Reviewer-local work focused on the remediation delta and uncovered trust-boundary counterexamples."
+      },
+      {
+        "check": "Real external HTTPS deployment, encrypted backup and PostgreSQL restore",
+        "reason": "No separately authorized target or disposable external environment was provided, and these operations are outside review-only authority."
+      },
+      {
+        "check": "Production deployment, DNS, secret delivery, publication or merge",
+        "reason": "These require separate authority and are outside Engineering Review."
+      }
+    ]
+  },
+  "limitations": [
+    "Reviewer-local Node.js 26.0.0 and npm 11.12.1 differ from the declared Node 24/npm 11.16.0; configured-runtime authority comes from successful exact-head GitHub CI.",
+    "No production or external target was contacted; adverse reproductions used synthetic local inputs only.",
+    "A separate fresh-context reviewer was unavailable under the current no-delegation constraint; the same reviewer completed a distinct second pass over every new network, child-process, persistence, lock, state and restore call site.",
+    "The current PR contains 83 files and about 11,001 additions; review reconciled the entire file/diff map and deeply traced all high-risk release, state, smoke, backup/restore, rollback and container paths rather than line-reading narrative documentation uniformly."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #7 still points to the exact base and head in the accepted Cycle 2 CodeReviewRequest.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh authoritative GitHub PR metadata before review and immediately before dispatch.",
+      "evidence": "GitHub reported OPEN, draft=false, base 46e021d261fd8a663c83430a551f5674365ccf14 and head 7e31f4829d3691bb1c20fa7417f68add0cfbf3eb.",
+      "impact_if_false": "The report would be stale and invalid."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed GitHub checks belong to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read PR-associated check runs and their exact head SHA.",
+      "evidence": "ci / verify and ci / lp05-candidate both completed SUCCESS for 7e31f4829d3691bb1c20fa7417f68add0cfbf3eb.",
+      "impact_if_false": "The platform checks could not support this snapshot."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "Reviewer counterexamples make no external read or mutation.",
+      "decision_critical": false,
+      "status": "VERIFIED",
+      "method": "Use constructed in-process records only and instrument the only rollback callback.",
+      "evidence": "Forged-bundle output reported externalMutationCalls=0; restore identity repro called only the pure guard.",
+      "impact_if_false": "Review evidence would exceed the review-only boundary."
+    }
+  ],
+  "non_blocking_recommendations": [
+    {
+      "id": "NOTE-001",
+      "category": "concurrency",
+      "recommendation": "After active controller remediation, make stale lock reclamation compare-and-swap safe so concurrent recovery cannot unlink a newly acquired lock.",
+      "value": "Preserves the intended single-target mutation guarantee during crash recovery."
+    },
+    {
+      "id": "NOTE-002",
+      "category": "testing",
+      "recommendation": "Extend edge compatibility smoke to compare the direct Fastify and proxied error envelope/body-limit semantics, not only status codes.",
+      "value": "Detects proxy regressions that preserve status while rewriting the public contract."
+    }
+  ]
+}

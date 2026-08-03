@@ -1,0 +1,486 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 7,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/7",
+    "title": "LP-05 deployment and release readiness",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "46e021d261fd8a663c83430a551f5674365ccf14",
+    "head_ref": "codex/lp-05-deployment-release",
+    "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+    "reviewed_at": "2026-08-02T20:02:50Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete exact base-to-head diff across all 73 changed files",
+      "confirmed LP-05 requirements and approved Cycle 2 design and implementation plan",
+      "candidate provenance, production Compose/Caddy/container assets, deployment authority/state, smoke evidence, backup/restore, rotation/rollback and operations tooling",
+      "exact-head GitHub PR identity, readiness, mergeability and both CI checks"
+    ],
+    "excluded_scope": [
+      "production server, DNS, real secrets, production database, external backup target and release publication",
+      "merge execution or any feature-branch mutation"
+    ]
+  },
+  "review_context": {
+    "kind": "INITIAL",
+    "forward_risk_review": [
+      {
+        "surface": "External HTTPS and synthetic-story smoke evidence",
+        "risk_triggers": ["trust-boundary", "data-integrity", "test-adequacy", "deployment-compatibility"],
+        "reason": "AC 14-16 require independently observed trusted HTTPS, exact target/candidate identity and the real synthetic story; caller assertions cannot substitute for those observations.",
+        "affected_paths": [
+          "scripts/lp05/smoke/run.ts",
+          "scripts/lp05/smoke/http.ts",
+          "scripts/lp05/smoke/network.ts",
+          "scripts/lp05/smoke/security.ts",
+          "scripts/lp05/smoke/demo.ts",
+          "scripts/lp05/shared/contracts.ts"
+        ],
+        "checks": [
+          "trace the deploy:lp05:smoke CLI from input through every HTTP/TLS/network/story assertion",
+          "submit a fully hand-written external PASS with an expired certificate for another hostname"
+        ],
+        "finding_ids": ["PRR-001"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Deployment attempt state and authorization lifecycle",
+        "risk_triggers": ["state-transition", "data-integrity", "mutation-recovery", "test-adequacy"],
+        "reason": "DEPLOYED must be reachable only through validated, target-bound backup/migration/smoke/restore evidence under a single-use authorization.",
+        "affected_paths": [
+          "scripts/lp05/deploy/controller.ts",
+          "scripts/lp05/deploy/attempt-state.ts",
+          "scripts/lp05/deploy/attempt-record.ts",
+          "scripts/lp05/deploy/authorization-envelope.ts",
+          "scripts/lp05/shared/contracts.ts",
+          "package.json"
+        ],
+        "checks": [
+          "construct the full state transition sequence with only digest-shaped caller assertions",
+          "inspect call sites, package entrypoints, lock/single-use enforcement, resume and rollback paths"
+        ],
+        "finding_ids": ["PRR-002"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Isolated restore mutation boundary",
+        "risk_triggers": ["mutation-recovery", "data-integrity", "security-privacy", "deployment-compatibility"],
+        "reason": "The restore command must prove that the actual pg_restore destination is the declared generated isolated database and is not production.",
+        "affected_paths": [
+          "scripts/lp05/database/restore-cli.ts",
+          "scripts/lp05/database/restore.ts",
+          "scripts/lp05/database/restore-evidence.ts",
+          "scripts/lp05/database/database.unit.test.ts"
+        ],
+        "checks": [
+          "trace request identity and PGHOST/PGPORT/PGDATABASE into pg_restore",
+          "compare mutation-time checks with the isolated-target evidence contract and negative tests"
+        ],
+        "finding_ids": ["PRR-003"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Container and repository release-candidate topology",
+        "risk_triggers": ["deployment-compatibility", "security-privacy", "test-adequacy"],
+        "reason": "The candidate must remain digest-pinned, non-root/read-only, source-identifiable and expose only the HTTPS edge.",
+        "affected_paths": [
+          "deploy/Containerfile",
+          "deploy/compose.production.yaml",
+          "deploy/Caddyfile",
+          "scripts/lp05/candidate/build.ts",
+          "scripts/lp05/candidate/verify.ts",
+          ".github/workflows/ci.yml"
+        ],
+        "checks": [
+          "inspect image pins, users, capabilities, filesystems, networks, ports and secret injection",
+          "run static release readiness and reconcile exact-head candidate CI"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ]
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "Three blocking exact-head defects allow caller-authored external PASS evidence, allow DEPLOYED without the required migration/backup/smoke/restore projections, and leave pg_restore disconnected from the declared isolated target. GitHub checks are green, but their current tests do not exercise these adversarial paths.",
+    "blocking_finding_ids": ["PRR-001", "PRR-002", "PRR-003"]
+  },
+  "summary": "PR #7 adds a pinned production candidate, hardened single-host topology, deployment evidence contracts and backup/restore operations. The repository candidate and exact-head CI are healthy, but the external trust boundary is not yet enforceable: a hand-written observation file becomes external PASS, the attempt journal accepts DEPLOYED with all substantive evidence null, and the restore process can target a loopback database unrelated to its declared isolated identity.",
+  "change_map": [
+    {
+      "area": "Immutable release candidate",
+      "change": "Adds exact source/tree manifests, OCI archive verification, digest-pinned bases and exact-head CI candidate construction.",
+      "external_behavior": "Produces a transferable linux/amd64 or linux/arm64 application candidate without registry publication.",
+      "risk": "Medium",
+      "validation": "Static readiness and exact-head lp05-candidate CI pass."
+    },
+    {
+      "area": "Production topology",
+      "change": "Adds non-root/read-only app, one-shot migrations, private PostgreSQL, Caddy HTTPS and repository-outside secrets.",
+      "external_behavior": "Only Caddy publishes host ports while app and database remain on internal networks.",
+      "risk": "High",
+      "validation": "Configuration inspection, static readiness and exact-head candidate CI pass."
+    },
+    {
+      "area": "Deployment authority and state",
+      "change": "Adds authorization-envelope, attempt journal, transition and controller modules.",
+      "external_behavior": "Purports to gate an authorized deployment through backup, migration, HTTPS, restore and final re-smoke.",
+      "risk": "High",
+      "validation": "PRR-002 proves the journal can accept DEPLOYED without those evidence records and no deploy/rollback entrypoint or complete controller test is present."
+    },
+    {
+      "area": "Backup and isolated restore",
+      "change": "Adds streamed age encryption, manifest verification, retention and pg_restore tooling.",
+      "external_behavior": "Creates encrypted PostgreSQL backups and restores a post-deploy backup into an intended isolated target.",
+      "risk": "High",
+      "validation": "Manifest/retention unit tests pass; PRR-003 finds the actual pg_restore destination is not bound to the declared isolated target."
+    },
+    {
+      "area": "External smoke and final evidence",
+      "change": "Adds closed smoke/evidence records and a CLI accepting an observations file.",
+      "external_behavior": "Purports to prove trusted HTTPS, network boundaries and the LP-04 public synthetic journey.",
+      "risk": "High",
+      "validation": "PRR-001 reproduces an external PASS from fabricated assertions and an expired certificate for a different hostname."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "External smoke PASS is minted from caller assertions",
+      "location": {
+        "path": "scripts/lp05/smoke/run.ts",
+        "line_start": 24,
+        "line_end": 57,
+        "symbol": "buildSmokeEvidence / main",
+        "side": "RIGHT",
+        "commit_sha": "8dc99e295b9021f6123c027092b4f57600cc964f"
+      },
+      "observation": "The smoke CLI reads a caller-owned JSON file, checks only that all assertion IDs are present, copies every claimed observation, and unconditionally sets status to PASS. It never calls the added HTTP, TLS/header, network or synthetic-journey observers. The contract parser also accepts trusted=true without requiring the certificate hostname to equal the origin or the certificate interval to contain observedAt.",
+      "trigger": "Run deploy:lp05:smoke with all required IDs marked PASS, arbitrary 64-hex values and a certificate object that is expired or belongs to another hostname.",
+      "impact": "The command emits a canonical EXTERNAL_INITIAL/EXTERNAL_POST_RESTORE PASS without contacting the authorized domain or executing the story. That forged record can participate in the final equality chain, defeating AC 4-6 and 14-16 and allowing false production acceptance evidence.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "Reviewer supplied origin demo.example.com, certificate hostname wrong.example.net with notAfter 2020-01-01, and 22 CALLER_ASSERTED PASS rows. The exact-head CLI emitted status PASS and smokeSha256 4540f85cb049779da964d52d1f9e0e722f3834a109f82afecc083b5b8d032588.",
+          "reference": "reviewer exact-head deploy:lp05:smoke counterexample"
+        },
+        {
+          "kind": "code",
+          "description": "The CLI only loads JSON and calls buildSmokeEvidence; buildSmokeEvidence sets status PASS after an ID-set check.",
+          "reference": "scripts/lp05/smoke/run.ts:24-57"
+        },
+        {
+          "kind": "code",
+          "description": "The external certificate validator checks shapes and trusted=true but not origin hostname equality or validity at observedAt.",
+          "reference": "scripts/lp05/shared/contracts.ts:888-916"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved plan requires the smoke engine to observe trusted HTTPS, exact target/candidate/story facts and reject hand-written PASS.",
+          "reference": "docs/feature/lp-05-deployment-release/implementation-plan.md:299-329"
+        }
+      ],
+      "remediation": "Make the production smoke command actively collect every assertion from the exact authorized origin and live runtime, validate certificate hostname and validity against observedAt, run the LP-04 journey, derive digests from observed responses, and keep any observation-import mode permanently LOCAL/TEST_FIXTURE. Add the forged/expired/wrong-host counterexample to the exact-head gate.",
+      "verification": "A caller-authored external PASS, wrong-host certificate, expired/not-yet-valid certificate, skipped HTTP assertion, fabricated story digest and local/fixture observation must all fail; a controlled real HTTPS rehearsal must pass only from engine-derived evidence.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "evidence:lp05-external-smoke:caller-authored-pass"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "Attempt journal accepts DEPLOYED without required evidence",
+      "location": {
+        "path": "scripts/lp05/deploy/attempt-state.ts",
+        "line_start": 28,
+        "line_end": 73,
+        "symbol": "projectAttemptState / transitionAttempt",
+        "side": "RIGHT",
+        "commit_sha": "8dc99e295b9021f6123c027092b4f57600cc964f"
+      },
+      "observation": "State projection validates only the transition hash chain and that sourceDatabase is non-null after safety resolution. It does not parse the database identity or require/verify the state-specific migration, smoke, backup, restore, production-unchanged and rollback projections. Controller oracles return only an arbitrary digest plus an unrestricted projection; the controller then appends DEPLOYED without running cross-record equality. There is also no deploy:lp05 or rollback entrypoint and no production call site for runDeployment.",
+      "trigger": "Append the legal state names with digest-shaped evidence, set sourceDatabase to an empty object at SAFETY_BACKUP_RESOLVED, and leave migration, initialSmoke, postDeployBackup, restoreEvidence and postRestoreSmoke null.",
+      "impact": "The exact-head record verifier accepts currentState=DEPLOYED and a valid attempt digest despite having none of the facts required by AC 10-16. Oracle failure handling also only marks FAILED; it does not disable ingress or invoke rollback. The approved deployment/rollback/resume contract therefore cannot safely authorize or operate a real release.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "Reviewer advanced a valid attempt through all legal transitions with sourceDatabase={} and all substantive projections null; finalizeAttemptRecord returned DEPLOYED successfully.",
+          "reference": "reviewer exact-head attempt-state counterexample"
+        },
+        {
+          "kind": "code",
+          "description": "projectAttemptState requires only a non-null database marker and finishedAt parity; transitionAttempt merges any projection.",
+          "reference": "scripts/lp05/deploy/attempt-state.ts:28-73"
+        },
+        {
+          "kind": "code",
+          "description": "runDeployment trusts oracle digests/projections, appends DEPLOYED directly, and its catch path neither disables ingress nor calls rollbackApplication.",
+          "reference": "scripts/lp05/deploy/controller.ts:47-111"
+        },
+        {
+          "kind": "test",
+          "description": "The 31 LP-05 unit tests never call runDeployment or final evidence verification; package.json omits the planned deploy:lp05 and deploy:lp05:rollback commands.",
+          "reference": "scripts/lp05/shared/contracts.unit.test.ts:211-256; package.json:46-61"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved plan requires state-specific equality revalidation, single-use locking, bounded resume, rollback and hand-written-PASS negatives before DEPLOYED.",
+          "reference": "docs/feature/lp-05-deployment-release/implementation-plan.md:271-341"
+        }
+      ],
+      "remediation": "Implement the planned executable deployment and rollback commands. Validate each oracle's closed evidence and exact envelope/candidate/target/source-DB relationships before its transition; make state projections required by state; run the final cross-record/evidence verifier before DEPLOYED; enforce the single-target/single-attempt lock, bounded resume and ingress-disable/rollback failure path. Add full fresh/upgrade/fault-injection tests and a negative equivalent to the reviewer reproduction.",
+      "verification": "Missing, null, local, stale, wrong-target or wrong-candidate evidence must fail at the first affected transition; no failure may append DEPLOYED; the executable controller must demonstrate fresh/upgrade success, every boundary failure, one bounded resume, authorization reuse rejection and rollback/ingress behavior.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "state:lp05-attempt:deployed-without-evidence"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "security",
+      "title": "pg_restore destination is not bound to the isolated target",
+      "location": {
+        "path": "scripts/lp05/database/restore.ts",
+        "line_start": 27,
+        "line_end": 58,
+        "symbol": "restoreEncryptedBackup",
+        "side": "RIGHT",
+        "commit_sha": "8dc99e295b9021f6123c027092b4f57600cc964f"
+      },
+      "observation": "The mutation-time guard compares caller-provided isolatedTarget and productionIdentity objects, then only requires PGHOST to be localhost/127.0.0.1. PGPORT and PGDATABASE are independently supplied environment values; they are not checked against isolatedTarget.origin/databaseName, and the target object is not fully parsed before pg_restore. The CLI can therefore declare a safe generated restore target while restoring to a different loopback database.",
+      "trigger": "Supply a request containing distinct-looking isolatedTarget metadata but set PGHOST/PGPORT/PGDATABASE to any other loopback PostgreSQL database, including a production instance exposed on loopback.",
+      "impact": "pg_restore writes to the environment-selected database and can modify the wrong instance. This violates the hard AC 10/12 boundary that isolated recovery must never connect to or overwrite production and makes the recovery command unsafe to authorize.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "restore-cli takes destination connection fields exclusively from process environment while isolatedTarget comes from an unrelated request object.",
+          "reference": "scripts/lp05/database/restore-cli.ts:17-41"
+        },
+        {
+          "kind": "code",
+          "description": "restoreEncryptedBackup checks only PGHOST loopback, then passes PGDATABASE directly to pg_restore.",
+          "reference": "scripts/lp05/database/restore.ts:27-58"
+        },
+        {
+          "kind": "test",
+          "description": "The isolated-recovery unit test checks only metadata inequality and never exercises restoreEncryptedBackup or destination binding.",
+          "reference": "scripts/lp05/database/database.unit.test.ts:34-69"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved plan requires the generated project/database, loopback origin, container, volume and system identities to be exact before any restore mutation.",
+          "reference": "docs/feature/lp-05-deployment-release/implementation-plan.md:229-239"
+        }
+      ],
+      "remediation": "Generate the restore environment from one validated isolated-target record or verify exact host, port, database name, compose project/container/volume labels and live system identifier immediately before spawning pg_restore. Reject any mismatch with the production identity and require the database name suffix/unique target contract at mutation time.",
+      "verification": "Add spawned-command tests showing a different PGDATABASE, PGPORT, origin, project, container, volume, system identifier, production identity or non-generated target all fail before age/pg_restore starts; an exact newly created labelled restore target passes.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "recovery:lp05-restore:environment-target-unbound"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Replace caller-authored external smoke PASS with engine-observed HTTPS/network/story evidence and add forged certificate/assertion negatives.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Ship and test the executable stateful deployment/rollback controller with strict state evidence, equality, locking, resume and failure recovery before DEPLOYED.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-003",
+      "action": "Bind the actual pg_restore connection exactly to the validated generated isolated target before mutation.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "data-integrity",
+      "level": "High",
+      "description": "External PASS and DEPLOYED can currently be represented without authoritative live observations or the mandatory evidence chain.",
+      "mitigation": "Resolve PRR-001 and PRR-002 before merge or any production authorization.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "security-privacy",
+      "level": "High",
+      "description": "The restore command can write to a loopback database different from its declared isolated target.",
+      "mitigation": "Resolve PRR-003 with live exact target binding before pg_restore.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "High",
+      "description": "The planned executable deploy/rollback/resume/single-use controller surface is incomplete, so failure containment is not demonstrated.",
+      "mitigation": "Complete the approved controller slice and fault-injection matrix under the exact-head gate.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "maintainability",
+      "level": "Medium",
+      "description": "Static substring validators and disconnected observer modules allow green CI while core runtime paths remain unused.",
+      "mitigation": "Prefer executable integration gates and assert that production CLIs call the trusted observer/controller implementations.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm ci --ignore-scripts --engine-strict=false",
+        "environment": "macOS; Node.js 26.0.0; npm 11.12.1; isolated exact-head review worktree",
+        "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 exact locked packages without lifecycle scripts; local runtime differs from the declared Node 24/npm 11.16.0 and is not exact-runtime approval evidence.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:deployment:unit",
+        "environment": "macOS; Node.js 26.0.0; exact head",
+        "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 5 LP-05 test files and 31 committed unit tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run typecheck",
+        "environment": "macOS; Node.js 26.0.0; exact head",
+        "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "TypeScript build-mode and Web E2E typechecks passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run deploy:lp05:validate",
+        "environment": "macOS; exact head; static repository validation only",
+        "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "LP05_RELEASE_READINESS_PASS for static candidate, Compose, Caddy, entrypoint and frozen-artifact checks.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "deploy:lp05:smoke forged external observation counterexample",
+        "environment": "exact-head CLI; synthetic local JSON; no network",
+        "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "The CLI incorrectly accepted an expired wrong-host certificate and 22 caller-authored PASS assertions as EXTERNAL_INITIAL PASS.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "attempt-state missing-evidence transition counterexample",
+        "environment": "exact-head modules; synthetic local records; no external mutation",
+        "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "The journal incorrectly finalized DEPLOYED with sourceDatabase={} and migration/smoke/backup/restore projections all null.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-002"
+      },
+      {
+        "command": "git diff --check 46e021d261fd8a663c83430a551f5674365ccf14..8dc99e295b9021f6123c027092b4f57600cc964f",
+        "environment": "exact local git objects",
+        "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors across the complete 73-file PR diff.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-02T20:02:50Z",
+        "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30763934769, verify job 91539241856 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30763934769/job/91539241856"
+      },
+      {
+        "name": "ci / lp05-candidate",
+        "observed_at": "2026-08-02T20:02:50Z",
+        "head_sha": "8dc99e295b9021f6123c027092b4f57600cc964f",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30763934769, lp05-candidate job 91539476979 built and locally exercised the exact candidate successfully.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30763934769/job/91539476979"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local full npm run verify and OCI/Compose local acceptance",
+        "reason": "The local runner is Node 26/npm 11.12.1 rather than the declared runtime; exact-head GitHub CI ran the full configured verify and candidate jobs. Reviewer-local work focused on uncovered trust-boundary counterexamples."
+      },
+      {
+        "check": "Real encrypted pg_dump/pg_restore mutation",
+        "reason": "No authorized disposable PostgreSQL/age target was provided and invoking restore is unnecessary to establish that the environment-selected destination is not bound to the declared isolated target."
+      },
+      {
+        "check": "Production deployment, DNS, real secrets, backup or publication",
+        "reason": "These require separate post-merge target-bound authorization and are outside Review authority."
+      }
+    ]
+  },
+  "limitations": [
+    "Reviewer-local Node.js 26.0.0 and npm 11.12.1 differ from the declared Node 24/npm 11.16.0; exact configured-runtime authority comes from successful exact-head GitHub CI.",
+    "No production or external target was contacted; all adverse reproductions used synthetic local inputs.",
+    "The PR contains 73 files and 7,567 added lines; review reconciled the full file/diff map and deeply traced all high-risk release, authority, state, smoke, backup/restore and container paths rather than line-reading frozen or narrative documentation uniformly."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #7 still points to the exact base and head in the accepted CodeReviewRequest.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh authoritative GitHub PR metadata and REST state before review.",
+      "evidence": "GitHub reports OPEN, draft=false, base 46e021d261fd8a663c83430a551f5674365ccf14 and head 8dc99e295b9021f6123c027092b4f57600cc964f.",
+      "impact_if_false": "The report would be stale and could not authorize any outcome."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed GitHub checks belong to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read PR-associated check runs and their exact head SHA.",
+      "evidence": "ci / verify and ci / lp05-candidate both completed SUCCESS for 8dc99e295b9021f6123c027092b4f57600cc964f.",
+      "impact_if_false": "The platform checks could not support this snapshot."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The reviewer counterexamples do not contact or mutate production/external state.",
+      "decision_critical": false,
+      "status": "VERIFIED",
+      "method": "Use only synthetic files and in-process state transitions in the isolated review worktree.",
+      "evidence": "The smoke repro made no HTTP request and the state repro used only constructed JSON records.",
+      "impact_if_false": "Review evidence would exceed the review-only boundary."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
