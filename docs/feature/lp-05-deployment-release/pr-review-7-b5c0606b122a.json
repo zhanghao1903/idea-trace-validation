@@ -1,0 +1,774 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 7,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/7",
+    "title": "LP-05 deployment and release readiness",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "46e021d261fd8a663c83430a551f5674365ccf14",
+    "head_ref": "codex/lp-05-deployment-release",
+    "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+    "reviewed_at": "2026-08-03T03:44:18Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete Cycle 3 remediation delta 7e31f4829d3691bb1c20fa7417f68add0cfbf3eb..b5c0606b122a22498dceadf7321a2015f37ddb39 across all 36 changed files",
+      "revalidation of PRR-001 through PRR-004 against exact current code and negative paths",
+      "complete current 89-file base-to-head PR map with deep review of active deployment authority, state, recovery, backup, restore, rollback and public edge surfaces",
+      "exact-head GitHub PR identity, draft state, mergeability and both required CI checks"
+    ],
+    "excluded_scope": [
+      "production server, DNS, real secrets, production database, external backup target and public deployment",
+      "merge execution or any feature-branch mutation"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "docs/feature/lp-05-deployment-release/pr-review-7-7e31f4829d36.md",
+      "result_path": "docs/feature/lp-05-deployment-release/pr-review-7-7e31f4829d36.json",
+      "result_sha256": "66ff906b4a4fde07dce7feba5f3392e3b776f4472c019bc8db48e8e26251ab5b",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 7,
+      "reviewed_at": "2026-08-03T01:16:32Z",
+      "base_sha": "46e021d261fd8a663c83430a551f5674365ccf14",
+      "head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": ["PRR-001", "PRR-002", "PRR-003", "PRR-004"],
+      "blocking_finding_ids": ["PRR-002", "PRR-003", "PRR-004"]
+    },
+    "delta_review": {
+      "previous_base_sha": "46e021d261fd8a663c83430a551f5674365ccf14",
+      "previous_head_sha": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb",
+      "current_base_sha": "46e021d261fd8a663c83430a551f5674365ccf14",
+      "current_head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+      "triggers": ["HEAD_CHANGED", "EVIDENCE_CHANGED"],
+      "commit_range": "7e31f4829d3691bb1c20fa7417f68add0cfbf3eb..b5c0606b122a22498dceadf7321a2015f37ddb39",
+      "commits_reviewed": [
+        "29b85d19002f0376d2e1831be12238916e319822",
+        "b5c0606b122a22498dceadf7321a2015f37ddb39"
+      ],
+      "changed_files": [
+        "CHANGELOG.md",
+        "README.md",
+        "deploy/Caddyfile",
+        "deploy/Caddyfile.test",
+        "deploy/compose.restore.yaml",
+        "docs/feature/lp-05-deployment-release/design.md",
+        "docs/feature/lp-05-deployment-release/evidence-schema.md",
+        "docs/feature/lp-05-deployment-release/implementation-plan.md",
+        "docs/feature/lp-05-deployment-release/verification.md",
+        "docs/implementation-plans/v0-1/lp-05-deployment-release.md",
+        "docs/operations/lp05.md",
+        "docs/project-management.md",
+        "package.json",
+        "scripts/lp05/database/backup.ts",
+        "scripts/lp05/database/database.unit.test.ts",
+        "scripts/lp05/database/production-runtime.ts",
+        "scripts/lp05/database/restore-cli.ts",
+        "scripts/lp05/database/restore-evidence.ts",
+        "scripts/lp05/database/restore-runtime.ts",
+        "scripts/lp05/database/restore.ts",
+        "scripts/lp05/deploy/active-oracles.ts",
+        "scripts/lp05/deploy/attempt-lock.ts",
+        "scripts/lp05/deploy/attempt-state.ts",
+        "scripts/lp05/deploy/compose.ts",
+        "scripts/lp05/deploy/controller-cli.ts",
+        "scripts/lp05/deploy/controller.ts",
+        "scripts/lp05/deploy/deployment.unit.test.ts",
+        "scripts/lp05/deploy/evidence-oracles.ts",
+        "scripts/lp05/deploy/host-active-operations.ts",
+        "scripts/lp05/local-acceptance.ts",
+        "scripts/lp05/shared/contracts.ts",
+        "scripts/lp05/smoke/external.ts",
+        "scripts/lp05/smoke/external.unit.test.ts",
+        "scripts/lp05/smoke/security.ts",
+        "scripts/lp05/smoke/story.ts",
+        "tsconfig.lp05.json"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "README.md",
+        "deploy/Caddyfile",
+        "deploy/Caddyfile.test",
+        "deploy/compose.restore.yaml",
+        "docs/feature/lp-05-deployment-release/design.md",
+        "docs/feature/lp-05-deployment-release/evidence-schema.md",
+        "docs/feature/lp-05-deployment-release/implementation-plan.md",
+        "docs/feature/lp-05-deployment-release/verification.md",
+        "docs/implementation-plans/v0-1/lp-05-deployment-release.md",
+        "docs/operations/lp05.md",
+        "docs/project-management.md",
+        "package.json",
+        "scripts/lp05/database/backup.ts",
+        "scripts/lp05/database/database.unit.test.ts",
+        "scripts/lp05/database/production-runtime.ts",
+        "scripts/lp05/database/restore-cli.ts",
+        "scripts/lp05/database/restore-evidence.ts",
+        "scripts/lp05/database/restore-runtime.ts",
+        "scripts/lp05/database/restore.ts",
+        "scripts/lp05/deploy/active-oracles.ts",
+        "scripts/lp05/deploy/attempt-lock.ts",
+        "scripts/lp05/deploy/attempt-state.ts",
+        "scripts/lp05/deploy/compose.ts",
+        "scripts/lp05/deploy/controller-cli.ts",
+        "scripts/lp05/deploy/controller.ts",
+        "scripts/lp05/deploy/deployment.unit.test.ts",
+        "scripts/lp05/deploy/evidence-oracles.ts",
+        "scripts/lp05/deploy/host-active-operations.ts",
+        "scripts/lp05/local-acceptance.ts",
+        "scripts/lp05/shared/contracts.ts",
+        "scripts/lp05/smoke/external.ts",
+        "scripts/lp05/smoke/external.unit.test.ts",
+        "scripts/lp05/smoke/security.ts",
+        "scripts/lp05/smoke/story.ts",
+        "tsconfig.lp05.json"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "The two-commit remediation replaces bundle-backed deployment with active host operations, binds restore mutation to the inspected container, adds CSP/redirect proof and updates tests/docs. All prior blockers close, but adversarial recovery review found post-phase authority failures bypass terminalization/rollback and restore faults leak isolated resources.",
+      "evidence": "Exact old-to-new and base-to-head git diffs; direct call-graph review of every current side-effect/recovery path; 52 LP-05 tests; local revalidation counterexample; exact-head GitHub Actions run 30781026658."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "External smoke still rejects imported observations and actively derives TLS, HTTP, runtime and story evidence."
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "The production request has no evidence bundle; controller-owned active oracles execute and reconcile every phase, and ordered fresh/upgrade plus every-phase fault tests pass."
+      },
+      {
+        "finding_id": "PRR-003",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "Production and isolated identities are actively inspected, while pg_restore executes inside the exact re-inspected isolated Docker container; mismatch tests prove zero spawn."
+      },
+      {
+        "finding_id": "PRR-004",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "Both Caddy configurations set the approved CSP, and smoke rejects missing/altered CSP plus absent, wrong-host and downgraded redirects."
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Post-phase authority, deadline and terminal recovery boundary",
+        "risk_triggers": ["mutation-recovery", "state-transition", "deployment-compatibility", "test-adequacy"],
+        "reason": "Active operations add real side effects between pre-phase and pre-append authority checks, so every failed revalidation must still terminalize and execute safety rollback exactly once.",
+        "affected_paths": [
+          "scripts/lp05/deploy/controller.ts",
+          "scripts/lp05/deploy/controller-cli.ts",
+          "scripts/lp05/database/backup.ts",
+          "scripts/lp05/database/restore.ts"
+        ],
+        "checks": [
+          "fail revalidation after one phase returns and count phase/revalidation/rollback calls",
+          "trace journal persistence and lock release after recovery failure",
+          "inspect attempt and child-process deadline enforcement"
+        ],
+        "finding_ids": ["PRR-005"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Isolated restore resource lifecycle",
+        "risk_triggers": ["mutation-recovery", "data-integrity", "deployment-compatibility", "test-adequacy"],
+        "reason": "The remediation creates a temporary database/container/volume and must own exact cleanup for success, fault and stale-lock recovery.",
+        "affected_paths": [
+          "deploy/compose.restore.yaml",
+          "scripts/lp05/deploy/host-active-operations.ts",
+          "scripts/lp05/deploy/active-oracles.ts",
+          "scripts/lp05/deploy/rollback.ts",
+          "scripts/lp05/deploy/deployment.unit.test.ts"
+        ],
+        "checks": [
+          "trace every return/throw from restore target creation through success cleanup",
+          "verify production rollback owns no restore project cleanup",
+          "inspect every-phase fault test for actual host cleanup assertions"
+        ],
+        "finding_ids": ["PRR-006"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Container-bound restore target and production identity",
+        "risk_triggers": ["trust-boundary", "data-integrity", "security-privacy"],
+        "reason": "The restore target changed from caller-composable socket facts to live Docker identities and exact-container mutation.",
+        "affected_paths": [
+          "scripts/lp05/database/production-runtime.ts",
+          "scripts/lp05/database/restore-runtime.ts",
+          "scripts/lp05/database/restore-evidence.ts",
+          "scripts/lp05/database/restore.ts"
+        ],
+        "checks": [
+          "reject incomplete production identity",
+          "reject each live target mismatch before spawn",
+          "assert docker exec receives the exact inspected container and no host port"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      },
+      {
+        "surface": "Public CSP and redirect contract",
+        "risk_triggers": ["public-contract", "security-privacy", "test-adequacy"],
+        "reason": "The delta adds required public edge behavior and must propagate through config, validator, observer and negative tests.",
+        "affected_paths": [
+          "deploy/Caddyfile",
+          "deploy/Caddyfile.test",
+          "scripts/lp05/deploy/compose.ts",
+          "scripts/lp05/smoke/security.ts",
+          "scripts/lp05/smoke/external.ts",
+          "scripts/lp05/smoke/external.unit.test.ts"
+        ],
+        "checks": [
+          "exact policy in production and test edge",
+          "missing and unsafe CSP negatives",
+          "missing, wrong-host and downgraded redirect negatives"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      },
+      {
+        "surface": "Documentation, contracts, state support and build integration",
+        "risk_triggers": ["public-contract", "state-transition", "test-adequacy", "deployment-compatibility"],
+        "reason": "The remediation also updates operator guidance, evidence contracts, state/lock helpers, restore entrypoints, local acceptance and build wiring; these supporting changes must remain consistent with the executable active-operation model.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "README.md",
+          "docs/feature/lp-05-deployment-release/design.md",
+          "docs/feature/lp-05-deployment-release/evidence-schema.md",
+          "docs/feature/lp-05-deployment-release/implementation-plan.md",
+          "docs/feature/lp-05-deployment-release/verification.md",
+          "docs/implementation-plans/v0-1/lp-05-deployment-release.md",
+          "docs/operations/lp05.md",
+          "docs/project-management.md",
+          "package.json",
+          "scripts/lp05/database/database.unit.test.ts",
+          "scripts/lp05/database/restore-cli.ts",
+          "scripts/lp05/deploy/attempt-lock.ts",
+          "scripts/lp05/deploy/attempt-state.ts",
+          "scripts/lp05/deploy/evidence-oracles.ts",
+          "scripts/lp05/local-acceptance.ts",
+          "scripts/lp05/shared/contracts.ts",
+          "scripts/lp05/smoke/story.ts",
+          "tsconfig.lp05.json"
+        ],
+        "checks": [
+          "reconcile documented operator commands and evidence fields with current parsers and controller inputs",
+          "review state/lock and restore CLI call sites for stale legacy bundle paths",
+          "run repository and LP-05 typechecks plus release-readiness validation"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [
+        "PRR-005 leaves completed phase mutations without terminal journaling or rollback when post-phase authority validation fails.",
+        "PRR-006 leaves isolated restore containers/volumes after failure or crash."
+      ],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "NOT_AVAILABLE",
+        "reviewer": null,
+        "summary": "Sub-agent delegation was not authorized; the same reviewer completed a separate adversarial pass over every new state, lock, network, child-process, backup, restore, rollback and cleanup call site."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "All Cycle 2 blockers are resolved and current checks pass, but two remediation-induced failure paths remain blocking: authority failure after a completed phase bypasses terminal recovery, and restore faults leak isolated resources.",
+    "blocking_finding_ids": ["PRR-005", "PRR-006"]
+  },
+  "summary": "Cycle 3 adds real active deployment operations, exact-container restore and required edge security proof, resolving PRR-002/003/004. Approval remains withheld because the active controller can complete a side effect and then skip journal failure/rollback when authority revalidation fails, and isolated restore resources are not cleaned on failure.",
+  "change_map": [
+    {
+      "area": "active deployment controller",
+      "change": "replace evidence-bundle projections with controller-owned host operations and phase outputs",
+      "external_behavior": "ordered live phases are required before DEPLOYED",
+      "risk": "High",
+      "validation": "ordered/fault tests, call-graph review and post-phase authority counterexample"
+    },
+    {
+      "area": "backup and isolated restore",
+      "change": "actively inspect production and restore resources and execute pg_restore in exact container",
+      "external_behavior": "host socket cannot redirect the restore target",
+      "risk": "High",
+      "validation": "destination mismatch and exact-container tests plus recovery cleanup audit"
+    },
+    {
+      "area": "public edge",
+      "change": "configure and verify exact CSP and HTTPS redirect destination",
+      "external_behavior": "unsafe or missing headers/redirect fail smoke",
+      "risk": "Medium",
+      "validation": "negative unit tests, static validator and exact-head CI"
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "External smoke PASS is minted from caller assertions",
+      "location": {
+        "path": "scripts/lp05/smoke/run.ts",
+        "line_start": 25,
+        "line_end": 70,
+        "symbol": "buildSmokeEvidence / main",
+        "side": "RIGHT",
+        "commit_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39"
+      },
+      "observation": "Resolved. External mode rejects imported observations and runs active, authority-bound certificate, DNS, port, HTTP, runtime and journey observers.",
+      "trigger": "Replay the original caller-authored external observation payload.",
+      "impact": "The original forged external PASS path is no longer reachable.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "External observation import remains rejected and external requests route through the active engine.",
+          "reference": "scripts/lp05/smoke/run.ts:25-70"
+        },
+        {
+          "kind": "test",
+          "description": "Tests reject imported observations and invalid certificate identity/validity.",
+          "reference": "scripts/lp05/smoke/external.unit.test.ts"
+        }
+      ],
+      "remediation": "No further action; preserve the active external observation boundary.",
+      "verification": "Keep forged-observation and certificate negative cases in the exact-head gate.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "evidence:lp05-external-smoke:caller-authored-pass"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "Production controller replays caller evidence without executing deployment",
+      "location": {
+        "path": "scripts/lp05/deploy/active-oracles.ts",
+        "line_start": 1,
+        "line_end": 312,
+        "symbol": "createActiveDeploymentOracles",
+        "side": "RIGHT",
+        "commit_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39"
+      },
+      "observation": "Resolved. Production input no longer contains a future evidence bundle; active host operations execute and reconcile each ordered phase before evidence is appended.",
+      "trigger": "Attempt to complete the controller with only a hand-written internally consistent evidence bundle.",
+      "impact": "The original no-operation path to DEPLOYED is removed.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "Controller CLI constructs active deployment oracles from bound authority and runtime inputs rather than caller future evidence.",
+          "reference": "scripts/lp05/deploy/controller-cli.ts; scripts/lp05/deploy/active-oracles.ts"
+        },
+        {
+          "kind": "test",
+          "description": "Fresh, upgrade and every-phase fault tests exercise ordered active oracle execution.",
+          "reference": "scripts/lp05/deploy/deployment.unit.test.ts"
+        }
+      ],
+      "remediation": "No further action for the original fingerprint; PRR-005 separately covers the new post-operation recovery gap.",
+      "verification": "Retain ordered active-operation and every-phase fault coverage.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "state:lp05-attempt:deployed-without-evidence"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "security",
+      "title": "pg_restore live checks still do not bind the socket to the isolated container",
+      "location": {
+        "path": "scripts/lp05/database/restore.ts",
+        "line_start": 43,
+        "line_end": 111,
+        "symbol": "restoreBackup",
+        "side": "RIGHT",
+        "commit_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39"
+      },
+      "observation": "Resolved. Production and restore identities are actively inspected, and pg_restore executes inside the exact re-inspected isolated Docker container rather than through a caller-composable host socket.",
+      "trigger": "Mix a safe-looking restore project with an unrelated loopback database or incomplete production identity.",
+      "impact": "The original endpoint-confusion path now fails before restore mutation.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "Restore runtime derives the exact live container and restore mutation uses docker exec for that container.",
+          "reference": "scripts/lp05/database/restore-runtime.ts; scripts/lp05/database/restore.ts"
+        },
+        {
+          "kind": "test",
+          "description": "Identity mismatch cases assert zero restore spawn and exact-container execution.",
+          "reference": "scripts/lp05/database/database.unit.test.ts"
+        }
+      ],
+      "remediation": "No further action for this fingerprint; preserve exact-container and independently observed production identity checks.",
+      "verification": "Keep mismatch-before-spawn and exact docker-exec destination tests.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "recovery:lp05-restore:environment-target-unbound"
+    },
+    {
+      "id": "PRR-004",
+      "severity": "S2",
+      "blocking": false,
+      "confidence": "High",
+      "category": "security",
+      "title": "Required CSP and safe redirect semantics are neither configured nor proved",
+      "location": {
+        "path": "scripts/lp05/smoke/security.ts",
+        "line_start": 1,
+        "line_end": 80,
+        "symbol": "verifySecurityHeaders",
+        "side": "RIGHT",
+        "commit_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39"
+      },
+      "observation": "Resolved. Production and test Caddy configuration set the approved CSP, while active smoke requires it and validates an exact same-host HTTPS redirect.",
+      "trigger": "Omit or weaken CSP, or return an absent, wrong-host or downgraded redirect.",
+      "impact": "The previously accepted insecure public-edge variants now fail evidence generation.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "Caddy configuration and active smoke implement the CSP and redirect contract.",
+          "reference": "deploy/Caddyfile; deploy/Caddyfile.test; scripts/lp05/smoke/security.ts; scripts/lp05/smoke/external.ts"
+        },
+        {
+          "kind": "test",
+          "description": "Negative tests cover missing/unsafe CSP and absent, wrong-host and downgraded redirects.",
+          "reference": "scripts/lp05/smoke/external.unit.test.ts"
+        }
+      ],
+      "remediation": "No further action; retain the exact policy and redirect contract.",
+      "verification": "Keep the public-edge negative matrix in exact-head CI.",
+      "status": "resolved",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "security:lp05-edge:csp-and-redirect-unproved"
+    },
+    {
+      "id": "PRR-005",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "reliability",
+      "title": "Post-phase authority failure skips both terminal journaling and rollback",
+      "location": {
+        "path": "scripts/lp05/deploy/controller.ts",
+        "line_start": 122,
+        "line_end": 175,
+        "symbol": "runDeployment / advance / catch recovery",
+        "side": "RIGHT",
+        "commit_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39"
+      },
+      "observation": "advance always revalidates before persistence. If an active phase succeeds but post-phase revalidation fails, the catch path calls advance(FAILED), repeats the same failing revalidation, and exits before FAILED, ROLLING_BACK or rollback. The CLI then releases the lock while the persisted attempt remains at the previous forward state. Active backup/restore child pipelines also lack a controller deadline, so a blocked oracle never reaches the designed four-hour terminal boundary.",
+      "trigger": "Let a valid phase complete after its envelope expires or mutate the bound request/runtime between the pre-phase and pre-append checks; an unbounded backup/restore child can produce the same stranded state after operator termination.",
+      "impact": "A migration, candidate app/Caddy, backup or restore side effect can exist without a matching journal append, failure record, ingress disable or rollback. Clean-lock re-entry rejects the persisted forward state, leaving an ambiguous partially mutated deployment contrary to AC 11 and the approved recovery contract.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "Exact-head pure local counterexample produced one external phase call, three revalidations and zero rollback calls before returning AUTHORITY_EXPIRED_AFTER_PHASE.",
+          "reference": "/private/tmp/lp05-cycle3-revalidate-repro.ts output: {error:AUTHORITY_EXPIRED_AFTER_PHASE,externalPhaseCalls:1,revalidations:3,rollbackCalls:0}"
+        },
+        {
+          "kind": "code",
+          "description": "Success advance and catch-path FAILED advance both invoke the same revalidate before persistence.",
+          "reference": "scripts/lp05/deploy/controller.ts:122-175"
+        },
+        {
+          "kind": "code",
+          "description": "The CLI always releases the target lock in finally even when runDeployment exits with the prior forward record unchanged.",
+          "reference": "scripts/lp05/deploy/controller-cli.ts:244-259"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved design requires terminal failure/rollback and a four-hour attempt maximum; backup and restore spawn pipelines have no timeout.",
+          "reference": "docs/feature/lp-05-deployment-release/design.md:345,456-466; scripts/lp05/database/backup.ts:56-125; scripts/lp05/database/restore.ts:75-111"
+        }
+      ],
+      "remediation": "Separate authorization for new forward mutations from safety recovery. Guarantee a durable terminal/rollback path for any post-operation failure even when forward revalidation fails, without authorizing another forward phase. Enforce the attempt deadline and bounded child termination, keep exact call ordering, and leave a recoverable terminal/interrupted record rather than a clean-lock forward state.",
+      "verification": "At every phase boundary, fail expiry/request/runtime revalidation after the oracle returns and assert the external call count, exactly one ingress-disable/rollback, durable FAILED -> ROLLING_BACK -> terminal transitions, and no later phase. A hung backup/restore process must terminate at the deadline and follow the same recovery path.",
+      "status": "open",
+      "origin": "DELTA_INTRODUCED",
+      "fingerprint": "state:lp05-active:post-phase-revalidation-bypasses-recovery"
+    },
+    {
+      "id": "PRR-006",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "deployment",
+      "title": "Restore faults leave the isolated database environment running",
+      "location": {
+        "path": "scripts/lp05/deploy/host-active-operations.ts",
+        "line_start": 860,
+        "line_end": 1098,
+        "symbol": "execute RESTORE_ENVIRONMENT / RESTORE",
+        "side": "RIGHT",
+        "commit_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39"
+      },
+      "observation": "RESTORE_ENVIRONMENT creates the isolated PostgreSQL project, but compose down --volumes exists only near the end of the successful RESTORE case. No finally or stale-recovery cleanup owns that project. Generic rollback only operates on the production app/caddy project and cannot remove the isolated resources.",
+      "trigger": "Fail or crash after isolated PostgreSQL creation and before successful down/verification, including destination inspection, decrypt/import, migration, app readiness, demo replay, migration proof or production reinspection.",
+      "impact": "The restored database container, loopback app and persistent volume can remain after failure, retaining restored synthetic data, consuming disk/ports, blocking deterministic reuse and violating the explicit restore-failure cleanup contract while the deployment is marked failed.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "Restore project creation precedes many throwing operations; the only removal is success-path compose down --volumes.",
+          "reference": "scripts/lp05/deploy/host-active-operations.ts:860-1098"
+        },
+        {
+          "kind": "code",
+          "description": "Active rollback delegates to production application rollback, whose adapter does not know the restore project.",
+          "reference": "scripts/lp05/deploy/active-oracles.ts:306-312; scripts/lp05/deploy/rollback.ts:10-39; scripts/lp05/deploy/host-rollback.ts:49-181"
+        },
+        {
+          "kind": "test",
+          "description": "The every-phase fault test mocks abstract oracles and asserts only one generic rollback call; it never instantiates host operations or asserts restore container/volume cleanup.",
+          "reference": "scripts/lp05/deploy/deployment.unit.test.ts:913-926"
+        },
+        {
+          "kind": "spec",
+          "description": "Requirements explicitly require failed restore smoke to clean only the isolated temporary environment while preserving backup and production data.",
+          "reference": "docs/feature/lp-05-deployment-release/requirements.md failure and recovery expectations"
+        }
+      ],
+      "remediation": "Own the exact restore project/container/volume lifecycle across success, handled failure and stale-lock recovery. Clean only resources matching the persisted isolated identity, record cleanup outcome separately from production rollback, and preserve production plus backup evidence.",
+      "verification": "Inject a fault at every operation from restore environment creation through production reinspection, plus a crash/recovery case; each must leave zero matching restore containers/volumes, preserve production byte-identity and backup files, and record cleanup before terminalization.",
+      "status": "open",
+      "origin": "DELTA_INTRODUCED",
+      "fingerprint": "recovery:lp05-restore:failure-leaks-isolated-resources"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Replace caller-authored external smoke PASS with active authority-bound observation and certificate validation.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Replace bundle-backed production oracles with active live deployment operations and explicit bounded interruption/resume.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-003",
+      "action": "Bind pg_restore to the exact inspected isolated container and independently observe production identity.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-004",
+      "action": "Configure and prove required CSP plus exact same-host HTTPS redirect semantics.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-005",
+      "action": "Make post-operation authority/deadline failures terminal and rollback-safe without enabling new forward mutation.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-006",
+      "action": "Clean exact isolated restore resources on every failure and crash-recovery path.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "reliability-concurrency",
+      "level": "High",
+      "description": "A completed phase can be left outside the journal with no rollback when post-phase authority validation fails.",
+      "mitigation": "Resolve PRR-005 with independent safety-recovery authority, durable terminalization and deadlines.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "High",
+      "description": "Failure handling can strand a forward state and restore resources are not cleaned on fault.",
+      "mitigation": "Resolve PRR-005 and PRR-006 before approval.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "data-integrity",
+      "level": "Medium",
+      "description": "A failed isolated restore can leave a persistent copy of restored synthetic data and consume backup capacity.",
+      "mitigation": "Add exact identity-bound cleanup and fault/crash tests under PRR-006.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "security-privacy",
+      "level": "Low",
+      "description": "No new secret disclosure or production-target restore path was found; CSP and redirect proof now pass.",
+      "mitigation": "Retain current secret-absence and edge-policy checks.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm ci --ignore-scripts --engine-strict=false",
+        "environment": "macOS; Node.js 26.0.0; npm 11.12.1; isolated exact-head review worktree",
+        "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 exact locked packages without lifecycle scripts; local runtime differs from declared Node 24/npm 11.16.0.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:deployment:unit",
+        "environment": "macOS; Node.js 26.0.0; exact head",
+        "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 6 LP-05 test files and 52 committed tests passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run typecheck",
+        "environment": "macOS; Node.js 26.0.0; exact head",
+        "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Repository TypeScript build-mode and Web E2E typechecks passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run typecheck:lp05",
+        "environment": "macOS; Node.js 26.0.0; exact head",
+        "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All non-test LP-05 scripts compile under the dedicated TypeScript configuration.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run deploy:lp05:validate",
+        "environment": "macOS; exact head; static repository validation only",
+        "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "LP05_RELEASE_READINESS_PASS; tsx required only a local Unix IPC socket.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "git diff --check 46e021d261fd8a663c83430a551f5674365ccf14..b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "environment": "exact local git objects",
+        "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace errors across the complete current PR diff.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx /private/tmp/lp05-cycle3-revalidate-repro.ts",
+        "environment": "exact-head modules; synthetic in-process oracles; no Docker, network, database or external mutation",
+        "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "Unsafe behavior reproduced: one phase completed, revalidation failed three times, and rollbackCalls remained zero.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-005"
+      },
+      {
+        "command": "reviewer exact-head restore failure-path call-graph audit",
+        "environment": "exact-head source and committed tests; no external mutation",
+        "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "status": "FAIL",
+        "exit_code": 0,
+        "summary": "Restore project removal exists only on the success path; generic rollback has no isolated project cleanup capability.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-006"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-03T03:44:18Z",
+        "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30781026658, verify job 91585535396 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30781026658/job/91585535396"
+      },
+      {
+        "name": "ci / lp05-candidate",
+        "observed_at": "2026-08-03T03:44:18Z",
+        "head_sha": "b5c0606b122a22498dceadf7321a2015f37ddb39",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30781026658, lp05-candidate job 91585889594 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30781026658/job/91585889594"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local OCI build and Compose candidate acceptance",
+        "reason": "Exact-head GitHub CI ran the configured candidate job; the local runner differs from the declared Node/npm versions."
+      },
+      {
+        "check": "Real external HTTPS deployment, migration, encrypted backup and PostgreSQL restore",
+        "reason": "No separately authorized target was provided and these mutations are outside review-only authority."
+      },
+      {
+        "check": "Production deployment, DNS, secret delivery, publication or merge",
+        "reason": "These require separate authority and are outside Engineering Review."
+      }
+    ]
+  },
+  "limitations": [
+    "Reviewer-local Node.js 26.0.0 and npm 11.12.1 differ from declared Node 24/npm 11.16.0; configured-runtime authority comes from successful exact-head GitHub CI.",
+    "No production or external target was contacted; negative reproductions used in-process synthetic inputs and static call-graph evidence only.",
+    "A fresh-context sub-reviewer was unavailable because delegation was not authorized; the same reviewer completed a distinct second pass over all new state, lock, network, child-process, backup, restore, rollback and cleanup call sites.",
+    "The current PR contains 89 files and 14,041 additions; Cycle 3 reused the prior full-PR reconciliation, classified all 36 delta files and re-traced every high-risk operational path."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #7 still points to the exact base and head in the accepted Cycle 3 CodeReviewRequest.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh authoritative GitHub PR metadata before review and immediately before result preparation.",
+      "evidence": "GitHub reported OPEN, draft=false, base 46e021d261fd8a663c83430a551f5674365ccf14 and head b5c0606b122a22498dceadf7321a2015f37ddb39.",
+      "impact_if_false": "The report would be stale and invalid."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "Observed GitHub checks belong to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read PR-associated check runs and exact head SHA.",
+      "evidence": "ci / verify and ci / lp05-candidate both completed SUCCESS for b5c0606b122a22498dceadf7321a2015f37ddb39.",
+      "impact_if_false": "Platform checks could not support this snapshot."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "Reviewer counterexamples make no external read or mutation.",
+      "decision_critical": false,
+      "status": "VERIFIED",
+      "method": "Use in-process mock oracles and static source inspection only.",
+      "evidence": "The reproduction imported exact-head pure modules, supplied synthetic records, and invoked no Docker, network, filesystem authority or production process.",
+      "impact_if_false": "Review evidence would exceed the review-only boundary."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
