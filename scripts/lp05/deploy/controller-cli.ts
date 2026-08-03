@@ -12,7 +12,11 @@ import {
   writeAttemptRecord,
 } from "./attempt-record.js";
 import { interruptAttempt, resumeInterruptedAttempt } from "./attempt-state.js";
-import { assertControllerInitialAttempt, runDeployment } from "./controller.js";
+import {
+  assertControllerInitialAttempt,
+  recoverDeploymentFailure,
+  runDeployment,
+} from "./controller.js";
 import {
   createHostActiveDeploymentOperations,
   parseHostActiveRuntime,
@@ -20,14 +24,14 @@ import {
 import { createActiveDeploymentOracles } from "./active-oracles.js";
 import { createHostRollbackAdapter } from "./host-rollback.js";
 import { rollbackApplication } from "./rollback.js";
-import { canonicalJson } from "../shared/canonical-json.js";
+import { canonicalJson, canonicalSha256 } from "../shared/canonical-json.js";
 import {
   exactKeys,
   record,
   verifyDeploymentAuthorizationEnvelope,
   type JsonRecord,
 } from "../shared/contracts.js";
-import { exists } from "../shared/filesystem.js";
+import { atomicWrite, exists } from "../shared/filesystem.js";
 
 const argument = (name: string): string => {
   const index = process.argv.indexOf(name);
@@ -67,6 +71,19 @@ const main = async (): Promise<void> => {
   let attempt = verifyAttemptRecord(request.attempt);
   const requestedAttempt = attempt;
   const runtime = parseHostActiveRuntime(request.runtime);
+  const authorization = record(
+    record(request.envelope, "DEPLOYMENT_ENVELOPE").authorization,
+    "DEPLOYMENT_AUTHORIZATION",
+  );
+  verifyDeploymentAuthorizationEnvelope(
+    request.envelope,
+    new Date(String(authorization.authorizedAt)),
+    {
+      workflowId: "ab5accf2-4bea-4ea2-b3c5-4f3f115d45ff",
+      featureId: "lp-05-deployment-release-8c3f1a6d5e20",
+      sourceThreadId: "019fa641-0154-70f3-9d06-4905baa7e186",
+    },
+  );
   const authorityFields = [
     "attemptId",
     "envelopeId",
@@ -136,25 +153,35 @@ const main = async (): Promise<void> => {
         throw new Error(`DEPLOYMENT_AUTHORITY_CHANGED:${field}`);
     }
   };
-  await verifyCurrentAuthority(attempt);
   const target = record(attempt.target, "DEPLOYMENT_CONTROLLER_TARGET");
   const attemptPath = path.join(
     stateRoot,
     "attempts",
     `${String(attempt.attemptId)}.json`,
   );
+  const runtimeBindingPath = path.join(
+    stateRoot,
+    "attempts",
+    `${String(attempt.attemptId)}.runtime.json`,
+  );
+  const runtimeBinding: JsonRecord = {
+    schemaVersion: "1.0",
+    attemptId: attempt.attemptId,
+    runtime,
+    previousEnvironmentSha256: canonicalSha256({
+      previousEnvironment: request.previousEnvironment,
+    }),
+    bindingSha256: "",
+  };
+  runtimeBinding.bindingSha256 = canonicalSha256(runtimeBinding, [
+    "bindingSha256",
+  ]);
   const lock = await acquireAttemptLock(
     stateRoot,
     String(target.targetId),
     String(attempt.attemptId),
   );
   try {
-    await verifyCurrentAuthority(attempt);
-    await bindEnvelopeToAttempt(
-      stateRoot,
-      String(attempt.envelopeId),
-      String(attempt.attemptId),
-    );
     if (await exists(attemptPath)) {
       const existing = verifyAttemptRecord(
         JSON.parse(await readFile(attemptPath, "utf8")),
@@ -170,44 +197,44 @@ const main = async (): Promise<void> => {
         if (canonicalJson(existing[field]) !== canonicalJson(attempt[field]))
           throw new Error(`DEPLOYMENT_ATTEMPT_AUTHORITY_MISMATCH:${field}`);
       attempt = existing;
+      if (!(await exists(runtimeBindingPath)))
+        throw new Error("DEPLOYMENT_RUNTIME_BINDING_MISSING");
+      const persistedRuntime = record(
+        JSON.parse(await readFile(runtimeBindingPath, "utf8")),
+        "DEPLOYMENT_RUNTIME_BINDING",
+      );
+      exactKeys(
+        persistedRuntime,
+        [
+          "schemaVersion",
+          "attemptId",
+          "runtime",
+          "previousEnvironmentSha256",
+          "bindingSha256",
+        ],
+        "DEPLOYMENT_RUNTIME_BINDING",
+      );
+      if (
+        persistedRuntime.schemaVersion !== "1.0" ||
+        persistedRuntime.bindingSha256 !==
+          canonicalSha256(persistedRuntime, ["bindingSha256"]) ||
+        canonicalJson(persistedRuntime) !== canonicalJson(runtimeBinding)
+      )
+        throw new Error("DEPLOYMENT_RUNTIME_BINDING_CHANGED");
     } else {
       assertControllerInitialAttempt(attempt);
       await verifyCurrentAuthority(attempt);
+      await bindEnvelopeToAttempt(
+        stateRoot,
+        String(attempt.envelopeId),
+        String(attempt.attemptId),
+      );
+      await atomicWrite(
+        runtimeBindingPath,
+        canonicalJson(runtimeBinding),
+        0o600,
+      );
       await writeAttemptRecord(attemptPath, null, attempt);
-    }
-    if (
-      lock.recovered &&
-      !["INTERRUPTED", "DEPLOYED", "ROLLED_BACK", "ROLLBACK_FAILED"].includes(
-        String(attempt.currentState),
-      )
-    ) {
-      await verifyCurrentAuthority(attempt);
-      const interrupted = finalizeAttemptRecord(
-        interruptAttempt(attempt, {
-          occurredAt: new Date().toISOString(),
-          reasonCode: "STALE_PROCESS_LOCK_RECOVERED",
-        }),
-      );
-      await writeAttemptRecord(attemptPath, attempt, interrupted);
-      attempt = interrupted;
-    } else if (
-      !lock.recovered &&
-      !["PREPARED", "INTERRUPTED", "DEPLOYED"].includes(
-        String(attempt.currentState),
-      )
-    ) {
-      throw new Error("DEPLOYMENT_FORWARD_REENTRY_REQUIRES_STALE_LOCK");
-    }
-    if (attempt.currentState === "INTERRUPTED") {
-      await verifyCurrentAuthority(attempt);
-      const resumed = finalizeAttemptRecord(
-        resumeInterruptedAttempt(attempt, {
-          occurredAt: new Date().toISOString(),
-          reasonCode: "BOUNDED_PROCESS_RESUME",
-        }),
-      );
-      await writeAttemptRecord(attemptPath, attempt, resumed);
-      attempt = resumed;
     }
     if (
       (attempt.previousRelease === null) !==
@@ -241,13 +268,99 @@ const main = async (): Promise<void> => {
       envelope: request.envelope,
       rollback,
     });
+    const oracles = createActiveDeploymentOracles({
+      evidenceRoot: runtime.evidenceRoot,
+      operations,
+    });
+    if (
+      lock.recovered &&
+      !["DEPLOYED", "ROLLED_BACK", "ROLLBACK_FAILED"].includes(
+        String(attempt.currentState),
+      )
+    ) {
+      const lateRecoveryStates = [
+        "POST_DEPLOY_BACKUP_VERIFIED",
+        "RESTORE_ENV_READY",
+        "RESTORE_VERIFIED",
+        "PRODUCTION_UNCHANGED_VERIFIED",
+        "POST_RESTORE_SMOKE_PASSED",
+        "RESUMING",
+        "FAILED",
+        "ROLLING_BACK",
+      ];
+      let recoveryReason: Error | null = lateRecoveryStates.includes(
+        String(attempt.currentState),
+      )
+        ? new Error("STALE_RESTORE_OPERATION_REQUIRES_TERMINAL_RECOVERY")
+        : null;
+      if (recoveryReason === null) {
+        try {
+          await verifyCurrentAuthority(attempt);
+        } catch (error) {
+          recoveryReason =
+            error instanceof Error
+              ? error
+              : new Error("DEPLOYMENT_AUTHORITY_REVALIDATION_FAILED");
+        }
+      }
+      if (recoveryReason !== null) {
+        const recovered = await recoverDeploymentFailure({
+          attempt,
+          oracles,
+          persist: async (previous, next) =>
+            writeAttemptRecord(attemptPath, previous, next),
+          error: recoveryReason,
+        });
+        process.stdout.write(`${canonicalJson(recovered)}\n`);
+        if (recovered.currentState !== "DEPLOYED") process.exitCode = 2;
+        return;
+      }
+      if (attempt.currentState !== "INTERRUPTED") {
+        const interrupted = finalizeAttemptRecord(
+          interruptAttempt(attempt, {
+            occurredAt: new Date().toISOString(),
+            reasonCode: "STALE_PROCESS_LOCK_RECOVERED",
+          }),
+        );
+        await writeAttemptRecord(attemptPath, attempt, interrupted);
+        attempt = interrupted;
+      }
+    } else if (
+      !lock.recovered &&
+      !["PREPARED", "INTERRUPTED", "DEPLOYED"].includes(
+        String(attempt.currentState),
+      )
+    ) {
+      throw new Error("DEPLOYMENT_FORWARD_REENTRY_REQUIRES_STALE_LOCK");
+    }
+    if (attempt.currentState === "INTERRUPTED") {
+      try {
+        await verifyCurrentAuthority(attempt);
+      } catch (error) {
+        const recovered = await recoverDeploymentFailure({
+          attempt,
+          oracles,
+          persist: async (previous, next) =>
+            writeAttemptRecord(attemptPath, previous, next),
+          error,
+        });
+        process.stdout.write(`${canonicalJson(recovered)}\n`);
+        if (recovered.currentState !== "DEPLOYED") process.exitCode = 2;
+        return;
+      }
+      const resumed = finalizeAttemptRecord(
+        resumeInterruptedAttempt(attempt, {
+          occurredAt: new Date().toISOString(),
+          reasonCode: "BOUNDED_PROCESS_RESUME",
+        }),
+      );
+      await writeAttemptRecord(attemptPath, attempt, resumed);
+      attempt = resumed;
+    }
     const finalAttempt = await runDeployment({
       envelope: request.envelope,
       attempt,
-      oracles: createActiveDeploymentOracles({
-        evidenceRoot: runtime.evidenceRoot,
-        operations,
-      }),
+      oracles,
       revalidate: verifyCurrentAuthority,
       persist: async (previous, next) =>
         writeAttemptRecord(attemptPath, previous, next),

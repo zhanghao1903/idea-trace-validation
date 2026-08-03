@@ -302,6 +302,12 @@ Stale-lock recovery first acquires a separate exclusive recovery lease and can o
 lock; it then records `INTERRUPTED -> RESUMING`. Direct forward re-entry, a live owner, or a new contender fails
 closed.
 
+Code-review remediation separates forward authorization from already-bound safety recovery. The controller writes
+an immutable `AttemptRuntimeBindingV1`, checks authority/deadline before each forward append, and on post-phase
+expiry/drift persists the terminal/rollback chain without permitting another forward phase. A controller deadline
+abort terminates backup/restore pipelines. Late stale-lock recovery (at or after the post-deploy backup) is
+terminalized rather than resumed so the restore environment can be cleaned deterministically.
+
 Ordered execution is:
 
 1. read-only target/DNS/ports/runtime/disk/secret/config/image/toolchain preflight;
@@ -321,6 +327,11 @@ public ingress and cannot leave the attempt operationally accepted. Interrupted 
 repeating migration/backup. Upgrade app rollback restores the prior image/config and reruns readiness/core reads;
 fresh-install failure leaves ingress stopped. DB restore remains impossible from this command.
 
+Before restore Compose creation, persist an attempt/runtime-bound `RestoreLifecycleV1` intent. Advance it to
+`READY` only with the exact inspected isolated target. Success, handled faults, deadline abort and late stale-lock
+recovery validate every matching project label, remove only that exact restore project/container/volume set, verify
+zero remain, preserve production and backup files, and persist `CLEANED` or `CLEANUP_FAILED` before terminalization.
+
 ### 6.3 Evidence Contract
 
 Emit and verify closed `DeploymentEvidenceV1` from Design §7.3. The verifier independently loads exact canonical
@@ -333,6 +344,12 @@ pre-migration empty, local, old, stale, wrong-target/source-DB/attempt/candidate
 ciphertext; local or pre-restore smoke; changed story/resource/assertion digests; changed production identity;
 secret-bearing evidence; and incomplete cleanup. Fresh-install and upgrade happy paths each execute the entire
 post-deploy chain.
+
+The Cycle 3 regressions inject authority failure after each of the eleven active phases, a hung controller phase,
+deadline aborts for both backup and restore child pipelines, crash recovery from a pre-discovery restore intent,
+and foreign-label cleanup attempts. They require exactly one rollback, an immutable
+`FAILED -> ROLLING_BACK -> ROLLED_BACK|ROLLBACK_FAILED` suffix, zero exact restore resources, unchanged backup bytes,
+and no cleanup command against a mismatched project.
 
 Local end-to-end tests run the controller only against the labelled loopback Compose environment and typed `LOCAL`
 evidence. They prove orchestration/state/equality and rollback but cannot populate either external smoke state or

@@ -259,6 +259,7 @@ export const projectAttemptState = (attempt: JsonRecord): void => {
     );
     if (
       next !== undefined &&
+      next.to !== "FAILED" &&
       (forwardIndex < 0 || next.to !== forward[forwardIndex + 1])
     )
       throw new Error("ATTEMPT_RESUME_NEXT_STATE");

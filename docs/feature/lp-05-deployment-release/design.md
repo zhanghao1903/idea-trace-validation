@@ -435,6 +435,8 @@ stateDiagram-v2
   RESUMING --> RESTORE_VERIFIED
   RESUMING --> PRODUCTION_UNCHANGED_VERIFIED
   RESUMING --> POST_RESTORE_SMOKE_PASSED
+  INTERRUPTED --> FAILED
+  RESUMING --> FAILED
   PREPARED --> FAILED
   PREFLIGHT_PASSED --> FAILED
   SAFETY_BACKUP_RESOLVED --> FAILED
@@ -462,9 +464,15 @@ The production controller request contains no future evidence bundle and no call
 phase is an active operation that writes one controller-owned, closed `ActivePhaseOutputV1` under the exact
 attempt/phase path before the journal can advance. Existing outputs are accepted only after their phase-specific
 reconciliation re-observes the live resource and canonical bytes still match. Authorization, candidate, target and
-deadlines are re-read before each append. Crash recovery uses a separate exclusive recovery lease before removing a
-dead owner's stale lock, then explicitly appends `INTERRUPTED -> RESUMING`; an ordinary second invocation cannot
-continue a forward state. A competing live owner or a lock acquired during recovery is never removed.
+deadlines are re-read before each forward append, while the sanitized runtime projection is independently bound to
+the attempt. If a phase completes but post-phase authority/deadline validation fails, the already-bound safety path
+persists `FAILED -> ROLLING_BACK -> ROLLED_BACK|ROLLBACK_FAILED` without authorizing another forward mutation. The
+four-hour deadline aborts active backup/restore child pipelines. Crash recovery uses a separate exclusive recovery
+lease before removing a dead owner's stale lock. An early, still-authorized interruption may append
+`INTERRUPTED -> RESUMING` once; an expired/drifted interruption or any interruption at/after post-deploy backup is
+terminalized through the same safety path so an isolated restore is not blindly resumed. An ordinary second
+invocation cannot continue a forward state. A competing live owner or a lock acquired during recovery is never
+removed.
 
 An upgrade must have a verified `PRE_MIGRATION_SAFETY` backup. A fresh install may use `FreshTargetProofV1` only
 before any production volume/release marker/data exists. After initial external smoke has created or verified the
@@ -539,6 +547,13 @@ identity, app container/image/config identity, Caddy container/config identity a
 contains no status that can be hand-written; every value comes from an independent inspect/read. Before/after
 canonical byte equality is required before `PRODUCTION_UNCHANGED_VERIFIED`.
 
+The controller writes an attempt-bound `restore-lifecycle.json` before creating the restore project. Its closed
+states are `CREATING`, `READY`, `CLEANED`, and `CLEANUP_FAILED`; `READY` binds the exact isolated target and every
+record binds attempt/envelope/target/candidate/runtime identities plus a canonical digest. Success, handled failure,
+deadline abort, and stale-lock recovery inspect every matching container and volume label before running the exact
+restore-project `compose down --volumes`, verify zero matching resources remain, and persist the cleanup outcome.
+Production resources and encrypted backup files are outside this cleanup authority.
+
 ### 6.3 Cross-record Equality Chain And Restore Flow
 
 ```mermaid
@@ -583,9 +598,11 @@ ingress. Upgrade rollback restores the prior application, waits for readiness an
 migrations remain. Fresh install stops ingress and preserves the DB and encrypted evidence for diagnosis. No
 automatic down or production DB restore occurs.
 
-Failed isolated restore cleanup resolves only the exact restore labels; its failure cannot connect to or remove
-production resources. Production DB restore is a separate destructive operation requiring a verified safety backup,
-demonstrated incompatibility, a new proposal and explicit authorization outside this deployment attempt.
+Failed isolated restore cleanup resolves only the attempt/runtime-bound restore project and label set; its outcome
+is persisted before terminal rollback completes. Cleanup failure produces `ROLLBACK_FAILED` and cannot connect to or
+remove production resources or backup files. Production DB restore is a separate destructive operation requiring a
+verified safety backup, demonstrated incompatibility, a new proposal and explicit authorization outside this
+deployment attempt.
 
 ## 7. Smoke, Rotation And Final Evidence
 

@@ -114,3 +114,7 @@
   locks through an exclusive bounded-resume lease, run restore inside the exact
   re-inspected isolated DB container after complete production-identity checks,
   and require exact same-host HTTPS redirects plus the production CSP.
+- Make LP-05 post-phase authority/deadline failures durably terminal without
+  authorizing new forward work, abort backup/restore child pipelines at the
+  attempt deadline, bind runtime inputs across restarts, and clean exact
+  isolated-restore resources through a persisted crash-safe lifecycle.

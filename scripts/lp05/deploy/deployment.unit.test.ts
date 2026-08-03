@@ -1,4 +1,11 @@
-import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -26,7 +33,13 @@ import {
   finalizeActivePhaseOutput,
   type ActiveDeploymentOperations,
 } from "./active-oracles.js";
-import { parseHostActiveRuntime } from "./host-active-operations.js";
+import {
+  beginRestoreLifecycle,
+  cleanupIsolatedRestoreEnvironment,
+  markRestoreLifecycleReady,
+  parseHostActiveRuntime,
+  type HostActiveRuntime,
+} from "./host-active-operations.js";
 import { evaluateOperations } from "./ops-status.js";
 import { readValidatedRuntimeSecrets } from "./preflight.js";
 import { parseSemver, inspectToolchain } from "./toolchain.js";
@@ -450,6 +463,185 @@ describe("LP-05 active runtime input", () => {
         reasonCode: "TOO_LATE",
       }),
     ).toThrow("ATTEMPT_RESUME_WINDOW");
+  });
+});
+
+describe("LP-05 isolated restore cleanup ownership", () => {
+  const fixture = async (): Promise<{
+    root: string;
+    runtime: HostActiveRuntime;
+    attempt: JsonRecord;
+  }> => {
+    const root = await mkdtemp(join(tmpdir(), "lp05-restore-cleanup-"));
+    roots.push(root);
+    const runtime = parseHostActiveRuntime({
+      schemaVersion: "1.0",
+      evidenceRoot: join(root, "evidence"),
+      candidateManifestPath: join(root, "manifest.json"),
+      preMigrationBackupId: "backup_cleanup_pre",
+      postDeployBackupId: "backup_cleanup_post",
+      initialSmoke: {
+        smokeId: "smoke_cleanup_initial",
+        proofRoot: join(root, "initial-proof"),
+        runId: "cleanup-initial",
+      },
+      postRestoreSmoke: {
+        smokeId: "smoke_cleanup_post",
+        proofRoot: join(root, "post-proof"),
+        runId: "cleanup-post",
+      },
+      restore: {
+        composeProject: "lp05-restore-cleanup",
+        databaseName: "idea_validation_restore",
+        appPort: 18081,
+        restoreId: "restore_cleanup",
+        proofRoot: join(root, "restore-proof"),
+        runId: "cleanup-restore",
+      },
+    });
+    const seed = {
+      hostFingerprintSha256: "2".repeat(64),
+      domain: "demo.example.com",
+      deployRoot: "/srv/idea-validation",
+    };
+    const attempt = createAttemptRecord({
+      attemptId: "deploy_restore_cleanup",
+      envelopeId: `auth_${"e".repeat(32)}`,
+      envelopeSha256: "f".repeat(64),
+      candidate: {
+        manifestSha256: "1".repeat(64),
+        releaseId: "lp05-cleanup-test",
+        sourceCommit: "a".repeat(40),
+        sourceTree: "b".repeat(40),
+        imageId: `sha256:${"c".repeat(64)}`,
+        archiveSha256: "d".repeat(64),
+        platform: "linux/amd64",
+      },
+      target: {
+        targetId: `target_${canonicalSha256(seed).slice(0, 32)}`,
+        ...seed,
+        expectedIps: ["8.8.8.8"],
+        platform: "linux/amd64",
+        os: { id: "ubuntu", versionId: "24.04" },
+        composeProject: "idea-validation-prod",
+      },
+      previousRelease: null,
+      startedAt: "2026-08-03T00:00:00.000Z",
+    });
+    return { root, runtime, attempt };
+  };
+
+  it("cleans an intent-bound restore project after a crash and preserves backup files", async () => {
+    const { root, runtime, attempt } = await fixture();
+    const now = () => new Date("2026-08-03T00:05:00.000Z");
+    await beginRestoreLifecycle({ runtime, attempt, now });
+    const backup = join(root, "backup.dump.age");
+    await writeFile(backup, "encrypted-backup", { mode: 0o600 });
+    let containers = ["restore-postgres", "restore-app"];
+    let volumes = ["restore-data"];
+    let downCalls = 0;
+    const runDocker = async (args: readonly string[]): Promise<string> => {
+      if (args[0] === "ps") return containers.join("\n");
+      if (args[0] === "volume" && args[1] === "ls") return volumes.join("\n");
+      if (args[0] === "inspect")
+        return JSON.stringify([
+          {
+            Id: args[1],
+            Config: {
+              Labels: {
+                "com.docker.compose.project": runtime.restore.composeProject,
+              },
+            },
+          },
+        ]);
+      if (args[0] === "volume" && args[1] === "inspect")
+        return JSON.stringify([
+          {
+            Name: args[2],
+            Labels: {
+              "com.docker.compose.project": runtime.restore.composeProject,
+            },
+          },
+        ]);
+      if (args[0] === "compose" && args.includes("down")) {
+        expect(args).toContain(runtime.restore.composeProject);
+        downCalls += 1;
+        containers = [];
+        volumes = [];
+        return "";
+      }
+      throw new Error(`UNEXPECTED_DOCKER:${args.join(" ")}`);
+    };
+    const cleanup = await cleanupIsolatedRestoreEnvironment({
+      runtime,
+      attempt,
+      runDocker,
+      environment: {},
+      now,
+    });
+    expect(cleanup.status).toBe("PASS");
+    expect(downCalls).toBe(1);
+    expect(await readFile(backup, "utf8")).toBe("encrypted-backup");
+    const lifecycle = JSON.parse(
+      await readFile(
+        join(
+          runtime.evidenceRoot,
+          String(attempt.attemptId),
+          "restore-lifecycle.json",
+        ),
+        "utf8",
+      ),
+    ) as JsonRecord;
+    expect(lifecycle.state).toBe("CLEANED");
+  });
+
+  it("binds cleanup to the persisted target and rejects a foreign project label", async () => {
+    const { runtime, attempt } = await fixture();
+    const now = () => new Date("2026-08-03T00:05:00.000Z");
+    await beginRestoreLifecycle({ runtime, attempt, now });
+    await markRestoreLifecycleReady({
+      runtime,
+      attempt,
+      now,
+      isolatedTarget: {
+        kind: "ISOLATED",
+        composeProject: runtime.restore.composeProject,
+        containerId: "restore-postgres",
+        volumeName: "restore-data",
+        systemIdentifier: "200",
+        volumeLabelSha256: "4".repeat(64),
+        containerLabelSha256: "5".repeat(64),
+        origin: "http://127.0.0.1:18081/",
+        databaseHost: "127.0.0.1",
+        databasePort: 5432,
+        databaseName: runtime.restore.databaseName,
+      },
+    });
+    let downCalls = 0;
+    const runDocker = async (args: readonly string[]): Promise<string> => {
+      if (args[0] === "ps") return "restore-postgres";
+      if (args[0] === "volume" && args[1] === "ls") return "restore-data";
+      if (args[0] === "inspect")
+        return JSON.stringify([
+          {
+            Config: {
+              Labels: { "com.docker.compose.project": "foreign-project" },
+            },
+          },
+        ]);
+      if (args[0] === "compose") downCalls += 1;
+      return "[]";
+    };
+    await expect(
+      cleanupIsolatedRestoreEnvironment({
+        runtime,
+        attempt,
+        runDocker,
+        environment: {},
+        now,
+      }),
+    ).rejects.toThrow("RESTORE_CLEANUP_CONTAINER_AUTHORITY");
+    expect(downCalls).toBe(0);
   });
 });
 
@@ -924,5 +1116,76 @@ describe("LP-05 ordered active deployment", () => {
       expect(calls).toHaveLength(failAt + 2);
       expect(calls.at(-1)).toBe("rollback");
     }
+  });
+
+  it("terminally journals and rolls back every post-phase authority failure", async () => {
+    for (let phaseIndex = 0; phaseIndex < 11; phaseIndex += 1) {
+      const current = fixture(false);
+      const calls: string[] = [];
+      const persisted: JsonRecord[] = [];
+      let revalidations = 0;
+      const result = await runDeployment({
+        envelope: current.envelope,
+        attempt: current.attempt,
+        oracles: oracles(current.records, calls),
+        now: () => new Date("2026-08-03T00:20:00.000Z"),
+        revalidate: async () => {
+          revalidations += 1;
+          if (revalidations === (phaseIndex + 1) * 2)
+            throw new Error(`AUTHORITY_EXPIRED_AFTER_PHASE:${phaseIndex}`);
+        },
+        persist: async (_previous, next) => {
+          persisted.push(next);
+        },
+      });
+      expect(result.currentState).toBe("ROLLED_BACK");
+      expect(calls.slice(0, -1)).toHaveLength(phaseIndex + 1);
+      expect(calls.at(-1)).toBe("rollback");
+      expect(calls.filter((value) => value === "rollback")).toHaveLength(1);
+      expect(persisted.slice(-3).map((entry) => entry.currentState)).toEqual([
+        "FAILED",
+        "ROLLING_BACK",
+        "ROLLED_BACK",
+      ]);
+      expect(revalidations).toBe((phaseIndex + 1) * 2);
+    }
+  });
+
+  it("aborts a hung phase at the attempt deadline and follows the same recovery path", async () => {
+    const current = fixture(false);
+    const calls: string[] = [];
+    const persisted: JsonRecord[] = [];
+    let aborted = false;
+    const active = oracles(current.records, calls);
+    active.preflight = async (_attempt, context) =>
+      new Promise((_resolve, reject) => {
+        if (context === undefined) return reject(new Error("MISSING_CONTEXT"));
+        context.signal.addEventListener(
+          "abort",
+          () => {
+            aborted = true;
+            reject(new Error("ACTIVE_CHILD_ABORTED"));
+          },
+          { once: true },
+        );
+      });
+    const result = await runDeployment({
+      envelope: current.envelope,
+      attempt: current.attempt,
+      oracles: active,
+      now: () => new Date("2026-08-03T00:01:00.000Z"),
+      maximumDurationMs: 5,
+      persist: async (_previous, next) => {
+        persisted.push(next);
+      },
+    });
+    expect(aborted).toBe(true);
+    expect(result.currentState).toBe("ROLLED_BACK");
+    expect(calls).toEqual(["rollback"]);
+    expect(persisted.map((entry) => entry.currentState)).toEqual([
+      "FAILED",
+      "ROLLING_BACK",
+      "ROLLED_BACK",
+    ]);
   });
 });

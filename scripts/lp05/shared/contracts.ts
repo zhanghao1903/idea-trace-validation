@@ -748,8 +748,12 @@ export const isLegalTransition = (
     (to === "INTERRUPTED" || to === "FAILED")
   )
     return true;
-  if (from === "INTERRUPTED" && to === "RESUMING") return true;
-  if (from === "RESUMING" && forwardStates.slice(1, -1).includes(to))
+  if (from === "INTERRUPTED" && (to === "RESUMING" || to === "FAILED"))
+    return true;
+  if (
+    from === "RESUMING" &&
+    (forwardStates.slice(1, -1).includes(to) || to === "FAILED")
+  )
     return true;
   if (from === "FAILED" && to === "ROLLING_BACK") return true;
   if (

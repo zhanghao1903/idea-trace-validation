@@ -16,8 +16,13 @@ export interface DeploymentStepResult {
   evidenceSha256: string;
   projection?: JsonRecord;
 }
+export interface DeploymentOracleContext {
+  deadlineAt: number;
+  signal: AbortSignal;
+}
 export type DeploymentOracle = (
   attempt: JsonRecord,
+  context?: DeploymentOracleContext,
 ) => Promise<DeploymentStepResult>;
 
 export interface DeploymentOracles {
@@ -92,6 +97,7 @@ export const runDeployment = async (input: {
   now?: () => Date;
   persist?: (previous: JsonRecord, next: JsonRecord) => Promise<void>;
   revalidate?: (attempt: JsonRecord) => Promise<void>;
+  maximumDurationMs?: number;
 }): Promise<JsonRecord> => {
   const now = input.now ?? (() => new Date());
   const envelope = verifyDeploymentAuthorizationEnvelope(
@@ -119,18 +125,55 @@ export const runDeployment = async (input: {
     throw new Error("CONTROLLER_ATTEMPT_AUTHORITY_MISMATCH");
   let attempt = finalizeAttemptRecord(input.attempt);
   if (attempt.currentState === "DEPLOYED") return attempt;
-  const advance = async (next: JsonRecord): Promise<void> => {
+  const maximumDurationMs = input.maximumDurationMs ?? 4 * 60 * 60 * 1000;
+  if (!Number.isSafeInteger(maximumDurationMs) || maximumDurationMs < 1)
+    throw new Error("CONTROLLER_ATTEMPT_DURATION_INVALID");
+  const deadlineAt = Date.parse(String(attempt.startedAt)) + maximumDurationMs;
+  const assertDeadline = (): void => {
+    if (now().getTime() >= deadlineAt)
+      throw new Error("CONTROLLER_ATTEMPT_DEADLINE_EXCEEDED");
+  };
+  const runOracle = async (
+    oracle: DeploymentOracle,
+  ): Promise<DeploymentStepResult> => {
+    assertDeadline();
+    const remaining = Math.max(1, deadlineAt - now().getTime());
+    const abort = new AbortController();
+    const abortGraceMs = Math.min(5_000, maximumDurationMs);
+    let abortTimer: ReturnType<typeof setTimeout> | undefined;
+    let hardStopTimer: ReturnType<typeof setTimeout> | undefined;
+    const hardStop = new Promise<never>((_resolve, reject) => {
+      abortTimer = setTimeout(() => abort.abort(), remaining);
+      hardStopTimer = setTimeout(() => {
+        reject(new Error("CONTROLLER_ATTEMPT_DEADLINE_EXCEEDED"));
+      }, remaining + abortGraceMs);
+    });
+    try {
+      const result = await Promise.race([
+        oracle(attempt, { deadlineAt, signal: abort.signal }),
+        hardStop,
+      ]);
+      assertDeadline();
+      return result;
+    } finally {
+      if (abortTimer !== undefined) clearTimeout(abortTimer);
+      if (hardStopTimer !== undefined) clearTimeout(hardStopTimer);
+    }
+  };
+  const advanceForward = async (next: JsonRecord): Promise<void> => {
+    assertDeadline();
     await input.revalidate?.(attempt);
     await input.persist?.(attempt, next);
     attempt = next;
   };
   try {
     for (const step of remainingSequence(attempt)) {
+      assertDeadline();
       await input.revalidate?.(attempt);
-      const result = await input.oracles[step.oracle](attempt);
+      const result = await runOracle(input.oracles[step.oracle]);
       if (!/^[0-9a-f]{64}$/u.test(result.evidenceSha256))
         throw new Error("CONTROLLER_EVIDENCE_DIGEST");
-      await advance(
+      await advanceForward(
         finalizeAttemptRecord(
           transitionAttempt(attempt, {
             to: step.to,
@@ -142,7 +185,7 @@ export const runDeployment = async (input: {
         ),
       );
     }
-    await advance(
+    await advanceForward(
       finalizeAttemptRecord(
         transitionAttempt(attempt, {
           to: "DEPLOYED",
@@ -154,79 +197,112 @@ export const runDeployment = async (input: {
     );
     return attempt;
   } catch (error) {
-    if (
-      ["DEPLOYED", "FAILED", "ROLLED_BACK", "ROLLBACK_FAILED"].includes(
-        String(attempt.currentState),
-      )
+    return recoverDeploymentFailure({
+      attempt,
+      oracles: input.oracles,
+      persist: input.persist,
+      now,
+      error,
+    });
+  }
+};
+
+export const recoverDeploymentFailure = async (input: {
+  attempt: JsonRecord;
+  oracles: DeploymentOracles;
+  persist?: (previous: JsonRecord, next: JsonRecord) => Promise<void>;
+  now?: () => Date;
+  error: unknown;
+}): Promise<JsonRecord> => {
+  const now = input.now ?? (() => new Date());
+  let attempt = finalizeAttemptRecord(input.attempt);
+  if (
+    ["DEPLOYED", "ROLLED_BACK", "ROLLBACK_FAILED"].includes(
+      String(attempt.currentState),
     )
-      throw error;
-    await advance(
+  )
+    return attempt;
+  const occurredAt = (): string =>
+    new Date(
+      Math.max(now().getTime(), Date.parse(String(attempt.updatedAt))),
+    ).toISOString();
+  const advanceRecovery = async (next: JsonRecord): Promise<void> => {
+    await input.persist?.(attempt, next);
+    attempt = next;
+  };
+  if (!["FAILED", "ROLLING_BACK"].includes(String(attempt.currentState))) {
+    await advanceRecovery(
       finalizeAttemptRecord(
         transitionAttempt(attempt, {
           to: "FAILED",
-          occurredAt: now().toISOString(),
+          occurredAt: occurredAt(),
           reasonCode: "ORACLE_FAILED",
           evidenceSha256: sha256(
-            error instanceof Error ? error.message : "UNKNOWN_ORACLE_FAILURE",
+            input.error instanceof Error
+              ? input.error.message
+              : "UNKNOWN_ORACLE_FAILURE",
           ),
         }),
       ),
     );
-    await advance(
+  }
+  if (attempt.currentState === "FAILED") {
+    await advanceRecovery(
       finalizeAttemptRecord(
         transitionAttempt(attempt, {
           to: "ROLLING_BACK",
-          occurredAt: now().toISOString(),
+          occurredAt: occurredAt(),
           reasonCode: "INGRESS_DISABLE_AND_ROLLBACK_STARTED",
           evidenceSha256: sha256("INGRESS_DISABLE_AND_ROLLBACK_STARTED"),
           projection: { rollback: attempt.rollback },
         }),
       ),
     );
-    try {
-      const rollback = await input.oracles.rollback(attempt);
-      const projection = rollback.projection ?? {};
-      const evidence = recordRollback(projection.rollback);
-      const next = finalizeAttemptRecord(
-        transitionAttempt(attempt, {
-          to:
-            evidence.status === "PASS" || evidence.status === "NOT_APPLICABLE"
-              ? "ROLLED_BACK"
-              : "ROLLBACK_FAILED",
-          occurredAt: now().toISOString(),
-          reasonCode: rollback.reasonCode,
-          evidenceSha256: rollback.evidenceSha256,
-          projection,
-        }),
-      );
-      await advance(next);
-      return attempt;
-    } catch (rollbackError) {
-      const failedRollback = {
-        status: "FAIL",
+  }
+  try {
+    const rollback = await input.oracles.rollback(attempt);
+    const projection = rollback.projection ?? {};
+    const evidence = recordRollback(projection.rollback);
+    const next = finalizeAttemptRecord(
+      transitionAttempt(attempt, {
+        to:
+          evidence.status === "PASS" || evidence.status === "NOT_APPLICABLE"
+            ? "ROLLED_BACK"
+            : "ROLLBACK_FAILED",
+        occurredAt: occurredAt(),
+        reasonCode: rollback.reasonCode,
+        evidenceSha256: rollback.evidenceSha256,
+        projection,
+      }),
+    );
+    await advanceRecovery(next);
+    return attempt;
+  } catch (rollbackError) {
+    const timestamp = occurredAt();
+    const failedRollback = {
+      status: "FAIL",
+      reasonCode: "ROLLBACK_ORACLE_FAILED",
+      previousRelease: attempt.previousRelease,
+      readinessSha256: null,
+      smokeSha256: null,
+      startedAt: timestamp,
+      finishedAt: timestamp,
+    };
+    const next = finalizeAttemptRecord(
+      transitionAttempt(attempt, {
+        to: "ROLLBACK_FAILED",
+        occurredAt: timestamp,
         reasonCode: "ROLLBACK_ORACLE_FAILED",
-        previousRelease: attempt.previousRelease,
-        readinessSha256: null,
-        smokeSha256: null,
-        startedAt: now().toISOString(),
-        finishedAt: now().toISOString(),
-      };
-      const next = finalizeAttemptRecord(
-        transitionAttempt(attempt, {
-          to: "ROLLBACK_FAILED",
-          occurredAt: now().toISOString(),
-          reasonCode: "ROLLBACK_ORACLE_FAILED",
-          evidenceSha256: sha256(
-            rollbackError instanceof Error
-              ? rollbackError.message
-              : "UNKNOWN_ROLLBACK_FAILURE",
-          ),
-          projection: { rollback: failedRollback },
-        }),
-      );
-      await advance(next);
-      return attempt;
-    }
+        evidenceSha256: sha256(
+          rollbackError instanceof Error
+            ? rollbackError.message
+            : "UNKNOWN_ROLLBACK_FAILURE",
+        ),
+        projection: { rollback: failedRollback },
+      }),
+    );
+    await advanceRecovery(next);
+    return attempt;
   }
 };
 

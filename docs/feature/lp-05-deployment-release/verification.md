@@ -30,6 +30,10 @@
   explicit bounded interruption transition, binds restore mutation to the exact inspected Compose DB container and
   a complete actively revalidated production identity, and requires exact same-host HTTPS redirect and CSP
   semantics.
+- Code Review Cycle 3 remediation separates forward authority from already-bound safety recovery, persists the
+  terminal rollback chain even when post-phase authority/deadline validation fails, aborts active backup/restore
+  children at the four-hour deadline, binds the sanitized runtime across restarts, and gives the isolated restore
+  project a crash-safe `CREATING|READY|CLEANED|CLEANUP_FAILED` lifecycle with exact-label cleanup.
 
 ## Objective repository results
 
@@ -40,9 +44,9 @@
 | `npm run skill:check` | PASS |
 | `npm run typecheck` and `npm run typecheck:lp05` | PASS; application workspaces and deploy/runtime scripts are both checked |
 | `npm run build` and frozen OpenAPI/report-type checks | PASS; Web bundle 97.35 KiB gzip |
-| repository unit/contract/integration/Web component tests | PASS; 107 + 23 + 31 + 8 tests |
+| repository unit/contract/integration/Web component tests | PASS; 113 + 23 + 31 + 8 tests |
 | LP-01–LP-04 acceptance tests | PASS; 13 tests on the isolated PostgreSQL database |
-| `npm run test:deployment:unit` | PASS; 6 files, 52 tests after Cycle 2 active-operation, resume, restore-target and HTTP-boundary regressions |
+| `npm run test:deployment:unit` | PASS; 6 files, 58 tests including every post-phase authority boundary, controller/backup/restore deadlines, restore-intent crash cleanup and foreign-label rejection |
 | `npm run deploy:lp05:validate` | PASS; `LP05_RELEASE_READINESS_PASS` |
 | digest-pinned Caddy validation | PASS; production and local-test files are valid with explicit redirects and exact CSP |
 | Playwright LP-03/LP-04 stories | PASS; 7 + 1 scenarios |

@@ -13,14 +13,35 @@ import {
   type JsonRecord,
 } from "../shared/contracts.js";
 
-const wait = (child: ReturnType<typeof spawn>, code: string): Promise<void> =>
+const wait = (
+  child: ReturnType<typeof spawn>,
+  code: string,
+  signal?: AbortSignal,
+): Promise<void> =>
   new Promise((resolve, reject) => {
-    child.once("error", reject);
-    child.once("exit", (status) =>
-      status === 0
-        ? resolve()
-        : reject(new Error(`${code}:${status ?? "signal"}`)),
-    );
+    let aborted = false;
+    let forceTimer: ReturnType<typeof setTimeout> | undefined;
+    const cleanup = (): void => {
+      signal?.removeEventListener("abort", abort);
+      if (forceTimer !== undefined) clearTimeout(forceTimer);
+    };
+    const abort = (): void => {
+      aborted = true;
+      child.kill("SIGTERM");
+      forceTimer = setTimeout(() => child.kill("SIGKILL"), 2_000);
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted === true) abort();
+    child.once("error", (error) => {
+      cleanup();
+      reject(aborted ? new Error("ATTEMPT_DEADLINE_EXCEEDED") : error);
+    });
+    child.once("exit", (status) => {
+      cleanup();
+      if (aborted) reject(new Error("ATTEMPT_DEADLINE_EXCEEDED"));
+      else if (status === 0) resolve();
+      else reject(new Error(`${code}:${status ?? "signal"}`));
+    });
   });
 
 export interface RestoreOptions {
@@ -40,6 +61,7 @@ export interface RestoreOptions {
   ) => Promise<JsonRecord>;
   inspectProduction?: (identity: JsonRecord) => Promise<JsonRecord>;
   spawnProcess?: typeof spawn;
+  signal?: AbortSignal;
 }
 
 export const restoreEncryptedBackup = async (
@@ -105,8 +127,14 @@ export const restoreEncryptedBackup = async (
   if (decrypt.stdout === null || restore.stdin === null)
     throw new Error("RESTORE_PIPE_UNAVAILABLE");
   decrypt.stdout.pipe(restore.stdin);
-  await Promise.all([
-    wait(decrypt, "RESTORE_DECRYPT_FAILED"),
-    wait(restore, "RESTORE_IMPORT_FAILED"),
-  ]);
+  try {
+    await Promise.all([
+      wait(decrypt, "RESTORE_DECRYPT_FAILED", options.signal),
+      wait(restore, "RESTORE_IMPORT_FAILED", options.signal),
+    ]);
+  } catch (error) {
+    decrypt.kill("SIGTERM");
+    restore.kill("SIGTERM");
+    throw error;
+  }
 };

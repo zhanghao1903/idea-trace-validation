@@ -1,4 +1,7 @@
 import { EventEmitter } from "node:events";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { PassThrough } from "node:stream";
 
 import { describe, expect, it } from "vitest";
@@ -7,6 +10,7 @@ import {
   createProductionResourceIdentity,
   verifyProductionUnchanged,
 } from "./production-identity.js";
+import { createEncryptedBackup } from "./backup.js";
 import { finalizeBackupManifest } from "./backup-manifest.js";
 import { planRetention, type RetentionCandidate } from "./retention.js";
 import {
@@ -40,6 +44,53 @@ describe("LP-05 backup retention", () => {
     expect(() => planRetention([], new Set(), 5)).toThrow(
       "RETENTION_POLICY_INVALID",
     ));
+});
+
+describe("LP-05 bounded backup pipeline", () => {
+  it("terminates both backup children when the controller deadline aborts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "lp05-backup-deadline-"));
+    const abort = new AbortController();
+    let killCalls = 0;
+    const spawnProcess = ((command: string) => {
+      const child = new EventEmitter() as EventEmitter & {
+        stdout: PassThrough | null;
+        stdin: PassThrough | null;
+        kill: () => boolean;
+      };
+      child.stdout = command === "pg_dump" ? new PassThrough() : null;
+      child.stdin = command === "age" ? new PassThrough() : null;
+      child.stdin?.resume();
+      let exited = false;
+      child.kill = () => {
+        killCalls += 1;
+        if (!exited) {
+          exited = true;
+          queueMicrotask(() => child.emit("exit", null));
+        }
+        return true;
+      };
+      return child;
+    }) as never;
+    const pending = createEncryptedBackup({
+      backupRoot: root,
+      backupId: "backup_deadline",
+      recipient: `age1${"q".repeat(30)}`,
+      identityPath: join(root, "identity.txt"),
+      pgEnvironment: {
+        PATH: process.env.PATH,
+        PGUSER: "idea_validation",
+        PGDATABASE: "idea_validation",
+      },
+      manifestFields: {},
+      toolVersions: { pgDumpVersion: "17.10", ageVersion: "1.2.1" },
+      signal: abort.signal,
+      spawnProcess,
+    });
+    abort.abort();
+    await expect(pending).rejects.toThrow("ATTEMPT_DEADLINE_EXCEEDED");
+    expect(killCalls).toBeGreaterThanOrEqual(2);
+    await rm(root, { recursive: true, force: true });
+  });
 });
 
 describe("LP-05 isolated recovery", () => {
@@ -384,5 +435,121 @@ describe("LP-05 isolated recovery", () => {
       ],
     });
     expect(calls.flatMap((call) => call.args)).not.toContain("65534");
+  });
+
+  it("terminates both restore pipeline children when the controller deadline aborts", async () => {
+    const database: JsonRecord = {
+      targetId: "target_prod",
+      project: "idea-validation-prod",
+      containerId: "prod-postgres",
+      volumeName: "prod-data",
+      volumeMountId: "prod-mount",
+      systemIdentifier: "100",
+      databaseName: "idea_validation",
+      postgresVersion: "17.10",
+      databaseInstanceSha256: "",
+    };
+    database.databaseInstanceSha256 = canonicalSha256(database, [
+      "databaseInstanceSha256",
+    ]);
+    const manifest = finalizeBackupManifest({
+      schemaVersion: "1.0",
+      backupId: "backup_deadline",
+      purpose: "POST_DEPLOY_RECOVERABILITY",
+      envelopeId: "auth_deadline",
+      attemptId: "deploy_deadline",
+      targetId: "target_prod",
+      sourceDatabase: database,
+      sourceRelease: {
+        releaseId: "release-prod",
+        sourceCommit: "a".repeat(40),
+        imageId: `sha256:${"b".repeat(64)}`,
+        configSha256: "c".repeat(64),
+      },
+      candidateManifestSha256: "d".repeat(64),
+      migrationCatalogSha256: "e".repeat(64),
+      syntheticStorySha256: "f".repeat(64),
+      createdAt: "2026-08-03T00:00:00.000Z",
+      ciphertext: {
+        basename: "backup_deadline.dump.age",
+        sizeBytes: 1024,
+        sha256: "1".repeat(64),
+      },
+      encryption: {
+        algorithm: "age-v1",
+        recipientFingerprint: "2".repeat(64),
+      },
+      tool: {
+        pgDumpVersion: "17.10",
+        ageVersion: "1.2.1",
+        format: "custom",
+      },
+      verification: {
+        status: "PASS",
+        verifiedAt: "2026-08-03T00:00:01.000Z",
+        pgRestoreListSha256: "3".repeat(64),
+      },
+    });
+    const isolated: JsonRecord = {
+      kind: "ISOLATED",
+      composeProject: "lp05-restore-deadline",
+      containerId: "restore-postgres-deadline",
+      volumeName: "restore-data-deadline",
+      systemIdentifier: "200",
+      volumeLabelSha256: "4".repeat(64),
+      containerLabelSha256: "5".repeat(64),
+      origin: "http://127.0.0.1:18081/",
+      databaseHost: "127.0.0.1",
+      databasePort: 5432,
+      databaseName: "idea_validation_restore",
+    };
+    let killCalls = 0;
+    const spawnProcess = ((command: string) => {
+      const child = new EventEmitter() as EventEmitter & {
+        stdout: PassThrough | null;
+        stdin: PassThrough | null;
+        kill: () => boolean;
+      };
+      child.stdout = command === "age" ? new PassThrough() : null;
+      child.stdin = command === "docker" ? new PassThrough() : null;
+      child.stdin?.resume();
+      let exited = false;
+      child.kill = () => {
+        killCalls += 1;
+        if (!exited) {
+          exited = true;
+          queueMicrotask(() => child.emit("exit", null));
+        }
+        return true;
+      };
+      return child;
+    }) as never;
+    const abort = new AbortController();
+    const pending = restoreEncryptedBackup({
+      manifest,
+      expected: {
+        envelopeId: "auth_deadline",
+        attemptId: "deploy_deadline",
+        targetId: "target_prod",
+        candidateManifestSha256: "d".repeat(64),
+        databaseInstanceSha256: String(database.databaseInstanceSha256),
+        syntheticStorySha256: "f".repeat(64),
+      },
+      ciphertextPath: "/safe/backup.dump.age",
+      identityPath: "/safe/identity.txt",
+      isolatedTarget: isolated,
+      productionIdentity: production,
+      inspectProduction: async () => production,
+      inspectTarget: async () => isolated,
+      restoreEnvironment: {
+        PATH: process.env.PATH,
+        PGUSER: "restore_user",
+      },
+      spawnProcess,
+      signal: abort.signal,
+    });
+    abort.abort();
+    await expect(pending).rejects.toThrow("ATTEMPT_DEADLINE_EXCEEDED");
+    expect(killCalls).toBeGreaterThanOrEqual(2);
   });
 });

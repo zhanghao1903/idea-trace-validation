@@ -83,5 +83,5 @@ REQ-026 已满足。
 
 ## 10. Next step
 
-完成 Code Review Cycle 2 的主动操作、并发恢复、精确容器恢复和 HTTP 安全边界修复，运行全量门禁并重新送审 exact head。合并后，
+Cycle 3 的 post-phase 终态恢复、deadline 子进程终止和隔离恢复资源清理修复已通过全量本地门禁；推送精确候选并完成 Cycle 4 复审。合并后，
 仅在获得绑定目标和精确候选的独立授权时，按运维手册执行真实 HTTPS 部署、生产备份到隔离恢复、核心演示与公网 re-smoke。

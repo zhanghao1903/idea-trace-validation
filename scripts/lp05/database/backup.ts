@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createReadStream } from "node:fs";
-import { chmod, lstat, mkdir, rename } from "node:fs/promises";
+import { chmod, lstat, mkdir, rename, rm } from "node:fs/promises";
 import { basename, join } from "node:path";
 
 import { finalizeBackupManifest } from "./backup-manifest.js";
@@ -18,14 +18,35 @@ const fileSha256 = async (path: string): Promise<string> =>
       .once("end", () => resolve(hash.digest("hex")));
   });
 
-const wait = (child: ReturnType<typeof spawn>, code: string): Promise<void> =>
+const wait = (
+  child: ReturnType<typeof spawn>,
+  code: string,
+  signal?: AbortSignal,
+): Promise<void> =>
   new Promise((resolve, reject) => {
-    child.once("error", reject);
-    child.once("exit", (status) =>
-      status === 0
-        ? resolve()
-        : reject(new Error(`${code}:${status ?? "signal"}`)),
-    );
+    let aborted = false;
+    let forceTimer: ReturnType<typeof setTimeout> | undefined;
+    const cleanup = (): void => {
+      signal?.removeEventListener("abort", abort);
+      if (forceTimer !== undefined) clearTimeout(forceTimer);
+    };
+    const abort = (): void => {
+      aborted = true;
+      child.kill("SIGTERM");
+      forceTimer = setTimeout(() => child.kill("SIGKILL"), 2_000);
+    };
+    signal?.addEventListener("abort", abort, { once: true });
+    if (signal?.aborted === true) abort();
+    child.once("error", (error) => {
+      cleanup();
+      reject(aborted ? new Error("ATTEMPT_DEADLINE_EXCEEDED") : error);
+    });
+    child.once("exit", (status) => {
+      cleanup();
+      if (aborted) reject(new Error("ATTEMPT_DEADLINE_EXCEEDED"));
+      else if (status === 0) resolve();
+      else reject(new Error(`${code}:${status ?? "signal"}`));
+    });
   });
 
 export interface EncryptedBackupOptions {
@@ -38,6 +59,8 @@ export interface EncryptedBackupOptions {
   toolVersions: { pgDumpVersion: string; ageVersion: string };
   databaseContainerId?: string;
   now?: Date;
+  signal?: AbortSignal;
+  spawnProcess?: typeof spawn;
 }
 
 export const createEncryptedBackup = async (
@@ -53,7 +76,8 @@ export const createEncryptedBackup = async (
     join(options.backupRoot, `${options.backupId}.dump.age`),
   );
   const temporary = `${ciphertextPath}.tmp-${process.pid}`;
-  const dump = spawn(
+  const spawnProcess = options.spawnProcess ?? spawn;
+  const dump = spawnProcess(
     options.databaseContainerId === undefined ? "pg_dump" : "docker",
     options.databaseContainerId === undefined
       ? ["--format=custom", "--no-owner", "--no-privileges"]
@@ -76,7 +100,7 @@ export const createEncryptedBackup = async (
       stdio: ["ignore", "pipe", "ignore"],
     },
   );
-  const age = spawn(
+  const age = spawnProcess(
     "age",
     ["--recipient", options.recipient, "--output", temporary, "-"],
     {
@@ -87,17 +111,24 @@ export const createEncryptedBackup = async (
   if (dump.stdout === null || age.stdin === null)
     throw new Error("BACKUP_PIPE_UNAVAILABLE");
   dump.stdout.pipe(age.stdin);
-  await Promise.all([
-    wait(dump, "PG_DUMP_FAILED"),
-    wait(age, "AGE_ENCRYPT_FAILED"),
-  ]);
+  try {
+    await Promise.all([
+      wait(dump, "PG_DUMP_FAILED", options.signal),
+      wait(age, "AGE_ENCRYPT_FAILED", options.signal),
+    ]);
+  } catch (error) {
+    dump.kill("SIGTERM");
+    age.kill("SIGTERM");
+    await rm(temporary, { force: true });
+    throw error;
+  }
   await chmod(temporary, 0o600);
   await rename(temporary, ciphertextPath);
   const stat = await lstat(ciphertextPath);
   if (!stat.isFile() || stat.size < 1)
     throw new Error("BACKUP_CIPHERTEXT_INVALID");
 
-  const decrypt = spawn(
+  const decrypt = spawnProcess(
     "age",
     ["--decrypt", "--identity", options.identityPath, ciphertextPath],
     {
@@ -105,7 +136,7 @@ export const createEncryptedBackup = async (
       stdio: ["ignore", "pipe", "ignore"],
     },
   );
-  const list = spawn("pg_restore", ["--list"], {
+  const list = spawnProcess("pg_restore", ["--list"], {
     env: { PATH: process.env.PATH },
     stdio: ["pipe", "pipe", "ignore"],
   });
@@ -119,10 +150,16 @@ export const createEncryptedBackup = async (
     if (listBytes > 4 * 1024 * 1024) list.kill("SIGTERM");
     else listHash.update(chunk);
   });
-  await Promise.all([
-    wait(decrypt, "AGE_DECRYPT_VERIFY_FAILED"),
-    wait(list, "PG_RESTORE_LIST_FAILED"),
-  ]);
+  try {
+    await Promise.all([
+      wait(decrypt, "AGE_DECRYPT_VERIFY_FAILED", options.signal),
+      wait(list, "PG_RESTORE_LIST_FAILED", options.signal),
+    ]);
+  } catch (error) {
+    decrypt.kill("SIGTERM");
+    list.kill("SIGTERM");
+    throw error;
+  }
   const now = options.now ?? new Date();
   const manifest = finalizeBackupManifest({
     ...options.manifestFields,

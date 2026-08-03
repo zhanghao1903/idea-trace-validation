@@ -18,7 +18,10 @@ import {
   type JsonRecord,
 } from "../shared/contracts.js";
 import { atomicWrite, exists } from "../shared/filesystem.js";
-import type { DeploymentOracles } from "./controller.js";
+import type {
+  DeploymentOracleContext,
+  DeploymentOracles,
+} from "./controller.js";
 import { verifyFreshTargetProof } from "./runtime-evidence.js";
 
 export const ACTIVE_PHASES = [
@@ -37,11 +40,16 @@ export const ACTIVE_PHASES = [
 export type ActivePhase = (typeof ACTIVE_PHASES)[number];
 
 export interface ActiveDeploymentOperations {
-  execute(phase: ActivePhase, attempt: JsonRecord): Promise<JsonRecord>;
+  execute(
+    phase: ActivePhase,
+    attempt: JsonRecord,
+    context: DeploymentOracleContext,
+  ): Promise<JsonRecord>;
   reconcile(
     phase: ActivePhase,
     attempt: JsonRecord,
     persisted: JsonRecord,
+    context: DeploymentOracleContext,
   ): Promise<JsonRecord>;
   rollback(attempt: JsonRecord): Promise<JsonRecord>;
 }
@@ -129,6 +137,7 @@ const persistOrRecover = async (input: {
   phase: ActivePhase;
   attempt: JsonRecord;
   operations: ActiveDeploymentOperations;
+  context: DeploymentOracleContext;
 }): Promise<JsonRecord> => {
   const destination = activeOutputPath(
     input.evidenceRoot,
@@ -144,7 +153,12 @@ const persistOrRecover = async (input: {
       input.attempt,
     );
     output = verifyActivePhaseOutput(
-      await input.operations.reconcile(input.phase, input.attempt, persisted),
+      await input.operations.reconcile(
+        input.phase,
+        input.attempt,
+        persisted,
+        input.context,
+      ),
       input.phase,
       input.attempt,
     );
@@ -152,7 +166,7 @@ const persistOrRecover = async (input: {
       throw new Error(`ACTIVE_PHASE_RECONCILE_MISMATCH:${input.phase}`);
   } else {
     output = verifyActivePhaseOutput(
-      await input.operations.execute(input.phase, input.attempt),
+      await input.operations.execute(input.phase, input.attempt, input.context),
       input.phase,
       input.attempt,
     );
@@ -172,18 +186,32 @@ export const createActiveDeploymentOracles = (input: {
   evidenceRoot: string;
   operations: ActiveDeploymentOperations;
 }): DeploymentOracles => {
-  const run = (phase: ActivePhase, attempt: JsonRecord): Promise<JsonRecord> =>
-    persistOrRecover({ ...input, phase, attempt });
+  const run = (
+    phase: ActivePhase,
+    attempt: JsonRecord,
+    context?: DeploymentOracleContext,
+  ): Promise<JsonRecord> =>
+    persistOrRecover({
+      ...input,
+      phase,
+      attempt,
+      context:
+        context ??
+        ({
+          deadlineAt: Date.now() + 4 * 60 * 60 * 1000,
+          signal: new AbortController().signal,
+        } satisfies DeploymentOracleContext),
+    });
   return {
-    preflight: async (attempt) => {
-      const output = await run("PREFLIGHT", attempt);
+    preflight: async (attempt, context) => {
+      const output = await run("PREFLIGHT", attempt, context);
       return {
         reasonCode: "PREFLIGHT_ACTIVE_INSPECTION_PASS",
         evidenceSha256: String(output.evidenceSha256),
       };
     },
-    safetyBackup: async (attempt) => {
-      const output = await run("SAFETY_BACKUP", attempt);
+    safetyBackup: async (attempt, context) => {
+      const output = await run("SAFETY_BACKUP", attempt, context);
       const value = payload(output, "SAFETY_BACKUP");
       exactKeys(
         value,
@@ -211,8 +239,8 @@ export const createActiveDeploymentOracles = (input: {
         },
       };
     },
-    migrate: async (attempt) => {
-      const output = await run("MIGRATE", attempt);
+    migrate: async (attempt, context) => {
+      const output = await run("MIGRATE", attempt, context);
       const migration = parseMigrationEvidence(
         payload(output, "MIGRATE").migration,
       );
@@ -222,22 +250,22 @@ export const createActiveDeploymentOracles = (input: {
         projection: { migration },
       };
     },
-    appReady: async (attempt) => {
-      const output = await run("APP_READY", attempt);
+    appReady: async (attempt, context) => {
+      const output = await run("APP_READY", attempt, context);
       return {
         reasonCode: "APP_READINESS_ACTIVELY_OBSERVED",
         evidenceSha256: String(output.evidenceSha256),
       };
     },
-    httpsReady: async (attempt) => {
-      const output = await run("HTTPS_READY", attempt);
+    httpsReady: async (attempt, context) => {
+      const output = await run("HTTPS_READY", attempt, context);
       return {
         reasonCode: "HTTPS_READINESS_ACTIVELY_OBSERVED",
         evidenceSha256: String(output.evidenceSha256),
       };
     },
-    initialSmoke: async (attempt) => {
-      const output = await run("INITIAL_SMOKE", attempt);
+    initialSmoke: async (attempt, context) => {
+      const output = await run("INITIAL_SMOKE", attempt, context);
       const evidence = verifySmokeEvidence(
         payload(output, "INITIAL_SMOKE").smoke,
       );
@@ -248,8 +276,8 @@ export const createActiveDeploymentOracles = (input: {
         projection: { initialSmoke: reference },
       };
     },
-    postDeployBackup: async (attempt) => {
-      const output = await run("POST_DEPLOY_BACKUP", attempt);
+    postDeployBackup: async (attempt, context) => {
+      const output = await run("POST_DEPLOY_BACKUP", attempt, context);
       const evidence = verifyBackupManifest(
         payload(output, "POST_DEPLOY_BACKUP").backup,
       );
@@ -260,15 +288,15 @@ export const createActiveDeploymentOracles = (input: {
         projection: { postDeployBackup: reference },
       };
     },
-    restoreEnvironment: async (attempt) => {
-      const output = await run("RESTORE_ENVIRONMENT", attempt);
+    restoreEnvironment: async (attempt, context) => {
+      const output = await run("RESTORE_ENVIRONMENT", attempt, context);
       return {
         reasonCode: "ISOLATED_RESTORE_ENVIRONMENT_ACTIVELY_OBSERVED",
         evidenceSha256: String(output.evidenceSha256),
       };
     },
-    restore: async (attempt) => {
-      const output = await run("RESTORE", attempt);
+    restore: async (attempt, context) => {
+      const output = await run("RESTORE", attempt, context);
       const evidence = verifyRestoreEvidence(
         payload(output, "RESTORE").restore,
       );
@@ -279,8 +307,8 @@ export const createActiveDeploymentOracles = (input: {
         projection: { restoreEvidence: reference },
       };
     },
-    productionUnchanged: async (attempt) => {
-      const output = await run("PRODUCTION_UNCHANGED", attempt);
+    productionUnchanged: async (attempt, context) => {
+      const output = await run("PRODUCTION_UNCHANGED", attempt, context);
       const value = payload(output, "PRODUCTION_UNCHANGED");
       const before = parseProductionResourceIdentity(value.productionBefore);
       const after = parseProductionResourceIdentity(value.productionAfter);
@@ -291,8 +319,8 @@ export const createActiveDeploymentOracles = (input: {
         projection: { productionUnchangedSha256: digest },
       };
     },
-    postRestoreSmoke: async (attempt) => {
-      const output = await run("POST_RESTORE_SMOKE", attempt);
+    postRestoreSmoke: async (attempt, context) => {
+      const output = await run("POST_RESTORE_SMOKE", attempt, context);
       const evidence = verifySmokeEvidence(
         payload(output, "POST_RESTORE_SMOKE").smoke,
       );
