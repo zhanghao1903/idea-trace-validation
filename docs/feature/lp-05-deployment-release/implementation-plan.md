@@ -328,9 +328,11 @@ repeating migration/backup. Upgrade app rollback restores the prior image/config
 fresh-install failure leaves ingress stopped. DB restore remains impossible from this command.
 
 Before restore Compose creation, persist an attempt/runtime-bound `RestoreLifecycleV1` intent. Advance it to
-`READY` only with the exact inspected isolated target. Success, handled faults, deadline abort and late stale-lock
-recovery validate every matching project label, remove only that exact restore project/container/volume set, verify
-zero remain, preserve production and backup files, and persist `CLEANED` or `CLEANUP_FAILED` before terminalization.
+`READY` only with the exact inspected isolated target and to `QUIESCING` before cleanup. The oracle Promise owns and
+joins all nested Docker/HTTP actors before terminal recovery. Success, handled faults, deadline abort and late
+stale-lock recovery validate every matching project label, remove only that exact restore
+project/container/volume set, require consecutive empty observations, preserve production and backup files, and
+persist `CLEANED` or `CLEANUP_FAILED` before terminalization.
 
 ### 6.3 Evidence Contract
 
@@ -350,6 +352,11 @@ deadline aborts for both backup and restore child pipelines, crash recovery from
 and foreign-label cleanup attempts. They require exactly one rollback, an immutable
 `FAILED -> ROLLING_BACK -> ROLLED_BACK|ROLLBACK_FAILED` suffix, zero exact restore resources, unchanged backup bytes,
 and no cleanup command against a mismatched project.
+
+The Cycle 4 regressions hold a forward actor past its AbortSignal, create restore resources after the first empty
+cleanup observation, and delay terminal inspection. They require the actor to quiesce before the single rollback,
+capture and remove the late resource generation, retain multiple empty observations, and prove no post-terminal
+mutation while production identity and encrypted backup authority remain outside cleanup scope.
 
 Local end-to-end tests run the controller only against the labelled loopback Compose environment and typed `LOCAL`
 evidence. They prove orchestration/state/equality and rollback but cannot populate either external smoke state or

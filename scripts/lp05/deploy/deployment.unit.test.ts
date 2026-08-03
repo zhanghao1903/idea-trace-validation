@@ -26,6 +26,7 @@ import { interruptAttempt, resumeInterruptedAttempt } from "./attempt-state.js";
 import {
   assertControllerInitialAttempt,
   runDeployment,
+  type DeploymentOracle,
   type DeploymentOracles,
 } from "./controller.js";
 import {
@@ -578,6 +579,8 @@ describe("LP-05 isolated restore cleanup ownership", () => {
       runDocker,
       environment: {},
       now,
+      settleDelayMs: 0,
+      requiredEmptySamples: 2,
     });
     expect(cleanup.status).toBe("PASS");
     expect(downCalls).toBe(1);
@@ -639,9 +642,83 @@ describe("LP-05 isolated restore cleanup ownership", () => {
         runDocker,
         environment: {},
         now,
+        settleDelayMs: 0,
+        requiredEmptySamples: 2,
       }),
     ).rejects.toThrow("RESTORE_CLEANUP_CONTAINER_AUTHORITY");
     expect(downCalls).toBe(0);
+  });
+
+  it("reaps a restore generation that appears after cleanup first observes empty", async () => {
+    const { runtime, attempt } = await fixture();
+    const now = () => new Date("2026-08-03T00:05:00.000Z");
+    await beginRestoreLifecycle({ runtime, attempt, now });
+    let observation = 0;
+    let creatorSettled = false;
+    let resourcesPresent = false;
+    let downCalls = 0;
+    const runDocker = async (args: readonly string[]): Promise<string> => {
+      if (args[0] === "ps") {
+        observation += 1;
+        if (observation === 2) {
+          creatorSettled = true;
+          resourcesPresent = true;
+        }
+        return resourcesPresent ? "late-restore-postgres" : "";
+      }
+      if (args[0] === "volume" && args[1] === "ls")
+        return resourcesPresent ? "late-restore-data" : "";
+      if (args[0] === "inspect")
+        return JSON.stringify([
+          {
+            Config: {
+              Labels: {
+                "com.docker.compose.project": runtime.restore.composeProject,
+              },
+            },
+          },
+        ]);
+      if (args[0] === "volume" && args[1] === "inspect")
+        return JSON.stringify([
+          {
+            Labels: {
+              "com.docker.compose.project": runtime.restore.composeProject,
+            },
+          },
+        ]);
+      if (args[0] === "compose" && args.includes("down")) {
+        downCalls += 1;
+        resourcesPresent = false;
+        return "";
+      }
+      throw new Error(`UNEXPECTED_DOCKER:${args.join(" ")}`);
+    };
+    const cleanup = await cleanupIsolatedRestoreEnvironment({
+      runtime,
+      attempt,
+      runDocker,
+      environment: {},
+      now,
+      settleDelayMs: 0,
+      requiredEmptySamples: 2,
+    });
+    expect(creatorSettled).toBe(true);
+    expect(downCalls).toBe(1);
+    expect(resourcesPresent).toBe(false);
+    expect(cleanup.quiescenceSamples).toBe(2);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(resourcesPresent).toBe(false);
+    const lifecycle = JSON.parse(
+      await readFile(
+        join(
+          runtime.evidenceRoot,
+          String(attempt.attemptId),
+          "restore-lifecycle.json",
+        ),
+        "utf8",
+      ),
+    ) as JsonRecord;
+    expect(lifecycle.state).toBe("CLEANED");
   });
 });
 
@@ -1188,4 +1265,111 @@ describe("LP-05 ordered active deployment", () => {
       "ROLLED_BACK",
     ]);
   });
+
+  it("joins an AbortSignal-ignoring forward actor before rollback and terminal return", async () => {
+    const current = fixture(false);
+    const calls: string[] = [];
+    const events: string[] = [];
+    let forwardMutations = 0;
+    const active = oracles(current.records, calls);
+    active.preflight = async (_attempt, context) =>
+      new Promise((resolve, reject) => {
+        if (context === undefined) return reject(new Error("MISSING_CONTEXT"));
+        context.signal.addEventListener(
+          "abort",
+          () => events.push("abort-requested"),
+          { once: true },
+        );
+        setTimeout(() => {
+          forwardMutations += 1;
+          events.push("forward-actor-quiescent");
+          resolve({
+            reasonCode: "LATE_FORWARD_RESULT",
+            evidenceSha256: "5".repeat(64),
+          });
+        }, 20);
+      });
+    const rollback = active.rollback;
+    active.rollback = async (attempt, context) => {
+      events.push("rollback");
+      return rollback(attempt, context);
+    };
+    const result = await runDeployment({
+      envelope: current.envelope,
+      attempt: current.attempt,
+      oracles: active,
+      now: () => new Date("2026-08-03T00:01:00.000Z"),
+      maximumDurationMs: 5,
+    });
+    expect(result.currentState).toBe("ROLLED_BACK");
+    expect(forwardMutations).toBe(1);
+    expect(events).toEqual([
+      "abort-requested",
+      "forward-actor-quiescent",
+      "rollback",
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(forwardMutations).toBe(1);
+    expect(calls).toEqual(["rollback"]);
+  });
+
+  it.each([
+    ["compose-creation", "restoreEnvironment"],
+    ["restore-migration", "restore"],
+    ["restore-app-startup", "restore"],
+    ["restore-story-replay", "restore"],
+  ] as const)(
+    "keeps delayed %s mutation inside its actor fence",
+    async (stage, oracleName) => {
+      const current = fixture(false);
+      const calls: string[] = [];
+      const events: string[] = [];
+      const resources = new Set<string>();
+      const active = oracles(current.records, calls);
+      const delayed: DeploymentOracle = async (_attempt, context) =>
+        new Promise((resolve, reject) => {
+          if (context === undefined)
+            return reject(new Error("MISSING_CONTEXT"));
+          context.signal.addEventListener(
+            "abort",
+            () => events.push(`${stage}:abort-requested`),
+            { once: true },
+          );
+          setTimeout(() => {
+            resources.add(stage);
+            events.push(`${stage}:actor-quiescent`);
+            resolve({
+              reasonCode: `LATE_${stage.toUpperCase()}`,
+              evidenceSha256: "5".repeat(64),
+            });
+          }, 20);
+        });
+      if (oracleName === "restoreEnvironment")
+        active.restoreEnvironment = delayed;
+      else active.restore = delayed;
+      const rollback = active.rollback;
+      active.rollback = async (attempt, context) => {
+        events.push("rollback");
+        resources.clear();
+        return rollback(attempt, context);
+      };
+      const result = await runDeployment({
+        envelope: current.envelope,
+        attempt: current.attempt,
+        oracles: active,
+        now: () => new Date("2026-08-03T00:01:00.000Z"),
+        maximumDurationMs: 5,
+      });
+      expect(result.currentState).toBe("ROLLED_BACK");
+      expect(events).toEqual([
+        `${stage}:abort-requested`,
+        `${stage}:actor-quiescent`,
+        "rollback",
+      ]);
+      expect(resources.size).toBe(0);
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      expect(resources.size).toBe(0);
+      expect(calls.at(-1)).toBe("rollback");
+    },
+  );
 });

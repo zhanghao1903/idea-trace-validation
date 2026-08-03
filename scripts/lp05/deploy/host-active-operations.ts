@@ -3,7 +3,9 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 import { DemoScenarioRunner } from "../../lp04/scenario.js";
 import { createEncryptedBackup } from "../database/backup.js";
@@ -180,15 +182,21 @@ export const parseHostActiveRuntime = (value: unknown): HostActiveRuntime => {
 type RunDocker = (
   args: readonly string[],
   environment?: NodeJS.ProcessEnv,
+  signal?: AbortSignal,
 ) => Promise<string>;
 
-const defaultDocker: RunDocker = async (args, environment = process.env) =>
+const defaultDocker: RunDocker = async (
+  args,
+  environment = process.env,
+  signal,
+) =>
   (
     await executeFile("docker", [...args], {
       cwd: process.cwd(),
       env: environment,
       timeout: 180_000,
       maxBuffer: 8 * 1024 * 1024,
+      signal,
     })
   ).stdout.trim();
 
@@ -364,12 +372,18 @@ const backupToolVersions = async (
   runDocker: RunDocker,
   containerId: string,
   environment: NodeJS.ProcessEnv,
+  signal: AbortSignal,
 ): Promise<{ pgDumpVersion: string; ageVersion: string }> => {
   const [pgOutput, ageOutput] = await Promise.all([
-    runDocker(["exec", containerId, "pg_dump", "--version"], environment),
+    runDocker(
+      ["exec", containerId, "pg_dump", "--version"],
+      environment,
+      signal,
+    ),
     executeFile("age", ["--version"], {
       env: { PATH: environment.PATH },
       timeout: 10_000,
+      signal,
     }).then(({ stdout, stderr }) => `${stdout}${stderr}`.trim()),
   ]);
   const pg = /(\d+\.\d+(?:\.\d+)?)/u.exec(pgOutput)?.[1];
@@ -449,6 +463,7 @@ const createBackup = async (input: {
       input.runDocker,
       String(input.database.containerId),
       input.environment,
+      input.signal,
     ),
     now: input.now(),
     signal: input.signal,
@@ -511,7 +526,7 @@ const phasePayload = async (
 };
 
 type RestoreLifecycleState =
-  "CREATING" | "READY" | "CLEANED" | "CLEANUP_FAILED";
+  "CREATING" | "READY" | "QUIESCING" | "CLEANED" | "CLEANUP_FAILED";
 
 const restoreLifecyclePath = (
   runtime: HostActiveRuntime,
@@ -588,7 +603,7 @@ const verifyRestoreLifecycle = (
     input.candidateManifestSha256 !== candidate.manifestSha256 ||
     input.composeProject !== runtime.restore.composeProject ||
     input.databaseName !== runtime.restore.databaseName ||
-    !["CREATING", "READY", "CLEANED", "CLEANUP_FAILED"].includes(
+    !["CREATING", "READY", "QUIESCING", "CLEANED", "CLEANUP_FAILED"].includes(
       String(input.state),
     ) ||
     typeof input.updatedAt !== "string" ||
@@ -600,6 +615,8 @@ const verifyRestoreLifecycle = (
   if (input.state === "CREATING" && input.isolatedTarget !== null)
     throw new Error("RESTORE_LIFECYCLE_CREATING_TARGET");
   if (input.state === "READY") parseIsolatedRestoreTarget(input.isolatedTarget);
+  if (input.state === "QUIESCING" && input.isolatedTarget !== null)
+    parseIsolatedRestoreTarget(input.isolatedTarget);
   if (input.state === "CLEANED" && record(input.cleanup).status !== "PASS")
     throw new Error("RESTORE_LIFECYCLE_CLEANUP_STATUS");
   return input;
@@ -688,9 +705,11 @@ export const cleanupIsolatedRestoreEnvironment = async (input: {
   runDocker: RunDocker;
   environment: NodeJS.ProcessEnv;
   now: () => Date;
+  settleDelayMs?: number;
+  requiredEmptySamples?: number;
 }): Promise<JsonRecord> => {
   const lifecycleFile = restoreLifecyclePath(input.runtime, input.attempt);
-  const lifecycle = (await exists(lifecycleFile))
+  let lifecycle = (await exists(lifecycleFile))
     ? verifyRestoreLifecycle(
         JSON.parse(await readFile(lifecycleFile, "utf8")),
         input.runtime,
@@ -729,70 +748,117 @@ export const cleanupIsolatedRestoreEnvironment = async (input: {
       ),
     ),
   });
-  const observed = await observe();
+  let observed = await observe();
   if (
     lifecycle === null &&
     (observed.containerIds.length > 0 || observed.volumeNames.length > 0)
   )
     throw new Error("RESTORE_CLEANUP_LIFECYCLE_REQUIRED");
   if (lifecycle !== null && lifecycle.state === "CLEANED") {
-    if (observed.containerIds.length > 0 || observed.volumeNames.length > 0)
-      throw new Error("RESTORE_CLEANUP_REAPPEARED");
-    return record(lifecycle.cleanup, "RESTORE_CLEANUP_EVIDENCE");
+    if (observed.containerIds.length === 0 && observed.volumeNames.length === 0)
+      return record(lifecycle.cleanup, "RESTORE_CLEANUP_EVIDENCE");
   }
-  await assertRestoreProjectResources({
-    composeProject: input.runtime.restore.composeProject,
-    ...observed,
-    runDocker: input.runDocker,
-    environment: restoreEnv,
+  if (lifecycle === null) {
+    return {
+      status: "PASS",
+      reasonCode: "RESTORE_ENVIRONMENT_NOT_CREATED",
+      composeProject: input.runtime.restore.composeProject,
+      isolatedTargetSha256: null,
+      removedResourceSetSha256: canonicalSha256(observed),
+      quiescenceSamples: 1,
+      settleDelayMs: 0,
+      completedAt: input.now().toISOString(),
+    };
+  }
+  lifecycle = finalizeRestoreLifecycle({
+    runtime: input.runtime,
+    attempt: input.attempt,
+    state: "QUIESCING",
+    isolatedTarget:
+      lifecycle.isolatedTarget === null
+        ? null
+        : record(lifecycle.isolatedTarget),
+    cleanup: null,
+    updatedAt: input.now().toISOString(),
   });
-  if (observed.containerIds.length > 0 || observed.volumeNames.length > 0) {
-    await input.runDocker(
-      [
-        ...composeArgs(input.runtime.restore.composeProject, true),
-        "down",
-        "--volumes",
-        "--remove-orphans",
-        "--timeout",
-        "30",
-      ],
-      restoreEnv,
-    );
+  await persistRestoreLifecycle(input.runtime, input.attempt, lifecycle);
+  const settleDelayMs = input.settleDelayMs ?? 1_000;
+  const requiredEmptySamples = input.requiredEmptySamples ?? 3;
+  if (
+    !Number.isSafeInteger(settleDelayMs) ||
+    settleDelayMs < 0 ||
+    !Number.isSafeInteger(requiredEmptySamples) ||
+    requiredEmptySamples < 2 ||
+    requiredEmptySamples > 10
+  )
+    throw new Error("RESTORE_CLEANUP_QUIESCENCE_POLICY");
+  const seenContainerIds = new Set<string>();
+  const seenVolumeNames = new Set<string>();
+  let emptySamples = 0;
+  const maximumSamples = requiredEmptySamples + 12;
+  for (let sample = 0; sample < maximumSamples; sample += 1) {
+    observed.containerIds.forEach((value) => seenContainerIds.add(value));
+    observed.volumeNames.forEach((value) => seenVolumeNames.add(value));
+    await assertRestoreProjectResources({
+      composeProject: input.runtime.restore.composeProject,
+      ...observed,
+      runDocker: input.runDocker,
+      environment: restoreEnv,
+    });
+    if (observed.containerIds.length > 0 || observed.volumeNames.length > 0) {
+      emptySamples = 0;
+      await input.runDocker(
+        [
+          ...composeArgs(input.runtime.restore.composeProject, true),
+          "down",
+          "--volumes",
+          "--remove-orphans",
+          "--timeout",
+          "30",
+        ],
+        restoreEnv,
+      );
+    } else {
+      emptySamples += 1;
+      if (emptySamples >= requiredEmptySamples) break;
+    }
+    if (settleDelayMs > 0) await delay(settleDelayMs);
+    observed = await observe();
   }
-  const remaining = await observe();
-  if (remaining.containerIds.length > 0 || remaining.volumeNames.length > 0)
-    throw new Error("ACTIVE_RESTORE_CLEANUP");
+  if (emptySamples < requiredEmptySamples)
+    throw new Error("ACTIVE_RESTORE_CLEANUP_NOT_QUIESCENT");
+  const removedResources = {
+    containerIds: [...seenContainerIds].sort(),
+    volumeNames: [...seenVolumeNames].sort(),
+  };
   const cleanup: JsonRecord = {
     status: "PASS",
-    reasonCode:
-      lifecycle === null
-        ? "RESTORE_ENVIRONMENT_NOT_CREATED"
-        : "RESTORE_ENVIRONMENT_EXACT_RESOURCES_REMOVED",
+    reasonCode: "RESTORE_ENVIRONMENT_EXACT_RESOURCES_REMOVED",
     composeProject: input.runtime.restore.composeProject,
     isolatedTargetSha256:
-      lifecycle === null || lifecycle.isolatedTarget === null
+      lifecycle.isolatedTarget === null
         ? null
         : canonicalSha256(record(lifecycle.isolatedTarget)),
-    removedResourceSetSha256: canonicalSha256(observed),
+    removedResourceSetSha256: canonicalSha256(removedResources),
+    quiescenceSamples: requiredEmptySamples,
+    settleDelayMs,
     completedAt: input.now().toISOString(),
   };
-  if (lifecycle !== null) {
-    await persistRestoreLifecycle(
-      input.runtime,
-      input.attempt,
-      finalizeRestoreLifecycle({
-        runtime: input.runtime,
-        attempt: input.attempt,
-        state: "CLEANED",
-        isolatedTarget:
-          lifecycle.isolatedTarget === null
-            ? null
-            : record(lifecycle.isolatedTarget),
-        cleanup,
-        updatedAt: input.now().toISOString(),
-      }),
-    );
-  }
+  await persistRestoreLifecycle(
+    input.runtime,
+    input.attempt,
+    finalizeRestoreLifecycle({
+      runtime: input.runtime,
+      attempt: input.attempt,
+      state: "CLEANED",
+      isolatedTarget:
+        lifecycle.isolatedTarget === null
+          ? null
+          : record(lifecycle.isolatedTarget),
+      cleanup,
+      updatedAt: input.now().toISOString(),
+    }),
+  );
   return cleanup;
 };
 
@@ -846,7 +912,14 @@ export const createHostActiveDeploymentOperations = (options: {
 }): ActiveDeploymentOperations => {
   const runtime = parseHostActiveRuntime(options.runtime);
   const environment = options.environment ?? process.env;
-  const runDocker = options.runDocker ?? defaultDocker;
+  const dockerActorSignal = new AsyncLocalStorage<AbortSignal>();
+  const baseDocker = options.runDocker ?? defaultDocker;
+  const runDocker: RunDocker = (args, commandEnvironment, signal) =>
+    baseDocker(
+      args,
+      commandEnvironment,
+      signal ?? dockerActorSignal.getStore(),
+    );
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now ?? (() => new Date());
   const config = (): ReturnType<typeof loadDeploymentConfig> =>
@@ -988,7 +1061,7 @@ export const createHostActiveDeploymentOperations = (options: {
     });
   };
 
-  const execute = async (
+  const executePhase = async (
     phase: ActivePhase,
     attempt: JsonRecord,
     context: DeploymentOracleContext,
@@ -1431,7 +1504,10 @@ export const createHostActiveDeploymentOperations = (options: {
   };
 
   return {
-    execute,
+    execute: (phase, attempt, context) =>
+      dockerActorSignal.run(context.signal, () =>
+        executePhase(phase, attempt, context),
+      ),
     reconcile: async (phase, attempt, persisted, _context) => {
       await readManifest(runtime, attempt);
       switch (phase) {

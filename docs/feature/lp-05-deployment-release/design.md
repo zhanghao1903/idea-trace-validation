@@ -548,11 +548,14 @@ contains no status that can be hand-written; every value comes from an independe
 canonical byte equality is required before `PRODUCTION_UNCHANGED_VERIFIED`.
 
 The controller writes an attempt-bound `restore-lifecycle.json` before creating the restore project. Its closed
-states are `CREATING`, `READY`, `CLEANED`, and `CLEANUP_FAILED`; `READY` binds the exact isolated target and every
-record binds attempt/envelope/target/candidate/runtime identities plus a canonical digest. Success, handled failure,
-deadline abort, and stale-lock recovery inspect every matching container and volume label before running the exact
-restore-project `compose down --volumes`, verify zero matching resources remain, and persist the cleanup outcome.
-Production resources and encrypted backup files are outside this cleanup authority.
+states are `CREATING`, `READY`, `QUIESCING`, `CLEANED`, and `CLEANUP_FAILED`; `READY` binds the exact isolated target,
+`QUIESCING` is persisted before cleanup, and every record binds attempt/envelope/target/candidate/runtime identities
+plus a canonical digest. An oracle Promise owns every nested forward actor and must settle before rollback begins;
+the deadline requests cancellation but never races that ownership boundary. Nested Docker processes inherit the
+same signal. Success, handled failure, deadline abort, and stale-lock recovery inspect every matching container and
+volume label before running the exact restore-project `compose down --volumes`, require consecutive empty
+observations after the actor has quiesced, and only then persist `CLEANED`. Production resources and encrypted backup
+files are outside this cleanup authority.
 
 ### 6.3 Cross-record Equality Chain And Restore Flow
 

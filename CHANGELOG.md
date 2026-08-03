@@ -118,3 +118,7 @@
   authorizing new forward work, abort backup/restore child pipelines at the
   attempt deadline, bind runtime inputs across restarts, and clean exact
   isolated-restore resources through a persisted crash-safe lifecycle.
+- Join every LP-05 forward actor before terminal rollback, propagate its
+  cancellation signal through nested Docker commands, and require a persisted
+  restore `QUIESCING` phase with consecutive empty observations before recording
+  `CLEANED`.

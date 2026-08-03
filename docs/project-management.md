@@ -12,7 +12,7 @@
 | LP-02 | [项目执行与决策闭环](./implementation-plans/v0-1/lp-02-execution-decisions.md) | LP-01 | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
 | LP-03 | [结构化汇报与双角色体验](./implementation-plans/v0-1/lp-03-reporting-role-experience.md) | LP-02 | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
 | LP-04 | [AI Skill 与可重复演示](./implementation-plans/v0-1/lp-04-ai-skill-demo.md) | LP-03 | Accepted | None | 保留 `ACCEPTED_NO_PUBLISH` 关闭记录；无发布动作 |
-| LP-05 | [部署与发布就绪](./implementation-plans/v0-1/lp-05-deployment-release.md) | LP-04 | In Progress | Code Review Cycle 3 的终态恢复和隔离资源清理 finding 已在本地闭合，等待 exact-head 复审；生产目标和授权仍未提供 | 推送已验证的精确候选并完成 Cycle 4 复审；获独立目标授权后才执行真实部署、备份恢复和公网 re-smoke |
+| LP-05 | [部署与发布就绪](./implementation-plans/v0-1/lp-05-deployment-release.md) | LP-04 | In Progress | Code Review Cycle 4 的 actor join 与恢复资源代际 finding 已在本地闭合，等待 exact-head 复审；生产目标和授权仍未提供 | 推送已验证的精确候选并完成 Cycle 5 复审；获独立目标授权后才执行真实部署、备份恢复和公网 re-smoke |
 
 ## 依赖
 
@@ -23,7 +23,7 @@
 隔离环境完成送审，但生产目标尚未提供。服务器、域名/DNS、仓库外秘密交付、备份位置、
 公开合成数据许可和绑定精确候选的部署授权全部到齐前，不执行或声称完成真实部署。
 
-总体下一步：完成 LP-05 Cycle 4 exact-head Engineering Review。代码合并后仍需独立
+总体下一步：完成 LP-05 Cycle 5 exact-head Engineering Review。代码合并后仍需独立
 生产授权，才能执行真实 HTTPS 部署、生产备份到隔离恢复、核心演示和公网 re-smoke；这些
 证据齐全前 LP-05 不得标为 `Accepted`。
 

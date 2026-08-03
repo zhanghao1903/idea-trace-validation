@@ -139,25 +139,26 @@ export const runDeployment = async (input: {
     assertDeadline();
     const remaining = Math.max(1, deadlineAt - now().getTime());
     const abort = new AbortController();
-    const abortGraceMs = Math.min(5_000, maximumDurationMs);
-    let abortTimer: ReturnType<typeof setTimeout> | undefined;
-    let hardStopTimer: ReturnType<typeof setTimeout> | undefined;
-    const hardStop = new Promise<never>((_resolve, reject) => {
-      abortTimer = setTimeout(() => abort.abort(), remaining);
-      hardStopTimer = setTimeout(() => {
-        reject(new Error("CONTROLLER_ATTEMPT_DEADLINE_EXCEEDED"));
-      }, remaining + abortGraceMs);
-    });
+    let deadlineTriggered = false;
+    const abortTimer = setTimeout(() => {
+      deadlineTriggered = true;
+      abort.abort(new Error("CONTROLLER_ATTEMPT_DEADLINE_EXCEEDED"));
+    }, remaining);
     try {
-      const result = await Promise.race([
-        oracle(attempt, { deadlineAt, signal: abort.signal }),
-        hardStop,
-      ]);
+      // The oracle Promise is the ownership boundary for every forward actor it
+      // starts. Cancellation is cooperative, but terminal recovery must still
+      // join that boundary. Racing it would allow a signal-ignoring mutation to
+      // outlive rollback and invalidate the terminal journal.
+      const result = await oracle(attempt, {
+        deadlineAt,
+        signal: abort.signal,
+      });
+      if (deadlineTriggered)
+        throw new Error("CONTROLLER_ATTEMPT_DEADLINE_EXCEEDED");
       assertDeadline();
       return result;
     } finally {
-      if (abortTimer !== undefined) clearTimeout(abortTimer);
-      if (hardStopTimer !== undefined) clearTimeout(hardStopTimer);
+      clearTimeout(abortTimer);
     }
   };
   const advanceForward = async (next: JsonRecord): Promise<void> => {

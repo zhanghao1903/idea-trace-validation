@@ -34,6 +34,9 @@
   terminal rollback chain even when post-phase authority/deadline validation fails, aborts active backup/restore
   children at the four-hour deadline, binds the sanitized runtime across restarts, and gives the isolated restore
   project a crash-safe `CREATING|READY|CLEANED|CLEANUP_FAILED` lifecycle with exact-label cleanup.
+- Code Review Cycle 4 remediation removes the terminal `Promise.race`, makes every oracle settle before rollback,
+  propagates its AbortSignal through nested Docker children, and adds a persisted `QUIESCING` generation fence with
+  consecutive empty observations so no restore resource can appear after `CLEANED`.
 
 ## Objective repository results
 
@@ -44,9 +47,9 @@
 | `npm run skill:check` | PASS |
 | `npm run typecheck` and `npm run typecheck:lp05` | PASS; application workspaces and deploy/runtime scripts are both checked |
 | `npm run build` and frozen OpenAPI/report-type checks | PASS; Web bundle 97.35 KiB gzip |
-| repository unit/contract/integration/Web component tests | PASS; 113 + 23 + 31 + 8 tests |
+| repository unit/contract/integration/Web component tests | PASS; 119 + 23 + 31 + 8 tests |
 | LP-01–LP-04 acceptance tests | PASS; 13 tests on the isolated PostgreSQL database |
-| `npm run test:deployment:unit` | PASS; 6 files, 58 tests including every post-phase authority boundary, controller/backup/restore deadlines, restore-intent crash cleanup and foreign-label rejection |
+| `npm run test:deployment:unit` | PASS; 6 files, 64 tests including every post-phase authority boundary, controller/backup/restore deadlines, ignored-abort actor joining, delayed Compose/migration/app/story mutations, delayed restore-generation cleanup and foreign-label rejection |
 | `npm run deploy:lp05:validate` | PASS; `LP05_RELEASE_READINESS_PASS` |
 | digest-pinned Caddy validation | PASS; production and local-test files are valid with explicit redirects and exact CSP |
 | Playwright LP-03/LP-04 stories | PASS; 7 + 1 scenarios |
