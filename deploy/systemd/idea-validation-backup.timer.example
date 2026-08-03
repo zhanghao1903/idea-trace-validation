@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Idea Validation encrypted backup daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15m
+Unit=idea-validation-backup.service
+
+[Install]
+WantedBy=timers.target

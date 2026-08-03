@@ -1,0 +1,57 @@
+# syntax=docker/dockerfile:1.12
+FROM docker.io/library/node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY packages/application/package.json packages/application/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/db/package.json packages/db/package.json
+COPY packages/domain/package.json packages/domain/package.json
+COPY packages/reporting/package.json packages/reporting/package.json
+RUN --mount=type=cache,target=/root/.npm npm ci
+COPY tsconfig.json tsconfig.base.json ./
+COPY apps ./apps
+COPY packages ./packages
+COPY openapi ./openapi
+COPY scripts/generate-openapi.ts scripts/openapi-support.ts scripts/generate-report-types.ts scripts/report-types-support.ts ./scripts/
+# npm 11 can omit the workspace's AJV 8 root install when the root dev graph also contains AJV 6 via ESLint.
+# Reassert the exact lockfile version without lifecycle scripts or a lockfile mutation.
+RUN npm run build \
+    && npm ci --omit=dev \
+    && npm install --omit=dev --ignore-scripts --no-save --package-lock=false ajv@8.20.0
+
+FROM docker.io/library/node:24.18.0-alpine@sha256:a0b9bf06e4e6193cf7a0f58816cc935ff8c2a908f81e6f1a95432d679c54fbfd AS runtime
+ARG SOURCE_COMMIT
+ARG SOURCE_TREE
+ARG RELEASE_ID
+LABEL org.opencontainers.image.revision=$SOURCE_COMMIT \
+      org.opencontainers.image.version=$RELEASE_ID \
+      org.opencontainers.image.source="https://github.com/zhanghao1903/idea-trace-validation"
+WORKDIR /app
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000 WEB_DIST_DIR=/app/apps/web/dist
+COPY --from=builder --chown=10001:10001 /app/node_modules ./node_modules
+COPY --from=builder --chown=10001:10001 /app/package.json ./package.json
+COPY --from=builder --chown=10001:10001 /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder --chown=10001:10001 /app/apps/api/dist ./apps/api/dist
+COPY --from=builder --chown=10001:10001 /app/apps/web/dist ./apps/web/dist
+COPY --from=builder --chown=10001:10001 /app/packages/application/package.json ./packages/application/package.json
+COPY --from=builder --chown=10001:10001 /app/packages/application/dist ./packages/application/dist
+COPY --from=builder --chown=10001:10001 /app/packages/contracts/package.json ./packages/contracts/package.json
+COPY --from=builder --chown=10001:10001 /app/packages/contracts/dist ./packages/contracts/dist
+COPY --from=builder --chown=10001:10001 /app/packages/db/package.json ./packages/db/package.json
+COPY --from=builder --chown=10001:10001 /app/packages/db/dist ./packages/db/dist
+COPY --from=builder --chown=10001:10001 /app/packages/db/migrations ./packages/db/migrations
+COPY --from=builder --chown=10001:10001 /app/packages/domain/package.json ./packages/domain/package.json
+COPY --from=builder --chown=10001:10001 /app/packages/domain/dist ./packages/domain/dist
+COPY --from=builder --chown=10001:10001 /app/packages/reporting/package.json ./packages/reporting/package.json
+COPY --from=builder --chown=10001:10001 /app/packages/reporting/dist ./packages/reporting/dist
+COPY --from=builder --chown=10001:10001 /app/openapi/lp03.v1.json ./openapi/lp03.v1.json
+COPY --chown=10001:10001 deploy/runtime/entrypoint.mjs deploy/runtime/healthcheck.mjs ./deploy/runtime/
+RUN printf '{"releaseId":"%s","sourceCommit":"%s","sourceTree":"%s"}' "$RELEASE_ID" "$SOURCE_COMMIT" "$SOURCE_TREE" > /app/release.json \
+    && chown 10001:10001 /app/release.json
+USER 10001:10001
+EXPOSE 3000
+ENTRYPOINT ["node", "/app/deploy/runtime/entrypoint.mjs"]
+CMD ["/app/apps/api/dist/server.js"]
+HEALTHCHECK --interval=10s --timeout=3s --start-period=20s --retries=6 CMD ["node", "/app/deploy/runtime/healthcheck.mjs"]

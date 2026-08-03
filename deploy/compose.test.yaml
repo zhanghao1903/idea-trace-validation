@@ -1,0 +1,32 @@
+services:
+  postgres:
+    labels:
+      io.idea-validation.environment: local-test
+  migrate:
+    labels:
+      io.idea-validation.environment: local-test
+  app:
+    labels:
+      io.idea-validation.environment: local-test
+  caddy:
+    environment:
+      DEPLOY_DOMAIN: localhost
+    ports: !override
+      - target: 8080
+        published: "18080"
+        host_ip: 127.0.0.1
+        protocol: tcp
+      - target: 8443
+        published: "18443"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    volumes: !override
+      - ./Caddyfile.test:/etc/caddy/Caddyfile:ro
+      - caddy-test-data:/data
+    labels:
+      io.idea-validation.environment: local-test
+
+volumes:
+  caddy-test-data:
+    labels:
+      io.idea-validation.environment: local-test

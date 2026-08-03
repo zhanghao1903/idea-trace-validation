@@ -3,11 +3,8 @@
 LP-01～LP-03 组成当前已验收的可运行纵向切片：登记和澄清 Idea、显式推进为唯一验证项目，记录执行转换与决策历史，再通过不可变结构化汇报和 proposer/executor
 Web 读取同一份 PostgreSQL 权威数据。汇报只负责展示，不能覆盖项目状态、确认或审计事实。
 
-LP-04 正在增加仓库版本化 AI
-Skill、只使用合成数据的确定性真实 HTTP 演示、崩溃恢复证据和真实数据浏览器故事。实际 Codex/Claude 客户端证据已通过加强后的 transcript、公开审计和资源读回验证；LP-04 当前为
-`Ready for Acceptance`，但 Cycle 7 缩小后的 Codex response-reader
-jq 输入角色 finding 正在为 Cycle
-8 复审闭环；合并和正式验收尚未完成。生产部署属于 LP-05，不在当前实现范围。
+LP-04 已通过 `ACCEPTED_NO_PUBLISH` 正式关闭：仓库包含客户端中立 AI
+Skill、只使用合成数据的确定性真实 HTTP 演示、崩溃恢复证据和真实数据浏览器故事；没有生产部署或外部发布。LP-05 正在增加不可变发布候选、单机生产拓扑、备份/隔离恢复、部署状态机、smoke 证据与运维手册。仓库资产可以独立验证，但真实服务器、DNS、秘密和公开部署仍需要绑定精确候选与目标的单独授权。
 
 ## 运行要求
 
@@ -124,6 +121,23 @@ AI
 bearer 只通过环境注入；命令参数和证据不包含真实值。实际客户端、独立人工交接、失败恢复、Web 验收和精确清理见
 [LP-04 本地演示指南](./docs/demo/lp04.md)。
 
+## LP-05 发布就绪
+
+LP-05 的生产资产位于 [`deploy/`](./deploy)，运维手册位于
+[`docs/operations/lp05.md`](./docs/operations/lp05.md)。镜像和依赖使用精确摘要；生产 Compose 不发布数据库端口，应用通过 Caddy 提供 HTTPS，秘密只从仓库外的受限文件注入。
+
+无需生产目标即可运行的仓库门禁：
+
+```bash
+npm run test:deployment:unit
+npm run deploy:lp05:validate
+npm run release:lp05:candidate -- --platform linux/amd64
+```
+
+最后一条会执行完整 `npm run verify`
+并构建不可变 OCI 候选。真实部署、生产备份、隔离恢复、凭据轮换和公网 re-smoke 只能在提供完整 authorization
+envelope 后按运维手册执行；需求确认、代码评审或合并本身都不构成该授权。
+
 ## 验证
 
 ```bash
@@ -144,6 +158,8 @@ npm run test:web:component
 npx playwright install chromium
 npm run test:browser
 TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/idea_validation_test npm run test:browser:lp04
+npm run test:deployment:unit
+npm run deploy:lp05:validate
 ```
 
 `npm run verify`
@@ -168,6 +184,6 @@ TEST_DATABASE_URL=postgres://idea_validation:idea_validation@127.0.0.1:54329/ide
 [LP-01 verification](./docs/feature/lp-01-core-idea-flow/verification.md)、
 [LP-02 verification](./docs/feature/lp-02-execution-decisions/verification.md)
 与
-[LP-03 verification](./docs/feature/lp-03-reporting-role-experience/verification.md)。LP-04 的进行中证据见
-[LP-04 verification](./docs/feature/lp-04-ai-skill-demo/verification.md)；其中明确区分客户端证据通过、Engineering
-Review 批准、合并与正式验收。
+[LP-03 verification](./docs/feature/lp-03-reporting-role-experience/verification.md)。LP-04 的正式关闭证据见
+[LP-04 verification](./docs/feature/lp-04-ai-skill-demo/verification.md)；LP-05的仓库门禁与仍待独立授权的外部步骤见
+[LP-05 verification](./docs/feature/lp-05-deployment-release/verification.md)。

@@ -1,0 +1,26 @@
+{
+  admin off
+  http_port 8080
+  https_port 8443
+  auto_https disable_redirects
+  local_certs
+}
+
+http://localhost:8080 {
+  redir https://localhost:18443{uri} permanent
+}
+
+https://localhost:8443 {
+  tls internal
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    X-Content-Type-Options nosniff
+    X-Frame-Options DENY
+    Referrer-Policy no-referrer
+    Content-Security-Policy "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'"
+    -Server
+  }
+  @dynamic path /api/* /health/* /openapi.json
+  header @dynamic Cache-Control "no-store"
+  reverse_proxy app:3000
+}

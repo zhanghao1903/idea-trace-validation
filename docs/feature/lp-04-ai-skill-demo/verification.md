@@ -8,8 +8,8 @@
 - Approved composite digest:
   `24d41fd9b5a5f10e07daa9c2a941f0fe411833663ba9ccb7d1ecc3035cb76f6b`
 - Exact Skill commit: `55fefc83f02ada8a0310bacc7402faf72642d726`
-- Evidence status: Cycle 7 retained finding remediated; ready for exact-head Cycle 8 Engineering
-  Review on 2026-08-02 (Asia/Shanghai)
+- Evidence status: Cycle 8 approved, exact head squash-merged and formally closed as
+  `ACCEPTED_NO_PUBLISH` on 2026-08-03 (Asia/Shanghai)
 
 ## Exact-head and status boundary
 
@@ -138,7 +138,9 @@ LP-03 is durably accepted without publication at merge
 `7f8aeac9327278dc08bd84d2f229ebc9f6b166a109e4a7c83a0001a49bf7ce8`, closure
 `25fd479b6c7663d41920bc50935c5bd1fd5efb7f2d4a3e14252015a889e360f8`, with release targets `[]`.
 
-LP-04 is `Ready for Acceptance`. Its acceptance record is still `None`; no merge, tag, GitHub Release,
-package, deployment or other publication has been performed. Cycles 1 through 7 were not approved.
-Engineering Review must approve the exact Cycle 8 remediation head before any separately authorized
-merge and later acceptance-only/no-publish closure.
+Cycle 8 approved exact head `f377801442cf1cfb268b5dd830f5d20e95ce18c0`; PR #6 was externally
+squash-merged as `46e021d261fd8a663c83430a551f5674365ccf14`. LP-04 then closed through the
+authorized `ACCEPTED_NO_PUBLISH` transition with acceptance
+`cf7593f335dacb092294d51f97bcd9d9e957293c8dc1f570307066c342fe48af` and closure
+`14a81f052aff6dc34ba6bb6550a725a0f5f926ade104515cf1ab85bcca1ce1eb`. Release targets are `[]`;
+no tag, GitHub Release, package, production deployment or other external publication was performed.

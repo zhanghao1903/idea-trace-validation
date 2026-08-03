@@ -1,0 +1,16 @@
+[Unit]
+Description=Idea Validation encrypted daily PostgreSQL backup
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=idea-validation
+Group=idea-validation
+WorkingDirectory=/srv/idea-validation
+EnvironmentFile=/etc/idea-validation/release.env
+ExecStart=/usr/bin/npm run backup:lp05 -- --purpose scheduled
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/srv/idea-validation-backups

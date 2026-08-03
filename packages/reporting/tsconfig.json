@@ -3,7 +3,8 @@
   "compilerOptions": {
     "composite": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "tsBuildInfoFile": "./dist/reporting.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
   "references": [{ "path": "../contracts" }]

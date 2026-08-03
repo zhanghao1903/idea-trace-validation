@@ -16,9 +16,12 @@
 - Define the implementation-ready LP-04 design for a client-neutral AI Skill,
   deterministic synthetic demos, real HTTP recovery proof, and exact
   Codex/Claude validation evidence.
-- Add the LP-04 local demo guide and in-progress verification record, with
+- Add the LP-04 local demo guide and immutable verification record, with
   explicit synthetic-data, credential, human-handoff and exact cleanup
   boundaries.
+- Define LP-05's release-candidate, deployment authorization, backup/isolated
+  restore, rollback, public re-smoke and immutable evidence contracts, with a
+  versioned single-server operations runbook.
 
 ### Added
 
@@ -61,6 +64,15 @@
 - Add independently verified Codex CLI and Claude Desktop/Claude Code Skill
   execution records, bound to exact transcript digests and publicly readable
   synthetic API resources without committing credentials or raw transcripts.
+- Add a digest-pinned multi-stage application image, private PostgreSQL network,
+  Caddy HTTPS edge, read-only/non-root runtime and repository-outside secret
+  injection for the LP-05 production candidate.
+- Add fail-closed deployment authorization and attempt-state tooling, encrypted
+  streaming backups, seven-copy retention, isolated restores, credential
+  rotation, rollback, smoke/evidence verification and local production-topology
+  acceptance coverage.
+- Extend exact-head CI with the LP-05 immutable-candidate build, static release
+  validation, authority/restore/rotation/rollback tests and clean-tree proof.
 
 ### Changed
 
@@ -93,3 +105,20 @@
   positional input or selector-bound `--slurpfile` can satisfy response-file
   proof; require per-child public readback and preserve resumable journal state
   after bounded `IDEMPOTENCY_IN_PROGRESS` retries.
+- Make LP-05 external smoke an active observer, require authority-bound evidence
+  at every persisted deployment transition, execute idempotent host rollback,
+  and derive `pg_restore` connectivity only from a live re-inspected isolated
+  target.
+- Remove caller-authored future evidence from the LP-05 production controller;
+  actively execute and reconcile controller-owned phase outputs, recover stale
+  locks through an exclusive bounded-resume lease, run restore inside the exact
+  re-inspected isolated DB container after complete production-identity checks,
+  and require exact same-host HTTPS redirects plus the production CSP.
+- Make LP-05 post-phase authority/deadline failures durably terminal without
+  authorizing new forward work, abort backup/restore child pipelines at the
+  attempt deadline, bind runtime inputs across restarts, and clean exact
+  isolated-restore resources through a persisted crash-safe lifecycle.
+- Join every LP-05 forward actor before terminal rollback, propagate its
+  cancellation signal through nested Docker commands, and require a persisted
+  restore `QUIESCING` phase with consecutive empty observations before recording
+  `CLEANED`.
