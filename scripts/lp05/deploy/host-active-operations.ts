@@ -57,7 +57,7 @@ import type { DeploymentOracleContext } from "./controller.js";
 import {
   attemptAuthorityEnvironment,
   beginResourceLifecycle,
-  cleanupOwnedProject,
+  cleanupForwardRestoreProject,
   executeRollbackWithCleanup,
   markResourceLifecycleReady,
 } from "./rollback-cleanup.js";
@@ -586,9 +586,8 @@ export const cleanupIsolatedRestoreEnvironment = async (input: {
   settleDelayMs?: number;
   requiredEmptySamples?: number;
 }): Promise<JsonRecord> =>
-  cleanupOwnedProject({
+  cleanupForwardRestoreProject({
     evidenceRoot: input.runtime.evidenceRoot,
-    scope: "RESTORE",
     attempt: input.attempt,
     composeProject: input.runtime.restore.composeProject,
     databaseName: input.runtime.restore.databaseName,
@@ -1408,6 +1407,15 @@ export const createHostActiveDeploymentOperations = (options: {
             ]);
             if (containers !== "" || networks !== "" || volumes !== "")
               throw new Error("ACTIVE_RECONCILE_RESTORE_CLEANUP");
+            const cleanup = await cleanupIsolatedRestoreEnvironment({
+              runtime,
+              attempt,
+              runDocker,
+              environment,
+              now,
+            });
+            if (cleanup.status !== "PASS")
+              throw new Error("ACTIVE_RECONCILE_RESTORE_AUTHORITY");
           }
           break;
         }

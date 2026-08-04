@@ -4,6 +4,8 @@
 - Confirmed requirements: `e2d9b0a30e1e98b227b13ca7fd5c59d46e618b0a`
 - Approved plan: `1c84dd398ed6b44f81682986be7df28ea55b749d`
 - Approved composite digest: `10f03ecf7ff759177fdbd5103fb5c81c2812d3385e46c7e279ea4080dd62c4b6c`
+- Cycle 1 review result: `2acd176f55e096e571ca7601e1c3af01421e3460195dd270d84737dba0b86bd6`
+- Cycle 1 immutable report: `19d4087f89c9f0ee8c0808d9619e21768887711d`
 - Scope: repository implementation and local/CI verification only
 - Production deployment: `NOT RUN`
 
@@ -16,6 +18,9 @@
 - The existing seven-field application rollback object remains closed. Cleanup authority is stored separately in an
   attempt-relative, digest-resolved rollback-cleanup record; terminal rollback evidence binds both records without
   adding a field to `DeploymentAttemptV1.rollback`.
+- Normal forward restore cleanup persists its own immutable attempt-local authority, transitions the exact V2
+  lifecycle from `QUIESCING` to `CLEANED` before PASS, and lets a later phase failure reuse the terminal proof without
+  a second deletion or `ROLLBACK_FAILED`.
 - Fresh-install cleanup proves null previous release, configured-principal application row count zero, exact complete
   Docker identities, stable frozen sets and consecutive empty observations. Containers/networks are removed by
   immutable ID and volumes by exact name after just-in-time identity equality. Upgrade, foreign and ambiguous
@@ -27,7 +32,7 @@
 
 ## Verification commands
 
-The implementation worktree produced these results before code-review dispatch:
+The implementation worktree produced these results for the initial snapshot and the Cycle 1 remediation:
 
 ```text
 npm run format:check
@@ -45,8 +50,8 @@ git diff --check
 | Gate | Result |
 | --- | --- |
 | formatting, lint, Skill/generated contracts, TypeScript and build | PASS |
-| repository unit/contract/integration/Web/acceptance suites | PASS: 132 + 23 + 31 + 8 + 13 tests |
-| `npm run test:deployment:unit` | PASS: 7 files, 77 tests |
+| repository unit/contract/integration/Web/acceptance suites | PASS: 134 + 23 + 31 + 8 + 13 tests |
+| `npm run test:deployment:unit` | PASS: 7 files, 79 tests |
 | `npm run test:deployment:authority` | PASS: 16 tests |
 | `npm run test:deployment:restore-chain` | PASS: 27 tests |
 | `npm run deploy:lp05:validate` | PASS: `LP05_RELEASE_READINESS_PASS` |
@@ -58,6 +63,15 @@ git diff --check
 `npm run test:deployment:hotfix` is a mandatory real-Docker gate. It refuses the production Compose project name,
 uses temporary roots, creates only nonce-prefixed projects and has an exact cleanup trap. The test produces local
 fixture evidence only; it grants no deployment authority.
+
+## Cycle 1 code-review remediation
+
+PRR-001 identified that successful forward restore cleanup deleted the exact resources but left
+`RestoreLifecycleV2` in `QUIESCING`. The remediation adds a closed, digest-bound
+`forward-restore-cleanup.json` record and fixed-path reference, persists `CLEANED` before returning PASS, and makes
+later rollback resolve the terminal result while proving the project remains empty. A focused unit regression proves
+both crash-window recovery and later rollback without a second delete or `ROLLBACK_FAILED`; the real Docker gate
+also executes the forward cleanup before controller rollback and reaches `ROLLED_BACK` with no project resources.
 
 ## Release boundary
 

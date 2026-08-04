@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -19,6 +19,7 @@ import { runDeployment, type DeploymentOracles } from "./controller.js";
 import {
   attemptAuthorityEnvironment,
   beginResourceLifecycle,
+  cleanupForwardRestoreProject,
   executeRollbackWithCleanup,
   markResourceLifecycleReady,
   type CleanupDockerRunner,
@@ -470,6 +471,34 @@ const main = async (): Promise<void> => {
       environment: restoreEnvironment,
       now,
     });
+    const forwardRestoreCleanup = await cleanupForwardRestoreProject({
+      evidenceRoot: join(root, "evidence"),
+      attempt: value,
+      composeProject: restoreProject,
+      databaseName: "idea_validation_restore",
+      runDocker: docker,
+      environment: restoreEnvironment,
+      now,
+    });
+    const forwardRestoreLifecycle = JSON.parse(
+      await readFile(
+        join(
+          root,
+          "evidence",
+          String(value.attemptId),
+          "restore-lifecycle.json",
+        ),
+        "utf8",
+      ),
+    ) as Record<string, unknown>;
+    if (
+      forwardRestoreCleanup.status !== "PASS" ||
+      forwardRestoreLifecycle.state !== "CLEANED" ||
+      Object.values(
+        await projectCounts(restoreProject, restoreEnvironment),
+      ).some((count) => count !== 0)
+    )
+      throw new Error("HOTFIX_FORWARD_RESTORE_CLEANUP");
 
     const unexpected = async (): Promise<never> => {
       throw new Error("HOTFIX_UNEXPECTED_FORWARD_PHASE");

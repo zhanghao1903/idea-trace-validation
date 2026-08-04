@@ -177,10 +177,11 @@ unreachable when `previousRelease` is non-null, so existing upgrade rollback rem
 
 ### 6.1 References and aggregate record
 
-`CleanupReferenceV1` contains exactly `schemaVersion="1.0"`, `kind="ROLLBACK_CLEANUP"`, `attemptId`,
-`relativePath="rollback-cleanup.json"`, `status`, and `cleanupSha256`. Its resolver joins the fixed relative path to
-the validated attempt evidence directory, rejects traversal/alternate paths, loads the record, and requires exact
-attempt/status/digest equality.
+`CleanupReferenceV1` contains exactly `schemaVersion="1.0"`, `kind`, `attemptId`, `relativePath`, `status`, and
+`cleanupSha256`. `kind="ROLLBACK_CLEANUP"` fixes `relativePath="rollback-cleanup.json"`;
+`kind="FORWARD_RESTORE_CLEANUP"` fixes `relativePath="forward-restore-cleanup.json"` and is valid only for the
+restore lifecycle. Each resolver joins only its fixed relative path to the validated attempt evidence directory,
+rejects traversal/alternate paths, loads the closed record, and requires exact authority/status/digest equality.
 
 The sole aggregate cleanup authority is atomically written mode `0600` at
 `<evidenceRoot>/<attemptId>/rollback-cleanup.json`. `RollbackCleanupEvidenceV1` contains exactly:
@@ -223,6 +224,16 @@ The sole aggregate cleanup authority is atomically written mode `0600` at
 `scope=PRODUCTION` uses `databasePrincipal={databaseUser,databaseName}` and exact application row count.
 `scope=RESTORE` requires principal/count null and binds the RestoreLifecycleV2 QUIESCING digest. The aggregate does
 not duplicate a lifecycle record; it binds its exact authority digest and observations.
+
+Normal forward restore cleanup is finalized before later production-unchanged and public re-smoke phases. It writes
+the immutable `ForwardRestoreCleanupEvidenceV1` at
+`<evidenceRoot>/<attemptId>/forward-restore-cleanup.json` with exact attempt/envelope/target/candidate,
+`restoreComposeProject`, `databaseName`, ordered timestamps, one closed restore `CleanupResultV1`, derived
+`PASS|FAIL`, reason and canonical digest. Its reference transitions the exact QUIESCING RestoreLifecycleV2 to
+`CLEANED|CLEANUP_FAILED` before the forward phase returns. If a later phase fails, rollback resolves this terminal
+restore authority, proves the live restore project remains empty, performs no second deletion, and includes the same
+restore result in the separate immutable rollback aggregate. A crash after the forward evidence write but before the
+lifecycle transition can replay the exact evidence and finish the transition; conflicting evidence fails closed.
 
 ### 6.2 `RestoreLifecycleV2`
 

@@ -8,7 +8,9 @@
   principal and separate the strict application rollback projection from
   attempt-bound cleanup evidence. Fresh-install recovery now removes only empty,
   exact attempt-owned container/network/volume identities, preserves upgrade and
-  foreign resources, and fails closed on any authority drift.
+  foreign resources, and fails closed on any authority drift. Forward restore
+  cleanup now reaches a digest-bound `CLEANED` lifecycle before returning and is
+  safely reused by later rollback without deleting the same resources twice.
 
 ### Docs
 

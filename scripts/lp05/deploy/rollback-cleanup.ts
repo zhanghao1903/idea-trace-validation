@@ -725,10 +725,17 @@ export const verifyCleanupReference = (
     ],
     "CLEANUP_REFERENCE",
   );
+  const kind = String(input.kind);
+  const expectedPath =
+    kind === "ROLLBACK_CLEANUP"
+      ? "rollback-cleanup.json"
+      : kind === "FORWARD_RESTORE_CLEANUP"
+        ? "forward-restore-cleanup.json"
+        : null;
   if (
     input.schemaVersion !== "1.0" ||
-    input.kind !== "ROLLBACK_CLEANUP" ||
-    input.relativePath !== "rollback-cleanup.json" ||
+    expectedPath === null ||
+    input.relativePath !== expectedPath ||
     !["PASS", "FAIL"].includes(String(input.status)) ||
     (expectedAttemptId !== undefined && input.attemptId !== expectedAttemptId)
   )
@@ -806,6 +813,7 @@ const verifyLifecycle = (input: {
       String(expected.attemptId),
     );
     if (
+      (input.scope === "PRODUCTION" && reference.kind !== "ROLLBACK_CLEANUP") ||
       (state === "CLEANED" && reference.status !== "PASS") ||
       (state === "CLEANUP_FAILED" && reference.status !== "FAIL")
     )
@@ -1443,14 +1451,18 @@ export const cleanupOwnedProject = async (input: {
       lifecycle !== null &&
       ["CLEANED", "CLEANUP_FAILED"].includes(String(lifecycle.state))
     ) {
-      const aggregate = await resolveRollbackCleanupReference({
+      const persisted = await resolveCleanupResultReference({
         evidenceRoot: input.evidenceRoot,
         attempt: input.attempt,
         reference: lifecycle.cleanupReference,
+        scope: input.scope,
+        composeProject: input.composeProject,
+        databaseName: input.databaseName,
       });
-      const persisted = verifyCleanupResult(
-        input.scope === "PRODUCTION" ? aggregate.production : aggregate.restore,
-      );
+      if (
+        persisted.authorityLifecycleSha256 !== lifecycle.previousLifecycleSha256
+      )
+        throw new Error("CLEANUP_TERMINAL_LIFECYCLE_MISMATCH");
       if (lifecycle.state === "CLEANED") {
         const live = await observeDockerProjectResources({
           attempt: input.attempt,
@@ -1767,6 +1779,8 @@ export const resolveRollbackCleanupReference = async (input: {
   const target = parseDeploymentTarget(input.attempt.target);
   const attemptId = String(expected.attemptId);
   const reference = verifyCleanupReference(input.reference, attemptId);
+  if (reference.kind !== "ROLLBACK_CLEANUP")
+    throw new Error("ROLLBACK_CLEANUP_REFERENCE_KIND");
   const file = cleanupEvidencePath(input.evidenceRoot, attemptId);
   const evidence = verifyRollbackCleanupEvidence(
     JSON.parse(await readFile(file, "utf8")),
@@ -1782,6 +1796,220 @@ export const resolveRollbackCleanupReference = async (input: {
   )
     throw new Error("CLEANUP_REFERENCE_MISMATCH");
   return evidence;
+};
+
+export const verifyForwardRestoreCleanupEvidence = (
+  value: unknown,
+): JsonRecord => {
+  const input = record(value, "FORWARD_RESTORE_CLEANUP_EVIDENCE");
+  exactKeys(
+    input,
+    [
+      "schemaVersion",
+      "attemptId",
+      "envelopeId",
+      "targetId",
+      "candidateManifestSha256",
+      "restoreComposeProject",
+      "databaseName",
+      "startedAt",
+      "finishedAt",
+      "restore",
+      "status",
+      "reasonCode",
+      "cleanupSha256",
+    ],
+    "FORWARD_RESTORE_CLEANUP_EVIDENCE",
+  );
+  if (
+    input.schemaVersion !== "1.0" ||
+    !["PASS", "FAIL"].includes(String(input.status))
+  )
+    throw new Error("FORWARD_RESTORE_CLEANUP_VALUE");
+  safe(input.attemptId, "FORWARD_RESTORE_CLEANUP_ATTEMPT");
+  safe(input.envelopeId, "FORWARD_RESTORE_CLEANUP_ENVELOPE");
+  safe(input.targetId, "FORWARD_RESTORE_CLEANUP_TARGET");
+  digest(input.candidateManifestSha256, "FORWARD_RESTORE_CLEANUP_CANDIDATE");
+  safe(input.restoreComposeProject, "FORWARD_RESTORE_CLEANUP_PROJECT");
+  safe(input.databaseName, "FORWARD_RESTORE_CLEANUP_DATABASE");
+  timestamp(input.startedAt, "FORWARD_RESTORE_CLEANUP_STARTED_AT");
+  timestamp(input.finishedAt, "FORWARD_RESTORE_CLEANUP_FINISHED_AT");
+  if (
+    Date.parse(String(input.finishedAt)) < Date.parse(String(input.startedAt))
+  )
+    throw new Error("FORWARD_RESTORE_CLEANUP_TIME_ORDER");
+  const restore = verifyCleanupResult(input.restore);
+  if (
+    restore.scope !== "RESTORE" ||
+    restore.status === "NOT_APPLICABLE" ||
+    restore.status !== input.status
+  )
+    throw new Error("FORWARD_RESTORE_CLEANUP_STATUS");
+  safe(input.reasonCode, "FORWARD_RESTORE_CLEANUP_REASON");
+  const expectedReason =
+    input.status === "PASS"
+      ? "FORWARD_RESTORE_CLEANUP_PASS"
+      : "FORWARD_RESTORE_CLEANUP_FAIL";
+  if (input.reasonCode !== expectedReason)
+    throw new Error("FORWARD_RESTORE_CLEANUP_REASON");
+  digest(input.cleanupSha256, "FORWARD_RESTORE_CLEANUP_SHA");
+  if (canonicalSha256(input, ["cleanupSha256"]) !== input.cleanupSha256)
+    throw new Error("FORWARD_RESTORE_CLEANUP_DIGEST");
+  return input;
+};
+
+const forwardRestoreCleanupEvidencePath = (
+  evidenceRoot: string,
+  attemptId: string,
+): string =>
+  path.join(
+    path.dirname(lifecyclePath(evidenceRoot, attemptId, "RESTORE")),
+    "forward-restore-cleanup.json",
+  );
+
+const forwardRestoreCleanupReference = (evidence: JsonRecord): JsonRecord =>
+  verifyCleanupReference(
+    {
+      schemaVersion: "1.0",
+      kind: "FORWARD_RESTORE_CLEANUP",
+      attemptId: evidence.attemptId,
+      relativePath: "forward-restore-cleanup.json",
+      status: evidence.status,
+      cleanupSha256: evidence.cleanupSha256,
+    },
+    String(evidence.attemptId),
+  );
+
+const persistForwardRestoreCleanupEvidence = async (input: {
+  evidenceRoot: string;
+  attempt: JsonRecord;
+  composeProject: string;
+  databaseName: string;
+  restore: JsonRecord;
+  startedAt: string;
+  finishedAt: string;
+}): Promise<{ evidence: JsonRecord; reference: JsonRecord }> => {
+  const expected = authority(input.attempt);
+  const restore = verifyCleanupResult(input.restore);
+  if (restore.scope !== "RESTORE" || restore.status === "NOT_APPLICABLE")
+    throw new Error("FORWARD_RESTORE_CLEANUP_RESULT");
+  const evidence: JsonRecord = {
+    schemaVersion: "1.0",
+    attemptId: expected.attemptId,
+    envelopeId: expected.envelopeId,
+    targetId: expected.targetId,
+    candidateManifestSha256: expected.candidateManifestSha256,
+    restoreComposeProject: input.composeProject,
+    databaseName: input.databaseName,
+    startedAt: input.startedAt,
+    finishedAt: input.finishedAt,
+    restore,
+    status: restore.status,
+    reasonCode:
+      restore.status === "PASS"
+        ? "FORWARD_RESTORE_CLEANUP_PASS"
+        : "FORWARD_RESTORE_CLEANUP_FAIL",
+    cleanupSha256: "",
+  };
+  evidence.cleanupSha256 = canonicalSha256(evidence, ["cleanupSha256"]);
+  const verified = verifyForwardRestoreCleanupEvidence(evidence);
+  const file = forwardRestoreCleanupEvidencePath(
+    input.evidenceRoot,
+    String(expected.attemptId),
+  );
+  if (await exists(file)) {
+    const persisted = verifyForwardRestoreCleanupEvidence(
+      JSON.parse(await readFile(file, "utf8")),
+    );
+    if (canonicalJson(persisted) !== canonicalJson(verified))
+      throw new Error("FORWARD_RESTORE_CLEANUP_REPLAY_CONFLICT");
+    return {
+      evidence: persisted,
+      reference: forwardRestoreCleanupReference(persisted),
+    };
+  }
+  await atomicWrite(file, canonicalJson(verified), 0o600);
+  return {
+    evidence: verified,
+    reference: forwardRestoreCleanupReference(verified),
+  };
+};
+
+export const resolveForwardRestoreCleanupReference = async (input: {
+  evidenceRoot: string;
+  attempt: JsonRecord;
+  reference: unknown;
+  composeProject: string;
+  databaseName: string;
+}): Promise<JsonRecord> => {
+  const expected = authority(input.attempt);
+  const reference = verifyCleanupReference(
+    input.reference,
+    String(expected.attemptId),
+  );
+  if (reference.kind !== "FORWARD_RESTORE_CLEANUP")
+    throw new Error("FORWARD_RESTORE_CLEANUP_REFERENCE_KIND");
+  const evidence = verifyForwardRestoreCleanupEvidence(
+    JSON.parse(
+      await readFile(
+        forwardRestoreCleanupEvidencePath(
+          input.evidenceRoot,
+          String(expected.attemptId),
+        ),
+        "utf8",
+      ),
+    ),
+  );
+  if (
+    evidence.attemptId !== expected.attemptId ||
+    evidence.envelopeId !== expected.envelopeId ||
+    evidence.targetId !== expected.targetId ||
+    evidence.candidateManifestSha256 !== expected.candidateManifestSha256 ||
+    evidence.restoreComposeProject !== input.composeProject ||
+    evidence.databaseName !== input.databaseName ||
+    evidence.status !== reference.status ||
+    evidence.cleanupSha256 !== reference.cleanupSha256
+  )
+    throw new Error("FORWARD_RESTORE_CLEANUP_REFERENCE_MISMATCH");
+  return evidence;
+};
+
+const resolveCleanupResultReference = async (input: {
+  evidenceRoot: string;
+  attempt: JsonRecord;
+  reference: unknown;
+  scope: CleanupScope;
+  composeProject: string;
+  databaseName?: string;
+}): Promise<JsonRecord> => {
+  const reference = verifyCleanupReference(
+    input.reference,
+    String(input.attempt.attemptId),
+  );
+  if (reference.kind === "ROLLBACK_CLEANUP") {
+    const aggregate = await resolveRollbackCleanupReference({
+      evidenceRoot: input.evidenceRoot,
+      attempt: input.attempt,
+      reference,
+    });
+    return verifyCleanupResult(
+      input.scope === "PRODUCTION" ? aggregate.production : aggregate.restore,
+    );
+  }
+  if (
+    input.scope !== "RESTORE" ||
+    input.databaseName === undefined ||
+    reference.kind !== "FORWARD_RESTORE_CLEANUP"
+  )
+    throw new Error("CLEANUP_REFERENCE_SCOPE");
+  const evidence = await resolveForwardRestoreCleanupReference({
+    evidenceRoot: input.evidenceRoot,
+    attempt: input.attempt,
+    reference,
+    composeProject: input.composeProject,
+    databaseName: input.databaseName,
+  });
+  return verifyCleanupResult(evidence.restore);
 };
 
 const persistRollbackCleanupEvidence = async (input: {
@@ -1870,6 +2098,28 @@ const completeLifecycle = async (input: {
     return;
   const current = await readLifecycle(input);
   if (
+    current !== null &&
+    ["CLEANED", "CLEANUP_FAILED"].includes(String(current.state))
+  ) {
+    const persisted = await resolveCleanupResultReference({
+      evidenceRoot: input.evidenceRoot,
+      attempt: input.attempt,
+      reference: current.cleanupReference,
+      scope: input.scope,
+      composeProject: input.composeProject,
+      databaseName: input.databaseName,
+    });
+    const expectedState =
+      result.status === "PASS" ? "CLEANED" : "CLEANUP_FAILED";
+    if (
+      current.state !== expectedState ||
+      persisted.authorityLifecycleSha256 !== current.previousLifecycleSha256 ||
+      canonicalJson(persisted) !== canonicalJson(result)
+    )
+      throw new Error("RESOURCE_LIFECYCLE_TERMINAL_REPLAY");
+    return;
+  }
+  if (
     current === null ||
     current.lifecycleSha256 !== result.authorityLifecycleSha256
   )
@@ -1896,6 +2146,102 @@ const completeLifecycle = async (input: {
     previousLifecycleSha256: String(current.lifecycleSha256),
   });
   await writeLifecycle({ ...input, lifecycle });
+};
+
+export const cleanupForwardRestoreProject = async (input: {
+  evidenceRoot: string;
+  attempt: JsonRecord;
+  composeProject: string;
+  databaseName: string;
+  isolatedTarget?: JsonRecord | null;
+  runDocker: CleanupDockerRunner;
+  environment: NodeJS.ProcessEnv;
+  now: () => Date;
+  sleep?: (milliseconds: number) => Promise<void>;
+}): Promise<JsonRecord> => {
+  const lifecycleInput = {
+    ...input,
+    scope: "RESTORE" as const,
+  };
+  const current = await readLifecycle(lifecycleInput);
+  if (
+    current !== null &&
+    ["CLEANED", "CLEANUP_FAILED"].includes(String(current.state))
+  )
+    return cleanupOwnedProject(lifecycleInput);
+
+  const forwardFile = forwardRestoreCleanupEvidencePath(
+    input.evidenceRoot,
+    String(input.attempt.attemptId),
+  );
+  if (
+    current !== null &&
+    current.state === "QUIESCING" &&
+    (await exists(forwardFile))
+  ) {
+    const evidence = verifyForwardRestoreCleanupEvidence(
+      JSON.parse(await readFile(forwardFile, "utf8")),
+    );
+    const reference = forwardRestoreCleanupReference(evidence);
+    await resolveForwardRestoreCleanupReference({
+      evidenceRoot: input.evidenceRoot,
+      attempt: input.attempt,
+      reference,
+      composeProject: input.composeProject,
+      databaseName: input.databaseName,
+    });
+    const result = verifyCleanupResult(evidence.restore);
+    if (result.status === "PASS") {
+      const live = await observeDockerProjectResources({
+        attempt: input.attempt,
+        project: input.composeProject,
+        expectedEnvironment: "isolated-restore",
+        runDocker: input.runDocker,
+        environment: input.environment,
+        now: input.now,
+      });
+      if (!observationIsEmpty(live))
+        throw new Error("FORWARD_RESTORE_CLEANUP_RECOVERY_NOT_EMPTY");
+    }
+    await completeLifecycle({
+      ...lifecycleInput,
+      result,
+      reference,
+    });
+    return result;
+  }
+
+  const startedAt = input.now().toISOString();
+  const result = verifyCleanupResult(await cleanupOwnedProject(lifecycleInput));
+  if (result.status === "NOT_APPLICABLE") return result;
+  const quiescing = await readLifecycle(lifecycleInput);
+  if (
+    quiescing === null ||
+    quiescing.state !== "QUIESCING" ||
+    quiescing.lifecycleSha256 !== result.authorityLifecycleSha256
+  ) {
+    if (result.status === "FAIL") return result;
+    throw new Error("FORWARD_RESTORE_CLEANUP_AUTHORITY_STATE");
+  }
+  const persisted = await persistForwardRestoreCleanupEvidence({
+    evidenceRoot: input.evidenceRoot,
+    attempt: input.attempt,
+    composeProject: input.composeProject,
+    databaseName: input.databaseName,
+    restore: result,
+    startedAt,
+    finishedAt: input.now().toISOString(),
+  });
+  await completeLifecycle({
+    ...lifecycleInput,
+    result,
+    reference: persisted.reference,
+  });
+  const terminal = await readLifecycle(lifecycleInput);
+  const expectedState = result.status === "PASS" ? "CLEANED" : "CLEANUP_FAILED";
+  if (terminal === null || terminal.state !== expectedState)
+    throw new Error("FORWARD_RESTORE_CLEANUP_TERMINAL_STATE");
+  return result;
 };
 
 export const verifyTerminalRollbackEvidence = (value: unknown): JsonRecord => {
@@ -1926,7 +2272,12 @@ export const verifyTerminalRollbackEvidence = (value: unknown): JsonRecord => {
   safe(input.targetId, "TERMINAL_ROLLBACK_TARGET");
   digest(input.candidateManifestSha256, "TERMINAL_ROLLBACK_CANDIDATE");
   digest(input.applicationRollbackSha256, "TERMINAL_ROLLBACK_APPLICATION");
-  verifyCleanupReference(input.cleanupReference, String(input.attemptId));
+  const cleanupReference = verifyCleanupReference(
+    input.cleanupReference,
+    String(input.attemptId),
+  );
+  if (cleanupReference.kind !== "ROLLBACK_CLEANUP")
+    throw new Error("TERMINAL_ROLLBACK_CLEANUP_KIND");
   safe(input.reasonCode, "TERMINAL_ROLLBACK_REASON");
   digest(input.evidenceSha256, "TERMINAL_ROLLBACK_SHA");
   if (canonicalSha256(input, ["evidenceSha256"]) !== input.evidenceSha256)
@@ -1955,6 +2306,8 @@ const persistTerminalEvidence = async (input: {
     input.cleanupReference,
     String(expected.attemptId),
   );
+  if (reference.kind !== "ROLLBACK_CLEANUP")
+    throw new Error("TERMINAL_ROLLBACK_CLEANUP_KIND");
   const rolledBack =
     ["PASS", "NOT_APPLICABLE"].includes(String(application.status)) &&
     reference.status === "PASS";
@@ -2002,6 +2355,8 @@ export const resolveTerminalRollbackEvidence = async (input: {
     input.cleanupReference,
     String(expected.attemptId),
   );
+  if (reference.kind !== "ROLLBACK_CLEANUP")
+    throw new Error("TERMINAL_ROLLBACK_CLEANUP_KIND");
   const cleanup = await resolveRollbackCleanupReference({
     evidenceRoot: input.evidenceRoot,
     attempt: input.attempt,
