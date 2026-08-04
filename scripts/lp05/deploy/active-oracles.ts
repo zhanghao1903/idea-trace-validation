@@ -362,6 +362,10 @@ export const createActiveDeploymentOracles = (input: {
       return {
         reasonCode: String(terminal.reasonCode),
         evidenceSha256: String(terminal.evidenceSha256),
+        terminalState:
+          terminal.terminalState === "ROLLED_BACK"
+            ? "ROLLED_BACK"
+            : "ROLLBACK_FAILED",
         projection: { rollback: application },
       };
     },

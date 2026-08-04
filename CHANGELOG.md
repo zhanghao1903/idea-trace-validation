@@ -23,6 +23,10 @@
   production/restore cleanup outcomes now use scope-compatible lifecycle
   references to one immutable aggregate, allowing terminal `ROLLBACK_FAILED`
   evidence and conflict-free replay without weakening lifecycle status rules.
+  The aggregate now carries the complete closed application rollback authority,
+  so crash recovery reuses its original results and timestamps without rerunning
+  rollback or cleanup. The controller now consumes the verified terminal state
+  and digest, preventing cleanup failure from being journaled as `ROLLED_BACK`.
 
 ### Docs
 

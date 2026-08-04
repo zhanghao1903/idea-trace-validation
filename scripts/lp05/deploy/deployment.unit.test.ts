@@ -557,6 +557,7 @@ describe("LP-05 deployment failure recovery", () => {
         return {
           reasonCode: "FRESH_INSTALL_INGRESS_DISABLED",
           evidenceSha256: canonicalSha256(rollback),
+          terminalState: "ROLLED_BACK",
           projection: { rollback },
         };
       },
@@ -872,6 +873,7 @@ describe("LP-05 ordered active deployment", () => {
         return {
           reasonCode: String(records.rollbackEvidence.reasonCode),
           evidenceSha256: canonicalSha256(records.rollbackEvidence),
+          terminalState: "ROLLED_BACK",
           projection: { rollback: records.rollbackEvidence },
         };
       },
@@ -925,6 +927,44 @@ describe("LP-05 ordered active deployment", () => {
       expect(calls).toHaveLength(failAt + 2);
       expect(calls.at(-1)).toBe("rollback");
     }
+  });
+
+  it("journals ROLLBACK_FAILED from the authoritative terminal evidence when cleanup fails", async () => {
+    const current = fixture(false);
+    const calls: string[] = [];
+    const active = oracles(current.records, calls);
+    active.preflight = async () => {
+      throw new Error("PREFLIGHT_FAULT");
+    };
+    const terminalEvidenceSha256 = "9".repeat(64);
+    active.rollback = async () => ({
+      reasonCode: "ROLLBACK_OR_CLEANUP_FAILED",
+      evidenceSha256: terminalEvidenceSha256,
+      terminalState: "ROLLBACK_FAILED",
+      projection: { rollback: current.records.rollbackEvidence },
+    });
+    const persisted: JsonRecord[] = [];
+
+    const result = await runDeployment({
+      envelope: current.envelope,
+      attempt: current.attempt,
+      oracles: active,
+      now: () => new Date("2026-08-03T00:20:00.000Z"),
+      persist: async (_previous, next) => {
+        persisted.push(next);
+      },
+    });
+
+    expect(result.currentState).toBe("ROLLBACK_FAILED");
+    expect(result.rollback).toEqual(current.records.rollbackEvidence);
+    expect(persisted.map((entry) => entry.currentState)).toEqual([
+      "FAILED",
+      "ROLLING_BACK",
+      "ROLLBACK_FAILED",
+    ]);
+    expect((result.transitionLog as JsonRecord[]).at(-1)?.evidenceSha256).toBe(
+      terminalEvidenceSha256,
+    );
   });
 
   it("terminally journals and rolls back every post-phase authority failure", async () => {

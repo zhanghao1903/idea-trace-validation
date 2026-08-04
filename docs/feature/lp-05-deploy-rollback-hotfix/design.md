@@ -198,14 +198,16 @@ The sole aggregate cleanup authority is atomically written mode `0600` at
 | `candidateManifestSha256` | SHA-256, required | exact candidate |
 | `composeProject` | safe name, required | exact production target |
 | `startedAt`, `finishedAt` | timestamps, required | ordered |
+| `applicationRollback` | closed seven-field rollback, required | complete replay authority for the application branch |
 | `applicationRollbackSha256` | SHA-256, required | digest of existing strict application rollback |
 | `production`, `restore` | `CleanupResultV1`, required | scoped variants below |
 | `status` | `PASS|FAIL`, required | PASS only when application rollback and all applicable cleanup succeed |
 | `reasonCode` | safe string, required | deterministic diagnostic |
 | `cleanupSha256` | SHA-256, required | canonical digest with this field omitted |
 
-The aggregate is written once. Replay retains its original timestamps and digest and accepts only byte-equivalent
-application, production and restore results; it never creates a second evidence file or rewrites immutable bytes.
+The aggregate is written once. Its closed application object and both cleanup results are the recovery authority.
+Replay resolves this fixed-path record before invoking volatile application rollback or any consumed cleanup proof,
+retains the original bytes, completes only missing lifecycle/terminal journal writes, and never repeats a side effect.
 
 `CleanupResultV1` always has the exact keys `scope`, `status`, `reasonCode`, `authorityLifecycleSha256`,
 `databasePrincipal`, `applicationTableCount`, `observedBefore`, `removedResourceSetSha256`, `observedAfter`, and
@@ -312,7 +314,10 @@ exact terminal transition digest. Replay requires byte-identical envelope plus l
 reconciliation; any conflicting field, resolver target, current-attempt binding, digest or terminal state fails.
 
 The attempt retains its existing seven-field closed application `rollback`; `restoreCleanup` or any extra key still
-fails `exactKeys`. The controller projects only the verified application rollback from the terminal envelope.
+fails `exactKeys`. The active rollback oracle returns that verified application projection plus the separately
+verified `terminalState` and terminal evidence digest. The controller chooses `ROLLED_BACK|ROLLBACK_FAILED` from
+that terminal authority, not from the application status alone; therefore cleanup failure may produce
+`ROLLBACK_FAILED` while the closed application projection remains `PASS|NOT_APPLICABLE`.
 
 ### 6.4 Identity-safe deletion rules
 

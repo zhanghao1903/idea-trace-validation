@@ -565,6 +565,7 @@ const main = async (): Promise<void> => {
         return {
           reasonCode: String(result.terminalEvidence.reasonCode),
           evidenceSha256: String(result.terminalEvidence.evidenceSha256),
+          terminalState: "ROLLED_BACK",
           projection: { rollback: result.applicationRollback },
         };
       },

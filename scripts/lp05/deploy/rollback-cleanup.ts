@@ -1745,6 +1745,7 @@ export const verifyRollbackCleanupEvidence = (value: unknown): JsonRecord => {
       "composeProject",
       "startedAt",
       "finishedAt",
+      "applicationRollback",
       "applicationRollbackSha256",
       "production",
       "restore",
@@ -1770,7 +1771,10 @@ export const verifyRollbackCleanupEvidence = (value: unknown): JsonRecord => {
     Date.parse(String(input.finishedAt)) < Date.parse(String(input.startedAt))
   )
     throw new Error("ROLLBACK_CLEANUP_TIME_ORDER");
+  const application = verifyApplicationRollback(input.applicationRollback);
   digest(input.applicationRollbackSha256, "ROLLBACK_CLEANUP_APPLICATION_SHA");
+  if (canonicalSha256(application) !== input.applicationRollbackSha256)
+    throw new Error("ROLLBACK_CLEANUP_APPLICATION_DIGEST");
   const production = verifyCleanupResult(input.production);
   const restore = verifyCleanupResult(input.restore);
   if (production.scope !== "PRODUCTION" || restore.scope !== "RESTORE")
@@ -2082,6 +2086,43 @@ const rollbackCleanupResultReference = (
   );
 };
 
+const rollbackCleanupReference = (evidenceValue: unknown): JsonRecord => {
+  const evidence = verifyRollbackCleanupEvidence(evidenceValue);
+  return verifyCleanupReference(
+    {
+      schemaVersion: "1.0",
+      kind: "ROLLBACK_CLEANUP",
+      attemptId: evidence.attemptId,
+      relativePath: "rollback-cleanup.json",
+      status: evidence.status,
+      cleanupSha256: evidence.cleanupSha256,
+    },
+    String(evidence.attemptId),
+  );
+};
+
+const recoverRollbackCleanupEvidence = async (input: {
+  evidenceRoot: string;
+  attempt: JsonRecord;
+}): Promise<{ evidence: JsonRecord; reference: JsonRecord } | null> => {
+  const file = cleanupEvidencePath(
+    input.evidenceRoot,
+    String(input.attempt.attemptId),
+  );
+  if (!(await exists(file))) return null;
+  const evidence = verifyRollbackCleanupEvidence(
+    JSON.parse(await readFile(file, "utf8")),
+  );
+  const reference = rollbackCleanupReference(evidence);
+  const resolved = await resolveRollbackCleanupReference({
+    ...input,
+    reference,
+  });
+  if (canonicalJson(resolved) !== canonicalJson(evidence))
+    throw new Error("ROLLBACK_CLEANUP_RECOVERY_MISMATCH");
+  return { evidence, reference };
+};
+
 const persistRollbackCleanupEvidence = async (input: {
   evidenceRoot: string;
   attempt: JsonRecord;
@@ -2112,6 +2153,7 @@ const persistRollbackCleanupEvidence = async (input: {
     composeProject: target.composeProject,
     startedAt: input.startedAt,
     finishedAt: input.finishedAt,
+    applicationRollback: application,
     applicationRollbackSha256: canonicalSha256(application),
     production,
     restore,
@@ -2144,17 +2186,7 @@ const persistRollbackCleanupEvidence = async (input: {
   } else {
     await atomicWrite(file, canonicalJson(verified), 0o600);
   }
-  const reference = verifyCleanupReference(
-    {
-      schemaVersion: "1.0",
-      kind: "ROLLBACK_CLEANUP",
-      attemptId: expected.attemptId,
-      relativePath: "rollback-cleanup.json",
-      status: durable.status,
-      cleanupSha256: durable.cleanupSha256,
-    },
-    String(expected.attemptId),
-  );
+  const reference = rollbackCleanupReference(durable);
   return { evidence: durable, reference };
 };
 
@@ -2559,6 +2591,87 @@ const cleanupBlockedByApplicationFailure = async (input: {
   });
 };
 
+type RollbackWithCleanupOutput = {
+  applicationRollback: JsonRecord;
+  cleanupReference: JsonRecord;
+  terminalEvidence: JsonRecord;
+};
+
+const finalizePersistedRollback = async (input: {
+  evidenceRoot: string;
+  attempt: JsonRecord;
+  productionProject: string;
+  restoreProject: string;
+  restoreDatabaseName: string;
+  isolatedTarget?: JsonRecord | null;
+  databaseName: string;
+  persisted: { evidence: JsonRecord; reference: JsonRecord };
+  now: () => Date;
+}): Promise<RollbackWithCleanupOutput> => {
+  const evidence = verifyRollbackCleanupEvidence(input.persisted.evidence);
+  const reference = verifyCleanupReference(
+    input.persisted.reference,
+    String(input.attempt.attemptId),
+  );
+  if (
+    reference.kind !== "ROLLBACK_CLEANUP" ||
+    reference.cleanupSha256 !== evidence.cleanupSha256 ||
+    reference.status !== evidence.status
+  )
+    throw new Error("ROLLBACK_CLEANUP_FINALIZE_REFERENCE");
+  const applicationRollback = verifyApplicationRollback(
+    evidence.applicationRollback,
+  );
+  if (
+    canonicalSha256(applicationRollback) !== evidence.applicationRollbackSha256
+  )
+    throw new Error("ROLLBACK_CLEANUP_APPLICATION_DIGEST");
+  const production = verifyCleanupResult(evidence.production);
+  const restore = verifyCleanupResult(evidence.restore);
+  const productionReference =
+    production.status === "NOT_APPLICABLE"
+      ? reference
+      : rollbackCleanupResultReference(evidence, "PRODUCTION");
+  const restoreReference =
+    restore.status === "NOT_APPLICABLE"
+      ? reference
+      : rollbackCleanupResultReference(evidence, "RESTORE");
+  await Promise.all([
+    completeLifecycle({
+      evidenceRoot: input.evidenceRoot,
+      scope: "PRODUCTION",
+      attempt: input.attempt,
+      composeProject: input.productionProject,
+      databaseName: input.databaseName,
+      result: production,
+      reference: productionReference,
+      now: input.now,
+    }),
+    completeLifecycle({
+      evidenceRoot: input.evidenceRoot,
+      scope: "RESTORE",
+      attempt: input.attempt,
+      composeProject: input.restoreProject,
+      databaseName: input.restoreDatabaseName,
+      isolatedTarget: input.isolatedTarget ?? null,
+      result: restore,
+      reference: restoreReference,
+      now: input.now,
+    }),
+  ]);
+  const terminalEvidence = await persistTerminalEvidence({
+    evidenceRoot: input.evidenceRoot,
+    attempt: input.attempt,
+    applicationRollback,
+    cleanupReference: reference,
+  });
+  return {
+    applicationRollback,
+    cleanupReference: reference,
+    terminalEvidence,
+  };
+};
+
 export const executeRollbackWithCleanup = async (input: {
   evidenceRoot: string;
   attempt: JsonRecord;
@@ -2573,15 +2686,21 @@ export const executeRollbackWithCleanup = async (input: {
   environment: NodeJS.ProcessEnv;
   now: () => Date;
   sleep?: (milliseconds: number) => Promise<void>;
-}): Promise<{
-  applicationRollback: JsonRecord;
-  cleanupReference: JsonRecord;
-  terminalEvidence: JsonRecord;
-}> => {
+  afterCleanupEvidencePersisted?: () => Promise<void>;
+}): Promise<RollbackWithCleanupOutput> => {
   const authorityEnvironment = attemptAuthorityEnvironment(
     input.attempt,
     input.environment,
   );
+  const recovered = await recoverRollbackCleanupEvidence({
+    evidenceRoot: input.evidenceRoot,
+    attempt: input.attempt,
+  });
+  if (recovered !== null)
+    return finalizePersistedRollback({
+      ...input,
+      persisted: recovered,
+    });
   const pendingForwardRestore = await resolvePendingForwardRestoreCleanup({
     evidenceRoot: input.evidenceRoot,
     attempt: input.attempt,
@@ -2664,46 +2783,6 @@ export const executeRollbackWithCleanup = async (input: {
     startedAt,
     finishedAt: input.now().toISOString(),
   });
-  const productionReference =
-    production.status === "NOT_APPLICABLE"
-      ? persisted.reference
-      : rollbackCleanupResultReference(persisted.evidence, "PRODUCTION");
-  const restoreReference =
-    restore.status === "NOT_APPLICABLE"
-      ? persisted.reference
-      : rollbackCleanupResultReference(persisted.evidence, "RESTORE");
-  await Promise.all([
-    completeLifecycle({
-      evidenceRoot: input.evidenceRoot,
-      scope: "PRODUCTION",
-      attempt: input.attempt,
-      composeProject: input.productionProject,
-      databaseName: input.databaseName,
-      result: production,
-      reference: productionReference,
-      now: input.now,
-    }),
-    completeLifecycle({
-      evidenceRoot: input.evidenceRoot,
-      scope: "RESTORE",
-      attempt: input.attempt,
-      composeProject: input.restoreProject,
-      databaseName: input.restoreDatabaseName,
-      isolatedTarget: input.isolatedTarget ?? null,
-      result: restore,
-      reference: restoreReference,
-      now: input.now,
-    }),
-  ]);
-  const terminalEvidence = await persistTerminalEvidence({
-    evidenceRoot: input.evidenceRoot,
-    attempt: input.attempt,
-    applicationRollback,
-    cleanupReference: persisted.reference,
-  });
-  return {
-    applicationRollback,
-    cleanupReference: persisted.reference,
-    terminalEvidence,
-  };
+  await input.afterCleanupEvidencePersisted?.();
+  return finalizePersistedRollback({ ...input, persisted });
 };

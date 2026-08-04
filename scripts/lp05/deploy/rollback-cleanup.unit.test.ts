@@ -1259,15 +1259,7 @@ describe("LP-05 rollback evidence separation", () => {
       docker,
       now,
     });
-    const applicationRollback = {
-      status: "NOT_APPLICABLE",
-      reasonCode: "NO_PREVIOUS_RELEASE",
-      previousRelease: null,
-      readinessSha256: null,
-      smokeSha256: null,
-      startedAt: "2026-08-04T00:10:00.000Z",
-      finishedAt: "2026-08-04T00:10:01.000Z",
-    };
+    let applicationCalls = 0;
     const execute = () =>
       executeRollbackWithCleanup({
         evidenceRoot: root,
@@ -1277,7 +1269,24 @@ describe("LP-05 rollback evidence separation", () => {
         restoreDatabaseName: "idea_validation_restore",
         databaseUser: "idea_validation",
         databaseName: "idea_validation",
-        runApplicationRollback: async () => applicationRollback,
+        runApplicationRollback: async () => {
+          applicationCalls += 1;
+          return {
+            status: "NOT_APPLICABLE",
+            reasonCode: "NO_PREVIOUS_RELEASE",
+            previousRelease: null,
+            readinessSha256: null,
+            smokeSha256: null,
+            startedAt:
+              applicationCalls === 1
+                ? "2026-08-04T00:10:00.000Z"
+                : "2026-08-04T00:20:00.000Z",
+            finishedAt:
+              applicationCalls === 1
+                ? "2026-08-04T00:10:01.000Z"
+                : "2026-08-04T00:20:01.000Z",
+          };
+        },
         runDocker: docker.run,
         environment: {},
         now,
@@ -1290,6 +1299,18 @@ describe("LP-05 rollback evidence separation", () => {
       status: "FAIL",
     });
     expect(output.terminalEvidence.terminalState).toBe("ROLLBACK_FAILED");
+    const activeRollback = await createActiveDeploymentOracles({
+      evidenceRoot: root,
+      operations: {
+        execute: async () => ({}),
+        reconcile: async (_phase, _attempt, persisted) => persisted,
+        rollback: async () => output,
+      },
+    }).rollback(value);
+    expect(activeRollback.terminalState).toBe("ROLLBACK_FAILED");
+    expect(activeRollback.evidenceSha256).toBe(
+      output.terminalEvidence.evidenceSha256,
+    );
     const attemptRoot = join(root, String(value.attemptId));
     const aggregate = verifyRollbackCleanupEvidence(
       JSON.parse(
@@ -1327,6 +1348,7 @@ describe("LP-05 rollback evidence separation", () => {
 
     const replay = await execute();
     expect(replay).toEqual(output);
+    expect(applicationCalls).toBe(1);
     expect(
       docker.calls.filter(
         (args) =>
@@ -1418,6 +1440,90 @@ describe("LP-05 rollback evidence separation", () => {
         status: "PASS",
       },
     });
+  });
+
+  it("recovers the aggregate-write crash window without repeating rollback or cleanup", async () => {
+    const root = await evidenceRoot();
+    const value = attempt();
+    const docker = new FakeDocker();
+    const now = clock();
+    const restoreProject = "lp05-restore-hotfix";
+    await beginReady({
+      root,
+      scope: "PRODUCTION",
+      value,
+      project: "idea-validation-prod",
+      docker,
+      now,
+    });
+    await beginReady({
+      root,
+      scope: "RESTORE",
+      value,
+      project: restoreProject,
+      docker,
+      now,
+    });
+    let applicationCalls = 0;
+    let injectCrash = true;
+    const execute = () =>
+      executeRollbackWithCleanup({
+        evidenceRoot: root,
+        attempt: value,
+        productionProject: "idea-validation-prod",
+        restoreProject,
+        restoreDatabaseName: "idea_validation_restore",
+        databaseUser: "idea_validation",
+        databaseName: "idea_validation",
+        runApplicationRollback: async () => {
+          applicationCalls += 1;
+          throw new Error("APPLICATION_ROLLBACK_FAILED");
+        },
+        runDocker: docker.run,
+        environment: {},
+        now,
+        sleep: async () => undefined,
+        afterCleanupEvidencePersisted: async () => {
+          if (!injectCrash) return;
+          injectCrash = false;
+          throw new Error("CRASH_AFTER_ROLLBACK_CLEANUP_AGGREGATE");
+        },
+      });
+
+    await expect(execute()).rejects.toThrow(
+      "CRASH_AFTER_ROLLBACK_CLEANUP_AGGREGATE",
+    );
+    const attemptRoot = join(root, String(value.attemptId));
+    const aggregateBytes = await readFile(
+      join(attemptRoot, "rollback-cleanup.json"),
+      "utf8",
+    );
+    await expect(
+      readFile(join(attemptRoot, "terminal-rollback-evidence.json"), "utf8"),
+    ).rejects.toThrow();
+    const deleteCalls = docker.calls.filter(
+      (args) => args[0] === "rm" || args[1] === "rm",
+    ).length;
+
+    const recovered = await execute();
+    expect(applicationCalls).toBe(1);
+    expect(recovered.terminalEvidence.terminalState).toBe("ROLLBACK_FAILED");
+    expect(
+      await readFile(join(attemptRoot, "rollback-cleanup.json"), "utf8"),
+    ).toBe(aggregateBytes);
+    expect(
+      docker.calls.filter((args) => args[0] === "rm" || args[1] === "rm"),
+    ).toHaveLength(deleteCalls);
+    expect(
+      JSON.parse(
+        await readFile(join(attemptRoot, "production-lifecycle.json"), "utf8"),
+      ),
+    ).toMatchObject({ state: "CLEANUP_FAILED" });
+    expect(
+      JSON.parse(
+        await readFile(join(attemptRoot, "restore-lifecycle.json"), "utf8"),
+      ),
+    ).toMatchObject({ state: "CLEANED" });
   });
 
   it("materializes one application failure and binds the same digest throughout", async () => {
@@ -1521,6 +1627,7 @@ describe("LP-05 rollback evidence separation", () => {
     expect(oracle.projection).toEqual({
       rollback: output.applicationRollback,
     });
+    expect(oracle.terminalState).toBe("ROLLED_BACK");
     expect(oracle.evidenceSha256).toBe(output.terminalEvidence.evidenceSha256);
 
     await expect(

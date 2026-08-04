@@ -209,7 +209,8 @@ export const verifyAttemptRecord = (value: unknown): JsonRecord => {
   if (
     (input.currentState === "ROLLED_BACK" &&
       !["PASS", "NOT_APPLICABLE"].includes(String(rollback.status))) ||
-    (input.currentState === "ROLLBACK_FAILED" && rollback.status !== "FAIL")
+    (input.currentState === "ROLLBACK_FAILED" &&
+      rollback.status === "NOT_STARTED")
   )
     throw new Error("ATTEMPT_ROLLBACK_STATE");
   if (

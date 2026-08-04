@@ -122,6 +122,18 @@ production PASS/CLEANED plus restore FAIL/CLEANUP_FAILED, aggregate FAIL, termin
 without a second restore delete or aggregate conflict; the symmetric production FAIL plus restore PASS case must
 also finalize both lifecycle states and terminal evidence.
 
+## Cycle 6 code-review remediation
+
+Cycle 6 closes realistic replay and controller terminal-selection gaps. The immutable rollback aggregate now embeds
+the exact closed application rollback object in addition to its digest. A retry resolves that aggregate before the
+application callback or cleanup actors, reuses its production/restore results, preserves byte-identical aggregate
+evidence, completes missing lifecycle and terminal records, and performs no second deletion. Regressions change the
+would-be second application timestamps and inject a crash immediately after aggregate persistence; both require one
+application invocation, unchanged aggregate bytes, correct mixed terminal lifecycle states and terminal
+`ROLLBACK_FAILED`. The active oracle also propagates its verified terminal state alongside the terminal evidence
+digest. A full-controller regression requires cleanup FAIL plus application `NOT_APPLICABLE` to journal
+`ROLLBACK_FAILED` with that exact digest while preserving the seven-field application projection.
+
 ## Release boundary
 
 The previously authorized proposal
