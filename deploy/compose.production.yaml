@@ -23,6 +23,13 @@ services:
     labels:
       io.idea-validation.environment: production
       io.idea-validation.role: database
+      io.idea-validation.attempt-id:
+        ${IDEA_VALIDATION_ATTEMPT_ID:?IDEA_VALIDATION_ATTEMPT_ID is required}
+      io.idea-validation.target-id:
+        ${IDEA_VALIDATION_TARGET_ID:?IDEA_VALIDATION_TARGET_ID is required}
+      io.idea-validation.candidate-manifest-sha256:
+        ${IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256:?IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256
+        is required}
 
   migrate:
     image: ${APP_IMAGE:?APP_IMAGE is required}
@@ -50,6 +57,13 @@ services:
     labels:
       io.idea-validation.environment: production
       io.idea-validation.role: migration
+      io.idea-validation.attempt-id:
+        ${IDEA_VALIDATION_ATTEMPT_ID:?IDEA_VALIDATION_ATTEMPT_ID is required}
+      io.idea-validation.target-id:
+        ${IDEA_VALIDATION_TARGET_ID:?IDEA_VALIDATION_TARGET_ID is required}
+      io.idea-validation.candidate-manifest-sha256:
+        ${IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256:?IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256
+        is required}
 
   app:
     image: ${APP_IMAGE:?APP_IMAGE is required}
@@ -77,6 +91,13 @@ services:
       io.idea-validation.environment: production
       io.idea-validation.release-id: ${RELEASE_ID:?RELEASE_ID is required}
       io.idea-validation.role: application
+      io.idea-validation.attempt-id:
+        ${IDEA_VALIDATION_ATTEMPT_ID:?IDEA_VALIDATION_ATTEMPT_ID is required}
+      io.idea-validation.target-id:
+        ${IDEA_VALIDATION_TARGET_ID:?IDEA_VALIDATION_TARGET_ID is required}
+      io.idea-validation.candidate-manifest-sha256:
+        ${IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256:?IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256
+        is required}
 
   caddy:
     image: docker.io/library/caddy:2.10.2-alpine@sha256:4c6e91c6ed0e2fa03efd5b44747b625fec79bc9cd06ac5235a779726618e530d
@@ -123,12 +144,39 @@ services:
     labels:
       io.idea-validation.environment: production
       io.idea-validation.role: edge
+      io.idea-validation.attempt-id:
+        ${IDEA_VALIDATION_ATTEMPT_ID:?IDEA_VALIDATION_ATTEMPT_ID is required}
+      io.idea-validation.target-id:
+        ${IDEA_VALIDATION_TARGET_ID:?IDEA_VALIDATION_TARGET_ID is required}
+      io.idea-validation.candidate-manifest-sha256:
+        ${IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256:?IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256
+        is required}
 
 networks:
   backend:
     internal: true
+    labels:
+      io.idea-validation.environment: production
+      io.idea-validation.role: network-backend
+      io.idea-validation.attempt-id:
+        ${IDEA_VALIDATION_ATTEMPT_ID:?IDEA_VALIDATION_ATTEMPT_ID is required}
+      io.idea-validation.target-id:
+        ${IDEA_VALIDATION_TARGET_ID:?IDEA_VALIDATION_TARGET_ID is required}
+      io.idea-validation.candidate-manifest-sha256:
+        ${IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256:?IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256
+        is required}
   edge:
     internal: false
+    labels:
+      io.idea-validation.environment: production
+      io.idea-validation.role: network-edge
+      io.idea-validation.attempt-id:
+        ${IDEA_VALIDATION_ATTEMPT_ID:?IDEA_VALIDATION_ATTEMPT_ID is required}
+      io.idea-validation.target-id:
+        ${IDEA_VALIDATION_TARGET_ID:?IDEA_VALIDATION_TARGET_ID is required}
+      io.idea-validation.candidate-manifest-sha256:
+        ${IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256:?IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256
+        is required}
 
 secrets:
   postgres_password:
@@ -143,7 +191,21 @@ volumes:
     labels:
       io.idea-validation.environment: production
       io.idea-validation.role: database
+      io.idea-validation.attempt-id:
+        ${IDEA_VALIDATION_ATTEMPT_ID:?IDEA_VALIDATION_ATTEMPT_ID is required}
+      io.idea-validation.target-id:
+        ${IDEA_VALIDATION_TARGET_ID:?IDEA_VALIDATION_TARGET_ID is required}
+      io.idea-validation.candidate-manifest-sha256:
+        ${IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256:?IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256
+        is required}
   caddy-data:
     labels:
       io.idea-validation.environment: production
       io.idea-validation.role: tls
+      io.idea-validation.attempt-id:
+        ${IDEA_VALIDATION_ATTEMPT_ID:?IDEA_VALIDATION_ATTEMPT_ID is required}
+      io.idea-validation.target-id:
+        ${IDEA_VALIDATION_TARGET_ID:?IDEA_VALIDATION_TARGET_ID is required}
+      io.idea-validation.candidate-manifest-sha256:
+        ${IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256:?IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256
+        is required}

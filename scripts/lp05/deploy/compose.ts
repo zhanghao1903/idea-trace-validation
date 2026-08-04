@@ -58,6 +58,22 @@ export const validateComposeStatic = async (
   ])
     if (!restore.includes(token))
       throw new Error(`COMPOSE_RESTORE_REQUIRED:${token}`);
+  const occurrences = (source: string, token: string): number =>
+    source.split(token).length - 1;
+  for (const [name, source, resourceCount] of [
+    ["production", production, 8],
+    ["restore", restore, 7],
+  ] as const) {
+    for (const label of [
+      "io.idea-validation.environment:",
+      "io.idea-validation.role:",
+      "io.idea-validation.attempt-id:",
+      "io.idea-validation.target-id:",
+      "io.idea-validation.candidate-manifest-sha256:",
+    ])
+      if (occurrences(source, label) !== resourceCount)
+        throw new Error(`COMPOSE_AUTHORITY_LABELS:${name}:${label}`);
+  }
   const policy =
     "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'; object-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'";
   for (const [name, source] of [

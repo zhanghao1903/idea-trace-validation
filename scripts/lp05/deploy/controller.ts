@@ -24,6 +24,14 @@ export type DeploymentOracle = (
   attempt: JsonRecord,
   context?: DeploymentOracleContext,
 ) => Promise<DeploymentStepResult>;
+export type DeploymentRollbackTerminalState = "ROLLED_BACK" | "ROLLBACK_FAILED";
+export interface DeploymentRollbackStepResult extends DeploymentStepResult {
+  terminalState: DeploymentRollbackTerminalState;
+}
+export type DeploymentRollbackOracle = (
+  attempt: JsonRecord,
+  context?: DeploymentOracleContext,
+) => Promise<DeploymentRollbackStepResult>;
 
 export interface DeploymentOracles {
   preflight: DeploymentOracle;
@@ -37,7 +45,7 @@ export interface DeploymentOracles {
   restore: DeploymentOracle;
   productionUnchanged: DeploymentOracle;
   postRestoreSmoke: DeploymentOracle;
-  rollback: DeploymentOracle;
+  rollback: DeploymentRollbackOracle;
 }
 
 const sequence: { to: AttemptState; oracle: keyof DeploymentOracles }[] = [
@@ -264,12 +272,20 @@ export const recoverDeploymentFailure = async (input: {
     const rollback = await input.oracles.rollback(attempt);
     const projection = rollback.projection ?? {};
     const evidence = recordRollback(projection.rollback);
+    if (
+      !["ROLLED_BACK", "ROLLBACK_FAILED"].includes(
+        String(rollback.terminalState),
+      )
+    )
+      throw new Error("CONTROLLER_ROLLBACK_TERMINAL_STATE");
+    if (
+      rollback.terminalState === "ROLLED_BACK" &&
+      !["PASS", "NOT_APPLICABLE"].includes(String(evidence.status))
+    )
+      throw new Error("CONTROLLER_ROLLBACK_TERMINAL_MISMATCH");
     const next = finalizeAttemptRecord(
       transitionAttempt(attempt, {
-        to:
-          evidence.status === "PASS" || evidence.status === "NOT_APPLICABLE"
-            ? "ROLLED_BACK"
-            : "ROLLBACK_FAILED",
+        to: rollback.terminalState,
         occurredAt: occurredAt(),
         reasonCode: rollback.reasonCode,
         evidenceSha256: rollback.evidenceSha256,

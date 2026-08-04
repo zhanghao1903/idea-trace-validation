@@ -2,6 +2,49 @@
 
 ## Unreleased
 
+### Fixed
+
+- Bind both LP-05 production identity readers to the configured PostgreSQL
+  principal and separate the strict application rollback projection from
+  attempt-bound cleanup evidence. Fresh-install recovery now removes only empty,
+  exact attempt-owned container/network/volume identities, preserves upgrade and
+  foreign resources, and fails closed on any authority drift. Forward restore
+  cleanup now reaches a digest-bound `CLEANED` lifecycle before returning and is
+  safely reused by later rollback without deleting the same resources twice. A
+  restart after the exact restore deletion but before forward evidence is
+  written now reconciles the persisted frozen set against consecutive empty
+  observations and completes rollback without repeating the deletion. Actual
+  rollback now preflights any existing fixed-path forward evidence before the
+  application rollback or new cleanup side effects, reuses exact matching
+  authority, and rejects malformed or wrong-bound content before writing PASS or
+  terminal evidence. Terminal restore lifecycles now resolve their own fixed
+  cleanup reference in that same preflight, so corrupt terminal authority cannot
+  trigger application rollback or production deletion before rejection. Mixed
+  production/restore cleanup outcomes now use scope-compatible lifecycle
+  references to one immutable aggregate, allowing terminal `ROLLBACK_FAILED`
+  evidence and conflict-free replay without weakening lifecycle status rules.
+  The aggregate now carries the complete closed application rollback authority,
+  so crash recovery reuses its original results and timestamps without rerunning
+  rollback or cleanup. The controller now consumes the verified terminal state
+  and digest, preventing cleanup failure from being journaled as `ROLLED_BACK`.
+  Aggregate recovery now also re-observes every successful or not-applicable
+  resource scope before terminalization, rejecting production/restore
+  reappearance and preserved-upgrade set drift without issuing another delete.
+  Production replay derives its project from the immutable attempt target and
+  rejects changed ambient Compose configuration before callbacks or Docker
+  observations can be redirected. Attempt runtime binding now also freezes the
+  validated production database user/name before the first mutation; restart
+  rejects principal drift before application rollback, database reads or Docker
+  mutation. The documented manual rollback command now uses the same persisted
+  cleanup aggregate, live reconciliation and terminal-evidence path as the
+  controller, including idempotent aggregate-crash recovery. Persisted recovery
+  now validates the original envelope's immutable identity, digest, time-window
+  shape and attempt binding without treating forward-execution expiry as a
+  permanent recovery veto. Already-terminal manual replay now re-observes both
+  production and restore scopes before returning historical authority, rejecting
+  resource reappearance or preserved-upgrade drift without rerunning application
+  rollback or issuing a delete.
+
 ### Docs
 
 - Reorganize the v0.1 roadmap into five lightweight implementation plans that

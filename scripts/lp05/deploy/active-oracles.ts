@@ -23,6 +23,11 @@ import type {
   DeploymentOracles,
 } from "./controller.js";
 import { verifyFreshTargetProof } from "./runtime-evidence.js";
+import {
+  resolveTerminalRollbackEvidence,
+  verifyApplicationRollback,
+  verifyCleanupReference,
+} from "./rollback-cleanup.js";
 
 export const ACTIVE_PHASES = [
   "PREFLIGHT",
@@ -332,11 +337,36 @@ export const createActiveDeploymentOracles = (input: {
       };
     },
     rollback: async (attempt) => {
-      const evidence = await input.operations.rollback(attempt);
+      const output = record(
+        await input.operations.rollback(attempt),
+        "ACTIVE_ROLLBACK_OUTPUT",
+      );
+      exactKeys(
+        output,
+        ["applicationRollback", "cleanupReference", "terminalEvidence"],
+        "ACTIVE_ROLLBACK_OUTPUT",
+      );
+      const application = verifyApplicationRollback(output.applicationRollback);
+      const cleanupReference = verifyCleanupReference(
+        output.cleanupReference,
+        String(attempt.attemptId),
+      );
+      const terminal = await resolveTerminalRollbackEvidence({
+        evidenceRoot: input.evidenceRoot,
+        attempt,
+        applicationRollback: application,
+        cleanupReference,
+      });
+      if (canonicalJson(terminal) !== canonicalJson(output.terminalEvidence))
+        throw new Error("ACTIVE_ROLLBACK_AUTHORITY_MISMATCH");
       return {
-        reasonCode: String(evidence.reasonCode),
-        evidenceSha256: canonicalSha256(evidence),
-        projection: { rollback: evidence },
+        reasonCode: String(terminal.reasonCode),
+        evidenceSha256: String(terminal.evidenceSha256),
+        terminalState:
+          terminal.terminalState === "ROLLED_BACK"
+            ? "ROLLED_BACK"
+            : "ROLLBACK_FAILED",
+        projection: { rollback: application },
       };
     },
   };

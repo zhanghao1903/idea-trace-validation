@@ -146,10 +146,37 @@ describe("LP-05 application rollback", () => {
       imageId: config.appImageId,
       configSha256: canonicalSha256(config as unknown as JsonRecord),
     };
+    const targetSeed = {
+      hostFingerprintSha256: "2".repeat(64),
+      domain: "demo.example.com",
+      deployRoot: config.deployRoot,
+    };
+    const attempt: JsonRecord = {
+      attemptId: "deploy_upgrade_rollback",
+      envelopeId: `auth_${"e".repeat(32)}`,
+      target: {
+        targetId: `target_${canonicalSha256(targetSeed).slice(0, 32)}`,
+        ...targetSeed,
+        expectedIps: ["8.8.8.8"],
+        platform: "linux/amd64",
+        os: { id: "ubuntu", versionId: "24.04" },
+        composeProject: config.composeProject,
+      },
+      candidate: {
+        manifestSha256: "1".repeat(64),
+        releaseId: "lp05-upgrade-candidate",
+        sourceCommit: "d".repeat(40),
+        sourceTree: "e".repeat(40),
+        imageId: `sha256:${"f".repeat(64)}`,
+        archiveSha256: "9".repeat(64),
+        platform: "linux/amd64",
+      },
+    };
     const calls: string[] = [];
     let stopped = false;
     let restored = false;
     const adapter = createHostRollbackAdapter({
+      attempt,
       composeProject: config.composeProject,
       publicOrigin: "https://demo.example.com/",
       previousEnvironment,
