@@ -241,6 +241,14 @@ finalize either forward evidence or the rollback aggregate. A partial/nonempty m
 is not available to production cleanup because database-principal and application-row proof cannot be reconstructed
 from the lifecycle alone; conflicting evidence or identity remains a failure.
 
+Actual rollback checks the fixed forward-evidence path before application rollback, production cleanup or restore cleanup. Absence permits the
+lifecycle-only recovery above. Presence requires a complete parse, schema and canonical-digest check followed by
+exact attempt, target, candidate, restore-project, database, status and QUIESCING lifecycle-authority resolution.
+Valid matching evidence is finalized and reused by the rollback aggregate. Malformed, digest-invalid, wrong-bound,
+wrong-state or authority-conflicting evidence aborts before application rollback, any new Docker delete, PASS aggregate or terminal
+`ROLLED_BACK` record. A terminal lifecycle continues to resolve only its own fixed cleanup reference; unrelated
+files cannot replace that authority.
+
 ### 6.2 `RestoreLifecycleV2`
 
 New attempts write `schemaVersion="2.0"` at the existing

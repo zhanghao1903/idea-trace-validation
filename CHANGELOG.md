@@ -13,7 +13,11 @@
   safely reused by later rollback without deleting the same resources twice. A
   restart after the exact restore deletion but before forward evidence is
   written now reconciles the persisted frozen set against consecutive empty
-  observations and completes rollback without repeating the deletion.
+  observations and completes rollback without repeating the deletion. Actual
+  rollback now preflights any existing fixed-path forward evidence before the
+  application rollback or new cleanup side effects, reuses exact matching
+  authority, and rejects malformed or wrong-bound content before writing PASS or
+  terminal evidence.
 
 ### Docs
 

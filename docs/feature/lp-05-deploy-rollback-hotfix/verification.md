@@ -50,8 +50,8 @@ git diff --check
 | Gate | Result |
 | --- | --- |
 | formatting, lint, Skill/generated contracts, TypeScript and build | PASS |
-| repository unit/contract/integration/Web/acceptance suites | PASS: 134 + 23 + 31 + 8 + 13 tests |
-| `npm run test:deployment:unit` | PASS: 7 files, 80 tests |
+| repository unit/contract/integration/Web/acceptance suites | PASS: 138 + 23 + 31 + 8 + 13 tests |
+| `npm run test:deployment:unit` | PASS: 7 files, 83 tests |
 | `npm run test:deployment:authority` | PASS: 16 tests |
 | `npm run test:deployment:restore-chain` | PASS: 27 tests |
 | `npm run deploy:lp05:validate` | PASS: `LP05_RELEASE_READINESS_PASS` |
@@ -83,6 +83,16 @@ removal digest from the frozen authority and issues no second delete. The focuse
 `ROLLED_BACK`, a terminal `CLEANED` restore lifecycle and zero second-delete calls. The real-Docker hotfix gate now
 also separates deletion from forward evidence persistence before resuming the wrapper. Partial deletion, authority
 drift, and production cleanup remain fail-closed.
+
+## Cycle 3 code-review remediation
+
+Cycle 3 closed PRR-001 and identified PRR-002: the actual rollback path could bypass an existing contradictory
+forward record because it called lifecycle-only cleanup directly. Rollback now preflights the fixed forward path
+before application rollback or any production/restore deletion. The actual rollback regression matrix covers all four authority states:
+absent evidence recovers from exact `QUIESCING`; valid matching evidence is resolved and reused; malformed evidence
+is rejected; and digest-valid wrong-project evidence is rejected. Both rejection cases assert no application rollback, no new Docker delete,
+no rollback aggregate, no terminal evidence and an unchanged `QUIESCING` lifecycle. The matching case requires
+`ROLLED_BACK`, terminal `CLEANED`, the forward reference, and no second restore delete.
 
 ## Release boundary
 

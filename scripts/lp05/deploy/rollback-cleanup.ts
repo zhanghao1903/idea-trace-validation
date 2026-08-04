@@ -2166,6 +2166,62 @@ const completeLifecycle = async (input: {
   await writeLifecycle({ ...input, lifecycle });
 };
 
+const resolvePendingForwardRestoreCleanup = async (input: {
+  evidenceRoot: string;
+  attempt: JsonRecord;
+  composeProject: string;
+  databaseName: string;
+  isolatedTarget?: JsonRecord | null;
+  runDocker: CleanupDockerRunner;
+  environment: NodeJS.ProcessEnv;
+  now: () => Date;
+}): Promise<JsonRecord | null> => {
+  const lifecycleInput = { ...input, scope: "RESTORE" as const };
+  const current = await readLifecycle(lifecycleInput);
+  if (
+    current !== null &&
+    ["CLEANED", "CLEANUP_FAILED"].includes(String(current.state))
+  )
+    return null;
+  const forwardFile = forwardRestoreCleanupEvidencePath(
+    input.evidenceRoot,
+    String(input.attempt.attemptId),
+  );
+  if (!(await exists(forwardFile))) return null;
+  if (current === null || current.state !== "QUIESCING")
+    throw new Error("FORWARD_RESTORE_CLEANUP_RECOVERY_STATE");
+  const evidence = verifyForwardRestoreCleanupEvidence(
+    JSON.parse(await readFile(forwardFile, "utf8")),
+  );
+  const reference = forwardRestoreCleanupReference(evidence);
+  await resolveForwardRestoreCleanupReference({
+    evidenceRoot: input.evidenceRoot,
+    attempt: input.attempt,
+    reference,
+    composeProject: input.composeProject,
+    databaseName: input.databaseName,
+  });
+  const result = verifyCleanupResult(evidence.restore);
+  if (result.status === "PASS") {
+    const live = await observeDockerProjectResources({
+      attempt: input.attempt,
+      project: input.composeProject,
+      expectedEnvironment: "isolated-restore",
+      runDocker: input.runDocker,
+      environment: input.environment,
+      now: input.now,
+    });
+    if (!observationIsEmpty(live))
+      throw new Error("FORWARD_RESTORE_CLEANUP_RECOVERY_NOT_EMPTY");
+  }
+  await completeLifecycle({
+    ...lifecycleInput,
+    result,
+    reference,
+  });
+  return result;
+};
+
 export const cleanupForwardRestoreProject = async (input: {
   evidenceRoot: string;
   attempt: JsonRecord;
@@ -2188,46 +2244,8 @@ export const cleanupForwardRestoreProject = async (input: {
   )
     return cleanupOwnedProject(lifecycleInput);
 
-  const forwardFile = forwardRestoreCleanupEvidencePath(
-    input.evidenceRoot,
-    String(input.attempt.attemptId),
-  );
-  if (
-    current !== null &&
-    current.state === "QUIESCING" &&
-    (await exists(forwardFile))
-  ) {
-    const evidence = verifyForwardRestoreCleanupEvidence(
-      JSON.parse(await readFile(forwardFile, "utf8")),
-    );
-    const reference = forwardRestoreCleanupReference(evidence);
-    await resolveForwardRestoreCleanupReference({
-      evidenceRoot: input.evidenceRoot,
-      attempt: input.attempt,
-      reference,
-      composeProject: input.composeProject,
-      databaseName: input.databaseName,
-    });
-    const result = verifyCleanupResult(evidence.restore);
-    if (result.status === "PASS") {
-      const live = await observeDockerProjectResources({
-        attempt: input.attempt,
-        project: input.composeProject,
-        expectedEnvironment: "isolated-restore",
-        runDocker: input.runDocker,
-        environment: input.environment,
-        now: input.now,
-      });
-      if (!observationIsEmpty(live))
-        throw new Error("FORWARD_RESTORE_CLEANUP_RECOVERY_NOT_EMPTY");
-    }
-    await completeLifecycle({
-      ...lifecycleInput,
-      result,
-      reference,
-    });
-    return result;
-  }
+  const pending = await resolvePendingForwardRestoreCleanup(input);
+  if (pending !== null) return pending;
 
   const startedAt = input.now().toISOString();
   const result = verifyCleanupResult(await cleanupOwnedProject(lifecycleInput));
@@ -2476,6 +2494,24 @@ export const executeRollbackWithCleanup = async (input: {
   cleanupReference: JsonRecord;
   terminalEvidence: JsonRecord;
 }> => {
+  const authorityEnvironment = attemptAuthorityEnvironment(
+    input.attempt,
+    input.environment,
+  );
+  const pendingForwardRestore = await resolvePendingForwardRestoreCleanup({
+    evidenceRoot: input.evidenceRoot,
+    attempt: input.attempt,
+    composeProject: input.restoreProject,
+    databaseName: input.restoreDatabaseName,
+    isolatedTarget: input.isolatedTarget ?? null,
+    runDocker: input.runDocker,
+    environment: {
+      ...authorityEnvironment,
+      COMPOSE_PROJECT_NAME: input.restoreProject,
+      POSTGRES_DB: input.restoreDatabaseName,
+    },
+    now: input.now,
+  });
   const startedAt = input.now().toISOString();
   let applicationError: unknown;
   let applicationRollback: JsonRecord;
@@ -2492,10 +2528,6 @@ export const executeRollbackWithCleanup = async (input: {
       finishedAt: input.now().toISOString(),
     });
   }
-  const authorityEnvironment = attemptAuthorityEnvironment(
-    input.attempt,
-    input.environment,
-  );
   const production =
     applicationRollback.status === "FAIL"
       ? await cleanupBlockedByApplicationFailure({
@@ -2521,22 +2553,24 @@ export const executeRollbackWithCleanup = async (input: {
           now: input.now,
           sleep: input.sleep,
         });
-  const restore = await cleanupOwnedProject({
-    evidenceRoot: input.evidenceRoot,
-    scope: "RESTORE",
-    attempt: input.attempt,
-    composeProject: input.restoreProject,
-    databaseName: input.restoreDatabaseName,
-    isolatedTarget: input.isolatedTarget ?? null,
-    runDocker: input.runDocker,
-    environment: {
-      ...authorityEnvironment,
-      COMPOSE_PROJECT_NAME: input.restoreProject,
-      POSTGRES_DB: input.restoreDatabaseName,
-    },
-    now: input.now,
-    sleep: input.sleep,
-  });
+  const restore =
+    pendingForwardRestore ??
+    (await cleanupOwnedProject({
+      evidenceRoot: input.evidenceRoot,
+      scope: "RESTORE",
+      attempt: input.attempt,
+      composeProject: input.restoreProject,
+      databaseName: input.restoreDatabaseName,
+      isolatedTarget: input.isolatedTarget ?? null,
+      runDocker: input.runDocker,
+      environment: {
+        ...authorityEnvironment,
+        COMPOSE_PROJECT_NAME: input.restoreProject,
+        POSTGRES_DB: input.restoreDatabaseName,
+      },
+      now: input.now,
+      sleep: input.sleep,
+    }));
   const persisted = await persistRollbackCleanupEvidence({
     evidenceRoot: input.evidenceRoot,
     attempt: input.attempt,
