@@ -2647,6 +2647,13 @@ const finalizePersistedRollback = async (input: {
   now: () => Date;
 }): Promise<RollbackWithCleanupOutput> => {
   const evidence = verifyRollbackCleanupEvidence(input.persisted.evidence);
+  const target = parseDeploymentTarget(input.attempt.target);
+  if (
+    input.productionProject !== target.composeProject ||
+    evidence.composeProject !== target.composeProject
+  )
+    throw new Error("ROLLBACK_CLEANUP_PRODUCTION_PROJECT_MISMATCH");
+  const productionProject = target.composeProject;
   const reference = verifyCleanupReference(
     input.persisted.reference,
     String(input.attempt.attemptId),
@@ -2674,7 +2681,7 @@ const finalizePersistedRollback = async (input: {
     reconcilePersistedCleanupResult({
       scope: "PRODUCTION",
       attempt: input.attempt,
-      composeProject: input.productionProject,
+      composeProject: productionProject,
       result: production,
       runDocker: input.runDocker,
       environment: authorityEnvironment,
@@ -2707,7 +2714,7 @@ const finalizePersistedRollback = async (input: {
       evidenceRoot: input.evidenceRoot,
       scope: "PRODUCTION",
       attempt: input.attempt,
-      composeProject: input.productionProject,
+      composeProject: productionProject,
       databaseName: input.databaseName,
       result: production,
       reference: productionReference,
@@ -2754,6 +2761,9 @@ export const executeRollbackWithCleanup = async (input: {
   sleep?: (milliseconds: number) => Promise<void>;
   afterCleanupEvidencePersisted?: () => Promise<void>;
 }): Promise<RollbackWithCleanupOutput> => {
+  const target = parseDeploymentTarget(input.attempt.target);
+  if (input.productionProject !== target.composeProject)
+    throw new Error("ROLLBACK_CLEANUP_PRODUCTION_PROJECT_MISMATCH");
   const authorityEnvironment = attemptAuthorityEnvironment(
     input.attempt,
     input.environment,

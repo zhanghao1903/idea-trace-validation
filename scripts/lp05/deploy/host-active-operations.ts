@@ -37,6 +37,7 @@ import {
   exactKeys,
   parseCandidateIdentity,
   parseDatabaseIdentity,
+  parseDeploymentTarget,
   parseIsolatedRestoreTarget,
   parseMigrationEvidence,
   parseProductionResourceIdentity,
@@ -1424,11 +1425,12 @@ export const createHostActiveDeploymentOperations = (options: {
       }
       return persisted;
     },
-    rollback: async (attempt) =>
-      executeRollbackWithCleanup({
+    rollback: async (attempt) => {
+      const target = parseDeploymentTarget(attempt.target);
+      return executeRollbackWithCleanup({
         evidenceRoot: runtime.evidenceRoot,
         attempt,
-        productionProject: config().composeProject,
+        productionProject: String(target.composeProject),
         restoreProject: runtime.restore.composeProject,
         restoreDatabaseName: runtime.restore.databaseName,
         databaseUser: config().postgresUser,
@@ -1437,6 +1439,7 @@ export const createHostActiveDeploymentOperations = (options: {
         runDocker,
         environment,
         now,
-      }),
+      });
+    },
   };
 };

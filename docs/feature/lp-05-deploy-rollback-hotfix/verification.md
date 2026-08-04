@@ -146,6 +146,17 @@ evidence, issue zero additional delete calls, and leave the durable cleanup auth
 investigation. The unchanged-state recovery regression continues to prove one application invocation, byte-identical
 aggregate evidence and successful missing-journal completion.
 
+## Cycle 8 code-review remediation
+
+Cycle 8 closes the production-project redirection gap discovered while validating the Cycle 7 reconciliation gate.
+Rollback now derives the production project from the immutable deployment target, requires the supplied project and
+persisted aggregate project to match it, and fails before application rollback or any Docker observation on
+mismatch. The host active rollback producer passes that target value rather than reloading `COMPOSE_PROJECT_NAME`
+from current process configuration. A lifecycle-null crash-window regression persists an aggregate under project A,
+recreates exact-owned resources under A, and retries with project B; it requires one application invocation, no
+additional Docker call or delete, no observation of B, preserved A resources, no terminal evidence, and the
+deterministic project-mismatch error.
+
 ## Release boundary
 
 The previously authorized proposal

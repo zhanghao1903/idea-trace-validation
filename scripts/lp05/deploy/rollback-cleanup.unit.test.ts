@@ -1667,6 +1667,70 @@ describe("LP-05 rollback evidence separation", () => {
     ).rejects.toThrow();
   });
 
+  it("rejects lifecycle-null aggregate recovery before observing a drifted production project", async () => {
+    const root = await evidenceRoot();
+    const value = attempt();
+    const docker = new FakeDocker();
+    const now = clock();
+    let applicationCalls = 0;
+    let injectCrash = true;
+    const execute = (productionProject: string) =>
+      executeRollbackWithCleanup({
+        evidenceRoot: root,
+        attempt: value,
+        productionProject,
+        restoreProject: "lp05-restore-hotfix",
+        restoreDatabaseName: "idea_validation_restore",
+        databaseUser: "idea_validation",
+        databaseName: "idea_validation",
+        runApplicationRollback: async () => {
+          applicationCalls += 1;
+          return {
+            status: "NOT_APPLICABLE",
+            reasonCode: "NO_PREVIOUS_RELEASE",
+            previousRelease: null,
+            readinessSha256: null,
+            smokeSha256: null,
+            startedAt: now().toISOString(),
+            finishedAt: now().toISOString(),
+          };
+        },
+        runDocker: docker.run,
+        environment: {},
+        now,
+        sleep: async () => undefined,
+        afterCleanupEvidencePersisted: async () => {
+          if (!injectCrash) return;
+          injectCrash = false;
+          throw new Error("CRASH_AFTER_ROLLBACK_CLEANUP_AGGREGATE");
+        },
+      });
+
+    await expect(execute("idea-validation-prod")).rejects.toThrow(
+      "CRASH_AFTER_ROLLBACK_CLEANUP_AGGREGATE",
+    );
+    docker.addProject(value, "idea-validation-prod", "production", "a");
+    const dockerCalls = docker.calls.length;
+
+    await expect(execute("redirected-production")).rejects.toThrow(
+      "ROLLBACK_CLEANUP_PRODUCTION_PROJECT_MISMATCH",
+    );
+    expect(applicationCalls).toBe(1);
+    expect(docker.calls).toHaveLength(dockerCalls);
+    expect(docker.containers.size).toBe(1);
+    expect(
+      docker.calls.some((args) =>
+        args.includes("label=com.docker.compose.project=redirected-production"),
+      ),
+    ).toBe(false);
+    await expect(
+      readFile(
+        join(root, String(value.attemptId), "terminal-rollback-evidence.json"),
+        "utf8",
+      ),
+    ).rejects.toThrow();
+  });
+
   it("rejects aggregate recovery when a preserved upgrade resource set drifts", async () => {
     const root = await evidenceRoot();
     const previousRelease = { releaseId: "previous" };

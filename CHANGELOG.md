@@ -30,6 +30,9 @@
   Aggregate recovery now also re-observes every successful or not-applicable
   resource scope before terminalization, rejecting production/restore
   reappearance and preserved-upgrade set drift without issuing another delete.
+  Production replay derives its project from the immutable attempt target and
+  rejects changed ambient Compose configuration before callbacks or Docker
+  observations can be redirected.
 
 ### Docs
 

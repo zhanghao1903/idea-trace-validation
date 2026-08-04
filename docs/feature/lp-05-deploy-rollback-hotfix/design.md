@@ -212,7 +212,9 @@ journal, it actively re-observes every `PASS` and `NOT_APPLICABLE` scope. A dest
 have an empty live project, a no-resource result must remain empty, and
 `UPGRADE_PRODUCTION_PRESERVED` must retain the exact persisted resource-set digest. Reappearance, ownership drift or
 upgrade set drift stops recovery before any terminal write; this reconciliation is read-only and never grants a
-second delete.
+second delete. The production observation project is derived from `attempt.target.composeProject`, must equal the
+aggregate `composeProject`, and must equal any supplied execution argument before a callback or Docker read. Current
+process configuration cannot redirect replay to a different project.
 
 `CleanupResultV1` always has the exact keys `scope`, `status`, `reasonCode`, `authorityLifecycleSha256`,
 `databasePrincipal`, `applicationTableCount`, `observedBefore`, `removedResourceSetSha256`, `observedAfter`, and
