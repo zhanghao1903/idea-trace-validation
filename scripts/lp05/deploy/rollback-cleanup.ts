@@ -2546,6 +2546,24 @@ export const resolveTerminalRollbackEvidence = async (input: {
   return terminal;
 };
 
+export const resolvePersistedTerminalRollbackEvidence = async (input: {
+  evidenceRoot: string;
+  attempt: JsonRecord;
+}): Promise<JsonRecord> => {
+  const persisted = await recoverRollbackCleanupEvidence({
+    evidenceRoot: input.evidenceRoot,
+    attempt: input.attempt,
+  });
+  if (persisted === null) throw new Error("TERMINAL_ROLLBACK_CLEANUP_MISSING");
+  const evidence = verifyRollbackCleanupEvidence(persisted.evidence);
+  return resolveTerminalRollbackEvidence({
+    evidenceRoot: input.evidenceRoot,
+    attempt: input.attempt,
+    applicationRollback: evidence.applicationRollback,
+    cleanupReference: persisted.reference,
+  });
+};
+
 const cleanupBlockedByApplicationFailure = async (input: {
   evidenceRoot: string;
   scope: CleanupScope;

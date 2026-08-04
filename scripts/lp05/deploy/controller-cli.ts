@@ -24,7 +24,14 @@ import {
 import { createActiveDeploymentOracles } from "./active-oracles.js";
 import { createHostRollbackAdapter } from "./host-rollback.js";
 import { rollbackApplication } from "./rollback.js";
-import { canonicalJson, canonicalSha256 } from "../shared/canonical-json.js";
+import { loadDeploymentConfig } from "./config.js";
+import {
+  assertRuntimeBindingRequest,
+  attemptRuntimeBindingPath,
+  createAttemptRuntimeBinding,
+  verifyAttemptRuntimeBinding,
+} from "./runtime-binding.js";
+import { canonicalJson } from "../shared/canonical-json.js";
 import {
   exactKeys,
   record,
@@ -71,6 +78,11 @@ const main = async (): Promise<void> => {
   let attempt = verifyAttemptRecord(request.attempt);
   const requestedAttempt = attempt;
   const runtime = parseHostActiveRuntime(request.runtime);
+  const deploymentConfig = loadDeploymentConfig(process.env);
+  const productionDatabase = {
+    databaseUser: deploymentConfig.postgresUser,
+    databaseName: deploymentConfig.postgresDb,
+  };
   const authorization = record(
     record(request.envelope, "DEPLOYMENT_ENVELOPE").authorization,
     "DEPLOYMENT_AUTHORIZATION",
@@ -159,23 +171,16 @@ const main = async (): Promise<void> => {
     "attempts",
     `${String(attempt.attemptId)}.json`,
   );
-  const runtimeBindingPath = path.join(
+  const runtimeBindingPath = attemptRuntimeBindingPath(
     stateRoot,
-    "attempts",
-    `${String(attempt.attemptId)}.runtime.json`,
+    String(attempt.attemptId),
   );
-  const runtimeBinding: JsonRecord = {
-    schemaVersion: "1.0",
-    attemptId: attempt.attemptId,
+  const runtimeBinding = createAttemptRuntimeBinding({
+    attemptId: String(attempt.attemptId),
     runtime,
-    previousEnvironmentSha256: canonicalSha256({
-      previousEnvironment: request.previousEnvironment,
-    }),
-    bindingSha256: "",
-  };
-  runtimeBinding.bindingSha256 = canonicalSha256(runtimeBinding, [
-    "bindingSha256",
-  ]);
+    productionDatabase,
+    previousEnvironment: request.previousEnvironment,
+  });
   const lock = await acquireAttemptLock(
     stateRoot,
     String(target.targetId),
@@ -199,28 +204,16 @@ const main = async (): Promise<void> => {
       attempt = existing;
       if (!(await exists(runtimeBindingPath)))
         throw new Error("DEPLOYMENT_RUNTIME_BINDING_MISSING");
-      const persistedRuntime = record(
+      const persistedRuntime = verifyAttemptRuntimeBinding(
         JSON.parse(await readFile(runtimeBindingPath, "utf8")),
-        "DEPLOYMENT_RUNTIME_BINDING",
       );
-      exactKeys(
-        persistedRuntime,
-        [
-          "schemaVersion",
-          "attemptId",
-          "runtime",
-          "previousEnvironmentSha256",
-          "bindingSha256",
-        ],
-        "DEPLOYMENT_RUNTIME_BINDING",
-      );
-      if (
-        persistedRuntime.schemaVersion !== "1.0" ||
-        persistedRuntime.bindingSha256 !==
-          canonicalSha256(persistedRuntime, ["bindingSha256"]) ||
-        canonicalJson(persistedRuntime) !== canonicalJson(runtimeBinding)
-      )
-        throw new Error("DEPLOYMENT_RUNTIME_BINDING_CHANGED");
+      assertRuntimeBindingRequest({
+        binding: persistedRuntime,
+        attemptId: String(attempt.attemptId),
+        runtime,
+        productionDatabase,
+        previousEnvironment: request.previousEnvironment,
+      });
     } else {
       assertControllerInitialAttempt(attempt);
       await verifyCurrentAuthority(attempt);
@@ -267,6 +260,7 @@ const main = async (): Promise<void> => {
     const operations = createHostActiveDeploymentOperations({
       runtime,
       envelope: request.envelope,
+      productionDatabase,
       rollback,
     });
     const oracles = createActiveDeploymentOracles({

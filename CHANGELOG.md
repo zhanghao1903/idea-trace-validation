@@ -32,7 +32,12 @@
   reappearance and preserved-upgrade set drift without issuing another delete.
   Production replay derives its project from the immutable attempt target and
   rejects changed ambient Compose configuration before callbacks or Docker
-  observations can be redirected.
+  observations can be redirected. Attempt runtime binding now also freezes the
+  validated production database user/name before the first mutation; restart
+  rejects principal drift before application rollback, database reads or Docker
+  mutation. The documented manual rollback command now uses the same persisted
+  cleanup aggregate, live reconciliation and terminal-evidence path as the
+  controller, including idempotent aggregate-crash recovery.
 
 ### Docs
 

@@ -23,6 +23,11 @@ import {
 import { restoreEncryptedBackup } from "../database/restore.js";
 import { preflight } from "./preflight.js";
 import { loadDeploymentConfig } from "./config.js";
+import {
+  assertProductionDatabasePrincipal,
+  parseProductionDatabasePrincipal,
+  type ProductionDatabasePrincipal,
+} from "./database-principal.js";
 import { runExternalSmoke } from "../smoke/external.js";
 import {
   syntheticResourceIdsSha256,
@@ -185,13 +190,13 @@ export const parseHostActiveRuntime = (value: unknown): HostActiveRuntime => {
   };
 };
 
-type RunDocker = (
+export type HostDockerRunner = (
   args: readonly string[],
   environment?: NodeJS.ProcessEnv,
   signal?: AbortSignal,
 ) => Promise<string>;
 
-const defaultDocker: RunDocker = async (
+const defaultDocker: HostDockerRunner = async (
   args,
   environment = process.env,
   signal,
@@ -261,7 +266,7 @@ const readManifest = async (
 };
 
 const serviceContainer = async (
-  runDocker: RunDocker,
+  runDocker: HostDockerRunner,
   project: string,
   service: string,
   environment: NodeJS.ProcessEnv,
@@ -287,7 +292,7 @@ const serviceContainer = async (
 };
 
 const assertHealthyImage = async (
-  runDocker: RunDocker,
+  runDocker: HostDockerRunner,
   attempt: JsonRecord,
   service: "app" | "caddy",
   environment: NodeJS.ProcessEnv,
@@ -316,7 +321,7 @@ const assertHealthyImage = async (
 };
 
 const inspectMigration = async (input: {
-  runDocker: RunDocker;
+  runDocker: HostDockerRunner;
   containerId: string;
   databaseName: string;
   user: string;
@@ -375,7 +380,7 @@ const inspectMigration = async (input: {
 };
 
 const backupToolVersions = async (
-  runDocker: RunDocker,
+  runDocker: HostDockerRunner,
   containerId: string,
   environment: NodeJS.ProcessEnv,
   signal: AbortSignal,
@@ -432,7 +437,7 @@ const createBackup = async (input: {
   purpose: "PRE_MIGRATION_SAFETY" | "POST_DEPLOY_RECOVERABILITY";
   storySha256: string | null;
   environment: NodeJS.ProcessEnv;
-  runDocker: RunDocker;
+  runDocker: HostDockerRunner;
   now: () => Date;
   signal: AbortSignal;
 }): Promise<JsonRecord> => {
@@ -535,7 +540,7 @@ const phasePayload = async (
 export const beginRestoreLifecycle = async (input: {
   runtime: HostActiveRuntime;
   attempt: JsonRecord;
-  runDocker: RunDocker;
+  runDocker: HostDockerRunner;
   environment: NodeJS.ProcessEnv;
   now: () => Date;
 }): Promise<JsonRecord> =>
@@ -558,7 +563,7 @@ export const markRestoreLifecycleReady = async (input: {
   runtime: HostActiveRuntime;
   attempt: JsonRecord;
   isolatedTarget: JsonRecord;
-  runDocker: RunDocker;
+  runDocker: HostDockerRunner;
   environment: NodeJS.ProcessEnv;
   now: () => Date;
 }): Promise<JsonRecord> =>
@@ -581,7 +586,7 @@ export const markRestoreLifecycleReady = async (input: {
 export const cleanupIsolatedRestoreEnvironment = async (input: {
   runtime: HostActiveRuntime;
   attempt: JsonRecord;
-  runDocker: RunDocker;
+  runDocker: HostDockerRunner;
   environment: NodeJS.ProcessEnv;
   now: () => Date;
   settleDelayMs?: number;
@@ -608,9 +613,10 @@ export const cleanupIsolatedRestoreEnvironment = async (input: {
 export const createHostActiveDeploymentOperations = (options: {
   runtime: HostActiveRuntime;
   envelope: unknown;
+  productionDatabase: ProductionDatabasePrincipal;
   rollback: (attempt: JsonRecord) => Promise<JsonRecord>;
   environment?: NodeJS.ProcessEnv;
-  runDocker?: RunDocker;
+  runDocker?: HostDockerRunner;
   fetchImpl?: typeof fetch;
   now?: () => Date;
 }): ActiveDeploymentOperations => {
@@ -618,7 +624,7 @@ export const createHostActiveDeploymentOperations = (options: {
   const environment = options.environment ?? process.env;
   const dockerActorSignal = new AsyncLocalStorage<AbortSignal>();
   const baseDocker = options.runDocker ?? defaultDocker;
-  const runDocker: RunDocker = (args, commandEnvironment, signal) =>
+  const runDocker: HostDockerRunner = (args, commandEnvironment, signal) =>
     baseDocker(
       args,
       commandEnvironment,
@@ -626,10 +632,20 @@ export const createHostActiveDeploymentOperations = (options: {
     );
   const fetchImpl = options.fetchImpl ?? fetch;
   const now = options.now ?? (() => new Date());
-  const config = (): ReturnType<typeof loadDeploymentConfig> =>
-    loadDeploymentConfig(environment);
+  const productionDatabase = parseProductionDatabasePrincipal(
+    options.productionDatabase,
+  );
+  const config = (): ReturnType<typeof loadDeploymentConfig> => {
+    const current = loadDeploymentConfig(environment);
+    assertProductionDatabasePrincipal(productionDatabase, {
+      databaseUser: current.postgresUser,
+      databaseName: current.postgresDb,
+    });
+    return current;
+  };
+  config();
   const credentials = () => ({
-    user: requiredEnvironment(environment, "POSTGRES_USER"),
+    user: productionDatabase.databaseUser,
     path: environment.PATH,
   });
 
@@ -637,8 +653,8 @@ export const createHostActiveDeploymentOperations = (options: {
     inspectLiveProductionIdentity({
       target: attempt.target,
       candidate: attempt.candidate,
-      databaseUser: requiredEnvironment(environment, "POSTGRES_USER"),
-      databaseName: requiredEnvironment(environment, "POSTGRES_DB"),
+      databaseUser: productionDatabase.databaseUser,
+      databaseName: productionDatabase.databaseName,
       runDocker: (args) => runDocker(args, environment),
       fetchImpl,
     });
@@ -774,10 +790,12 @@ export const createHostActiveDeploymentOperations = (options: {
     const manifest = await readManifest(runtime, attempt);
     const target = record(attempt.target, "ACTIVE_TARGET");
     const candidate = record(attempt.candidate, "ACTIVE_CANDIDATE");
-    const operationEnvironment = attemptAuthorityEnvironment(
-      attempt,
-      environment,
-    );
+    config();
+    const operationEnvironment = {
+      ...attemptAuthorityEnvironment(attempt, environment),
+      POSTGRES_USER: productionDatabase.databaseUser,
+      POSTGRES_DB: productionDatabase.databaseName,
+    };
     switch (phase) {
       case "PREFLIGHT":
         return activeOutput({
@@ -1231,11 +1249,14 @@ export const createHostActiveDeploymentOperations = (options: {
   };
 
   return {
-    execute: (phase, attempt, context) =>
-      dockerActorSignal.run(context.signal, () =>
+    execute: (phase, attempt, context) => {
+      config();
+      return dockerActorSignal.run(context.signal, () =>
         executePhase(phase, attempt, context),
-      ),
+      );
+    },
     reconcile: async (phase, attempt, persisted, _context) => {
+      config();
       await readManifest(runtime, attempt);
       const operationEnvironment = attemptAuthorityEnvironment(
         attempt,
@@ -1426,6 +1447,7 @@ export const createHostActiveDeploymentOperations = (options: {
       return persisted;
     },
     rollback: async (attempt) => {
+      config();
       const target = parseDeploymentTarget(attempt.target);
       return executeRollbackWithCleanup({
         evidenceRoot: runtime.evidenceRoot,
@@ -1433,8 +1455,8 @@ export const createHostActiveDeploymentOperations = (options: {
         productionProject: String(target.composeProject),
         restoreProject: runtime.restore.composeProject,
         restoreDatabaseName: runtime.restore.databaseName,
-        databaseUser: config().postgresUser,
-        databaseName: config().postgresDb,
+        databaseUser: productionDatabase.databaseUser,
+        databaseName: productionDatabase.databaseName,
         runApplicationRollback: () => options.rollback(attempt),
         runDocker,
         environment,

@@ -51,6 +51,7 @@ new merge commit.
 | `scripts/lp05/deploy/host-active-operations.ts` | Persist production/restore lifecycle before mutation; perform fail-closed cleanup; return application rollback separately | Forward phase and attempt-state contracts remain unchanged |
 | `scripts/lp05/deploy/active-oracles.ts` | Bind cleanup-record reference into rollback transition evidence without projecting it into `attempt.rollback` | Existing `DeploymentAttemptV1.rollback` remains byte-compatible and closed |
 | New `scripts/lp05/deploy/rollback-cleanup.ts` | Closed lifecycle/evidence parser, persistence, ownership inspection, and reference creation | Additive internal evidence file; old attempts need no migration |
+| New `database-principal.ts`, `runtime-binding.ts`, `manual-rollback.ts` | Persist the validated production principal and route operator recovery through the active cleanup/terminal authority | Runtime binding V2 is used for new attempts; V1 remains historical evidence |
 
 There is no public HTTP/OpenAPI, database business-schema, Web, or Skill surface change.
 
@@ -68,6 +69,13 @@ Both identity functions receive the same closed input contract:
 The container process may continue to run as OS user `postgres`; database authentication is independently and
 explicitly selected with `--username <databaseUser>`. A nonexistent or mismatched configured user fails. There is no
 fallback to `postgres`, another role, `.psqlrc`, `PGUSER`, or a newly created compatibility role.
+
+Before the first attempt mutation, `AttemptRuntimeBindingV2` persists the closed
+`productionDatabase={databaseUser,databaseName}` beside the active runtime and prior-environment digest. Every
+controller restart and manual rollback reconstructs the binding from validated current configuration and requires
+canonical equality before application rollback, database inspection, Docker observation/deletion, or terminal
+journaling. Database configuration drift is therefore an operator-investigation failure; it cannot redirect cleanup
+to an empty decoy database in the same PostgreSQL container.
 
 ## 5. Resource authority and lifecycle contracts
 
@@ -325,6 +333,12 @@ fails `exactKeys`. The active rollback oracle returns that verified application 
 verified `terminalState` and terminal evidence digest. The controller chooses `ROLLED_BACK|ROLLBACK_FAILED` from
 that terminal authority, not from the application status alone; therefore cleanup failure may produce
 `ROLLBACK_FAILED` while the closed application projection remains `PASS|NOT_APPLICABLE`.
+
+The manual rollback CLI is a thin adapter over the same active rollback oracle and `recoverDeploymentFailure`
+state machine. It loads the persisted runtime/principal binding, resolves any existing immutable cleanup aggregate,
+performs the same live reconciliation, and uses the same terminal record and digest. It cannot publish terminal
+success from application rollback alone. A replay after the aggregate-write crash window invokes the application
+branch once, repeats no deletion, and completes only the missing lifecycle/terminal journals.
 
 ### 6.4 Identity-safe deletion rules
 

@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
-import { canonicalSha256, sha256 } from "../shared/canonical-json.js";
+import {
+  canonicalJson,
+  canonicalSha256,
+  sha256,
+} from "../shared/canonical-json.js";
 import {
   REQUIRED_EXCLUSIONS,
   REQUIRED_OPERATIONS,
@@ -14,8 +18,15 @@ import {
   inspectLiveProductionIdentity,
 } from "../database/production-runtime.js";
 import { finalizeAuthorizationEnvelope } from "./authorization-envelope.js";
-import { createAttemptRecord } from "./attempt-record.js";
+import {
+  createAttemptRecord,
+  finalizeAttemptRecord,
+  writeAttemptRecord,
+} from "./attempt-record.js";
+import { transitionAttempt } from "./attempt-state.js";
 import { runDeployment, type DeploymentOracles } from "./controller.js";
+import { executeManualRollback } from "./manual-rollback.js";
+import { createAttemptRuntimeBinding } from "./runtime-binding.js";
 import {
   attemptAuthorityEnvironment,
   beginResourceLifecycle,
@@ -25,6 +36,7 @@ import {
   markResourceLifecycleReady,
   type CleanupDockerRunner,
 } from "./rollback-cleanup.js";
+import { atomicWrite } from "../shared/filesystem.js";
 
 const execute = promisify(execFile);
 const POSTGRES_IMAGE =
@@ -403,6 +415,209 @@ const main = async (): Promise<void> => {
       )
     )
       throw new Error("HOTFIX_IDENTITY_READER_MISMATCH");
+
+    await docker(
+      [
+        "exec",
+        productionContainer,
+        "psql",
+        "--no-psqlrc",
+        "--username",
+        "idea_validation",
+        "--dbname",
+        "idea_validation",
+        "--command",
+        "CREATE TABLE recovery_binding_probe (id integer PRIMARY KEY)",
+      ],
+      productionEnvironment,
+    );
+    await docker(
+      [
+        "exec",
+        productionContainer,
+        "psql",
+        "--no-psqlrc",
+        "--username",
+        "idea_validation",
+        "--dbname",
+        "idea_validation",
+        "--command",
+        "CREATE DATABASE empty_decoy",
+      ],
+      productionEnvironment,
+    );
+    const driftFailed = finalizeAttemptRecord(
+      transitionAttempt(value, {
+        to: "FAILED",
+        occurredAt: now().toISOString(),
+        reasonCode: "HOTFIX_RECOVERY_DRIFT_FIXTURE",
+        evidenceSha256: sha256("HOTFIX_RECOVERY_DRIFT_FIXTURE"),
+      }),
+    );
+    const driftAttempt = finalizeAttemptRecord(
+      transitionAttempt(driftFailed, {
+        to: "ROLLING_BACK",
+        occurredAt: now().toISOString(),
+        reasonCode: "INGRESS_DISABLE_AND_ROLLBACK_STARTED",
+        evidenceSha256: sha256("INGRESS_DISABLE_AND_ROLLBACK_STARTED"),
+        projection: { rollback: driftFailed.rollback },
+      }),
+    );
+    const driftStateRoot = join(root, "drift-state");
+    const driftAttemptsRoot = join(driftStateRoot, "attempts");
+    await mkdir(driftAttemptsRoot, { recursive: true, mode: 0o700 });
+    const driftAttemptPath = join(
+      driftAttemptsRoot,
+      `${String(driftAttempt.attemptId)}.json`,
+    );
+    await writeAttemptRecord(driftAttemptPath, null, driftAttempt);
+    const driftRuntime = {
+      schemaVersion: "1.0" as const,
+      evidenceRoot: join(root, "drift-evidence"),
+      candidateManifestPath: join(root, "drift-candidate.json"),
+      preMigrationBackupId: "backup_drift_pre",
+      postDeployBackupId: "backup_drift_post",
+      initialSmoke: {
+        smokeId: "smoke_drift_initial",
+        proofRoot: join(root, "drift-proofs"),
+        runId: "drift-initial",
+      },
+      postRestoreSmoke: {
+        smokeId: "smoke_drift_post",
+        proofRoot: join(root, "drift-proofs"),
+        runId: "drift-post",
+      },
+      restore: {
+        composeProject: `lp05-restore-drift-${nonce}`,
+        databaseName: "idea_validation_restore",
+        appPort: 18082,
+        restoreId: "restore_drift_fixture",
+        proofRoot: join(root, "drift-restore-proofs"),
+        runId: "drift-restore",
+      },
+    };
+    const driftBinding = createAttemptRuntimeBinding({
+      attemptId: String(driftAttempt.attemptId),
+      runtime: driftRuntime,
+      productionDatabase: {
+        databaseUser: "idea_validation",
+        databaseName: "idea_validation",
+      },
+      previousEnvironment: null,
+    });
+    await atomicWrite(
+      join(driftAttemptsRoot, `${String(driftAttempt.attemptId)}.runtime.json`),
+      canonicalJson(driftBinding),
+      0o600,
+    );
+    let recoveryDockerCalls = 0;
+    let driftRejected = false;
+    try {
+      await executeManualRollback(
+        {
+          schemaVersion: "1.0",
+          stateRoot: driftStateRoot,
+          envelope,
+          attemptPath: driftAttemptPath,
+          previousEnvironment: null,
+        },
+        {
+          environment: {
+            ...productionEnvironment,
+            APP_IMAGE: "idea-trace-validation:lp05-99734e8e6c45-amd64",
+            POSTGRES_DB: "empty_decoy",
+          },
+          runDocker: async (args, commandEnvironment, signal) => {
+            recoveryDockerCalls += 1;
+            return docker(args, commandEnvironment, signal);
+          },
+          now,
+        },
+      );
+    } catch (error) {
+      driftRejected =
+        error instanceof Error &&
+        error.message === "DEPLOYMENT_RUNTIME_BINDING_CHANGED";
+    }
+    const boundProbeCount = exactOne(
+      await docker(
+        [
+          "exec",
+          productionContainer,
+          "psql",
+          "--no-psqlrc",
+          "--tuples-only",
+          "--no-align",
+          "--username",
+          "idea_validation",
+          "--dbname",
+          "idea_validation",
+          "--command",
+          "SELECT count(*) FROM pg_class WHERE relname='recovery_binding_probe'",
+        ],
+        productionEnvironment,
+      ),
+      "HOTFIX_BOUND_DATABASE_PROBE",
+    );
+    const decoyProbeCount = exactOne(
+      await docker(
+        [
+          "exec",
+          productionContainer,
+          "psql",
+          "--no-psqlrc",
+          "--tuples-only",
+          "--no-align",
+          "--username",
+          "idea_validation",
+          "--dbname",
+          "empty_decoy",
+          "--command",
+          "SELECT count(*) FROM pg_class WHERE relname='recovery_binding_probe'",
+        ],
+        productionEnvironment,
+      ),
+      "HOTFIX_DECOY_DATABASE_PROBE",
+    );
+    if (
+      !driftRejected ||
+      recoveryDockerCalls !== 0 ||
+      boundProbeCount !== "1" ||
+      decoyProbeCount !== "0" ||
+      JSON.parse(await readFile(driftAttemptPath, "utf8")).currentState !==
+        "ROLLING_BACK"
+    )
+      throw new Error("HOTFIX_DATABASE_PRINCIPAL_DRIFT_NOT_REJECTED");
+    await docker(
+      [
+        "exec",
+        productionContainer,
+        "psql",
+        "--no-psqlrc",
+        "--username",
+        "idea_validation",
+        "--dbname",
+        "idea_validation",
+        "--command",
+        "DROP TABLE recovery_binding_probe",
+      ],
+      productionEnvironment,
+    );
+    await docker(
+      [
+        "exec",
+        productionContainer,
+        "psql",
+        "--no-psqlrc",
+        "--username",
+        "idea_validation",
+        "--dbname",
+        "idea_validation",
+        "--command",
+        "DROP DATABASE empty_decoy",
+      ],
+      productionEnvironment,
+    );
 
     await beginResourceLifecycle({
       evidenceRoot: join(root, "evidence"),

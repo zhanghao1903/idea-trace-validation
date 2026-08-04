@@ -12,6 +12,11 @@
 - Cycle 4 immutable report: `f96e0228db082c30e7d24e2a5d1653298aa5197a`
 - Cycle 5 review result: `85cb6601b8cd1874928b6591c039f8bf85d0b2ae278c67900bf53a46188a98a4`
 - Cycle 5 immutable report: `d423c3bfc697861f71940a3337643f612139e0ea`
+- Cycle 6 review result: `a67349dca6f2968d3b7ed594956dac89037c636feee149b3b244f6cc667ce5d`
+- Cycle 7 review result: `fda64e7ab243d659412824590668d768b2473f3686e63fadd8eb235f24ee23ab`
+- Cycle 8 review result: `1eadfaa61f27ff0de633dc47885cd8c3b60ec7e95dbeb3c922c7af9d5a0605f8`
+- Cycle 9 review result: `f00d1236ddc0f474470b2af17d04c8ba680ff93bdd82972247736b8e75a81abc`
+- Cycle 9 immutable report: `823057a886fa6b0bf562778a9af429d41af11b89`
 - Scope: repository implementation and local/CI verification only
 - Production deployment: `NOT RUN`
 
@@ -24,6 +29,12 @@
 - The existing seven-field application rollback object remains closed. Cleanup authority is stored separately in an
   attempt-relative, digest-resolved rollback-cleanup record; terminal rollback evidence binds both records without
   adding a field to `DeploymentAttemptV1.rollback`.
+- Attempt runtime binding V2 freezes the validated production database user/name before mutation. Controller restart
+  and manual recovery reject current principal drift before an application callback, database read, Docker action or
+  terminal write.
+- The manual rollback entrypoint now uses the controller's cleanup aggregate, live reconciliation and terminal
+  evidence path. Aggregate-crash replay invokes the application branch once, repeats no deletion and cannot return
+  an unproved terminal attempt.
 - Normal forward restore cleanup persists its own immutable attempt-local authority, transitions the exact V2
   lifecycle from `QUIESCING` to `CLEANED` before PASS, and lets a later phase failure reuse the terminal proof without
   a second deletion or `ROLLBACK_FAILED`.
@@ -56,8 +67,8 @@ git diff --check
 | Gate | Result |
 | --- | --- |
 | formatting, lint, Skill/generated contracts, TypeScript and build | PASS |
-| repository unit/contract/integration/Web/acceptance suites | PASS: 144 + 23 + 31 + 8 + 13 tests |
-| `npm run test:deployment:unit` | PASS: 7 files, 89 tests |
+| repository unit/contract/integration/Web/acceptance suites | PASS: 152 + 23 + 31 + 8 + 13 tests |
+| `npm run test:deployment:unit` | PASS: 8 files, 97 tests |
 | `npm run test:deployment:authority` | PASS: 16 tests |
 | `npm run test:deployment:restore-chain` | PASS: 27 tests |
 | `npm run deploy:lp05:validate` | PASS: `LP05_RELEASE_READINESS_PASS` |
@@ -156,6 +167,19 @@ from current process configuration. A lifecycle-null crash-window regression per
 recreates exact-owned resources under A, and retries with project B; it requires one application invocation, no
 additional Docker call or delete, no observation of B, preserved A resources, no terminal evidence, and the
 deterministic project-mismatch error.
+
+## Cycle 9 code-review remediation
+
+Cycle 9 closes PRR-007 and PRR-008. `AttemptRuntimeBindingV2` adds the closed validated production database
+principal to the runtime/evidence/prior-environment authority persisted before mutation. Both controller restart and
+manual rollback require canonical equality with current validated configuration; the host operation layer also
+checks it before every execute, reconcile and rollback entry. A real PostgreSQL 17.10 regression creates application
+data in the bound database and an empty decoy database in the same container, then proves changed current
+`POSTGRES_DB` yields zero recovery Docker calls, preserves both databases/resources and leaves the attempt
+non-terminal. The documented manual CLI now calls the active rollback oracle through `recoverDeploymentFailure`,
+resolving the same immutable aggregate and terminal record as the controller. A focused crash-window regression
+persists the aggregate before terminal evidence, then proves one application invocation, no repeated delete,
+`ROLLED_BACK` only after terminal authority, and idempotent already-terminal replay.
 
 ## Release boundary
 
