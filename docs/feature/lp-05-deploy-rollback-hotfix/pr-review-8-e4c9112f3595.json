@@ -1,0 +1,457 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 8,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/8",
+    "title": "LP-05 production deployment rollback hotfix",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+    "head_ref": "codex/lp-05-deploy-rollback-hotfix",
+    "head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+    "reviewed_at": "2026-08-04T08:52:52Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "Cycle 2 PRR-001 closure at the exact remediation head",
+      "complete 07ec4ecd05f80672a478f1ab5021c0d762b05275..e4c9112f35957dd22452c89ef9e522057e81f9ff delta across all 8 changed files",
+      "missing, valid, malformed and contradictory forward-evidence behavior through actual rollback",
+      "full effective PR reconciliation, exact-head local checks, fresh-context review and GitHub checks"
+    ],
+    "excluded_scope": [
+      "production deployment, DNS, real secrets, production data, public release or publication",
+      "merge execution or feature-branch mutation"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "pr-review-8-07ec4ecd05f8.md",
+      "result_path": "docs/feature/lp-05-deploy-rollback-hotfix/pr-review-8-07ec4ecd05f8.json",
+      "result_sha256": "9a1c6e22f1e0427614da6333f78b33ed3fada69e9324613c83ad4a87b1ea1aa9",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 8,
+      "reviewed_at": "2026-08-04T08:10:04Z",
+      "base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+      "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": ["PRR-001"],
+      "blocking_finding_ids": ["PRR-001"]
+    },
+    "delta_review": {
+      "previous_base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+      "previous_head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+      "current_base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+      "current_head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+      "triggers": ["HEAD_CHANGED", "EVIDENCE_CHANGED"],
+      "commit_range": "07ec4ecd05f80672a478f1ab5021c0d762b05275..e4c9112f35957dd22452c89ef9e522057e81f9ff",
+      "commits_reviewed": ["e4c9112f35957dd22452c89ef9e522057e81f9ff"],
+      "changed_files": [
+        "CHANGELOG.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/design.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/verification.md",
+        "docs/feature/lp-05-deployment-release/evidence-schema.md",
+        "docs/operations/lp05.md",
+        "scripts/lp05/deploy/hotfix-docker.acceptance.ts",
+        "scripts/lp05/deploy/rollback-cleanup.ts",
+        "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/design.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/verification.md",
+        "docs/feature/lp-05-deployment-release/evidence-schema.md",
+        "docs/operations/lp05.md",
+        "scripts/lp05/deploy/hotfix-docker.acceptance.ts",
+        "scripts/lp05/deploy/rollback-cleanup.ts",
+        "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "The remediation reconstructs a PASS restore cleanup from exact nonempty QUIESCING authority plus consecutive empty observations, avoids a second delete, and adds actual-rollback unit and Docker coverage.",
+      "evidence": "All 8 remediation files and the 26-file effective PR were reconciled. PRR-001's missing-evidence path now passes, but two independent executable counterexamples show that the new recovery authorizes rollback while ignoring an existing contradictory forward record."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "The exact current head reconstructs the frozen removal digest only for RESTORE QUIESCING with a nonempty frozen set and consecutive empty observations. The committed actual-rollback regression reaches ROLLED_BACK and CLEANED with no second delete; the 80-test suite and exact-head candidate check pass.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Missing-evidence restore deletion recovery",
+        "risk_triggers": [
+          "mutation-recovery",
+          "state-transition",
+          "data-integrity",
+          "concurrency",
+          "test-adequacy"
+        ],
+        "reason": "A restart after all restore resources were deleted must reconstruct exact authority without issuing another delete or weakening production cleanup.",
+        "affected_paths": [
+          "scripts/lp05/deploy/hotfix-docker.acceptance.ts",
+          "scripts/lp05/deploy/rollback-cleanup.ts",
+          "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+        ],
+        "checks": [
+          "enter actual executeRollbackWithCleanup from QUIESCING, nonempty frozen authority, empty live project and absent forward evidence",
+          "assert ROLLED_BACK, CLEANED, PASS aggregate and no second delete",
+          "inspect partial/nonempty and production branches for fail-closed behavior"
+        ],
+        "finding_ids": ["PRR-001"],
+        "result": "PASS"
+      },
+      {
+        "surface": "Forward-evidence presence and contradiction gate",
+        "risk_triggers": [
+          "trust-boundary",
+          "mutation-recovery",
+          "state-transition",
+          "data-integrity",
+          "test-adequacy"
+        ],
+        "reason": "The missing-evidence recovery must not be reused when the fixed evidence path is present but malformed, wrong-bound or different from the authority that rollback will publish.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "docs/feature/lp-05-deploy-rollback-hotfix/design.md",
+          "docs/feature/lp-05-deploy-rollback-hotfix/verification.md",
+          "docs/feature/lp-05-deployment-release/evidence-schema.md",
+          "docs/operations/lp05.md",
+          "scripts/lp05/deploy/rollback-cleanup.ts",
+          "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+        ],
+        "checks": [
+          "exercise absent, valid, malformed and digest-valid wrong-project forward evidence through actual rollback",
+          "require fixed-path parsing and exact attempt/project/database/result reconciliation before PASS",
+          "assert conflicting evidence cannot create a PASS rollback aggregate or terminal ROLLED_BACK"
+        ],
+        "finding_ids": ["PRR-002"],
+        "result": "FAIL"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "FAIL",
+        "reviewer": "fresh-context independent reviewer (/root/lp05_cycle3_independent_review)",
+        "summary": "The independent pass reproduced terminal ROLLED_BACK from a QUIESCING empty restore project despite an existing digest-valid wrong-project forward record, confirming that actual rollback bypasses the forward resolver."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "PRR-001 is resolved and all configured checks pass. Approval remains withheld for new blocking PRR-002: the actual rollback path applies the missing-evidence recovery without checking whether forward-restore-cleanup.json exists, so malformed or contradictory evidence is ignored and can still produce a PASS aggregate and terminal ROLLED_BACK.",
+    "blocking_finding_ids": ["PRR-002"]
+  },
+  "summary": "Cycle 3 closes the exact deletion-before-evidence crash window without a second delete. The new recovery is too broad, however: executeRollbackWithCleanup bypasses the forward-evidence resolver and authorizes ROLLED_BACK even when a structurally valid forward record contradicts the restore project binding. One induced S2 blocker, PRR-002, remains.",
+  "change_map": [
+    {
+      "area": "Restore deletion recovery",
+      "change": "Recognizes nonempty frozen RESTORE authority plus consecutive empty live observations and derives the removal digest without deletion.",
+      "external_behavior": "The missing-forward-evidence crash state can complete actual rollback to ROLLED_BACK.",
+      "risk": "Medium",
+      "validation": "Committed unit and Docker candidate regressions pass with zero second deletes."
+    },
+    {
+      "area": "Cleanup evidence authority",
+      "change": "Places the recovery inside cleanupOwnedProject, which is called directly by actual rollback.",
+      "external_behavior": "Rollback can reconstruct PASS without consulting an existing forward record.",
+      "risk": "High",
+      "validation": "Digest-valid wrong-project counterexamples resolve ROLLED_BACK instead of failing closed."
+    },
+    {
+      "area": "Operations and evidence documentation",
+      "change": "Documents nonempty-frozen recovery, no second delete and conflict failure semantics.",
+      "external_behavior": "Operators are told conflicting evidence fails, but the direct rollback path currently ignores it.",
+      "risk": "Medium",
+      "validation": "Documentation-to-executable-path reconciliation exposes PRR-002."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-002",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "Rollback recovery ignores existing contradictory forward evidence",
+      "location": {
+        "path": "scripts/lp05/deploy/rollback-cleanup.ts",
+        "line_start": 1571,
+        "line_end": 1586,
+        "symbol": "cleanupOwnedProject",
+        "side": "RIGHT",
+        "commit_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff"
+      },
+      "observation": "The new QUIESCING plus empty-live-project branch reconstructs PASS from the lifecycle alone without requiring forward-restore-cleanup.json to be absent or resolving it when present. executeRollbackWithCleanup calls cleanupOwnedProject directly for RESTORE, bypassing cleanupForwardRestoreProject's fixed-path parse and binding checks.",
+      "trigger": "Leave a RESTORE lifecycle in QUIESCING after deletion, then place a structurally and digest-valid forward-restore-cleanup.json whose restoreComposeProject conflicts with the actual project, or place malformed evidence, before actual rollback resumes.",
+      "impact": "The contradictory record is ignored; rollback writes a separate PASS aggregate, transitions the restore lifecycle to CLEANED with a rollback reference and emits terminal ROLLED_BACK. Durable evidence can therefore contain a conflicting source while the terminal state claims verified cleanup, contrary to the accepted unique-authority and fail-closed contract.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "A review-only exact-head test wrote a digest-valid forward record bound to a different restore project, then called executeRollbackWithCleanup. The promise resolved terminal ROLLED_BACK instead of rejecting.",
+          "reference": "reviewer contradictory-forward-evidence counterexample at e4c9112f35957dd22452c89ef9e522057e81f9ff"
+        },
+        {
+          "kind": "analysis",
+          "description": "A fresh-context independent reviewer reproduced the same direct-rollback bypass and classified the evidence-presence gate as blocking.",
+          "reference": "/root/lp05_cycle3_independent_review"
+        },
+        {
+          "kind": "code",
+          "description": "The new recovery branch checks only scope, lifecycle state and live emptiness; actual rollback calls cleanupOwnedProject directly instead of the forward resolver.",
+          "reference": "scripts/lp05/deploy/rollback-cleanup.ts:1571-1586,2524-2539"
+        },
+        {
+          "kind": "test",
+          "description": "The committed regression explicitly proves ENOENT before rollback, so it does not discriminate malformed, binding-conflicting or valid existing forward evidence.",
+          "reference": "scripts/lp05/deploy/rollback-cleanup.unit.test.ts:555-660"
+        },
+        {
+          "kind": "spec",
+          "description": "The current design says conflicting evidence or identity remains a failure and existing valid records are re-read and returned as the same authority.",
+          "reference": "docs/feature/lp-05-deploy-rollback-hotfix/design.md:236-242,371-376"
+        }
+      ],
+      "remediation": "Use the missing-evidence recovery only when the fixed forward-evidence path is absent. When it is present, parse and resolve it against the exact attempt, restore project, database and QUIESCING authority, reuse the exact persisted result if valid, and fail closed for malformed, wrong-bound or conflicting content before publishing rollback PASS.",
+      "verification": "Exercise the actual executeRollbackWithCleanup path for absent, valid matching, malformed and digest-valid wrong-project forward evidence. Only absent and valid matching evidence may reach ROLLED_BACK; valid evidence must be reused exactly, and every rejected case must produce no PASS aggregate or terminal ROLLED_BACK.",
+      "status": "open",
+      "origin": "DELTA_INTRODUCED",
+      "fingerprint": "evidence:lp05-restore:rollback-bypasses-forward-reference"
+    },
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "reliability",
+      "title": "Deletion-before-evidence crash is replayable through actual rollback",
+      "location": {
+        "path": "scripts/lp05/deploy/rollback-cleanup.ts",
+        "line_start": 1571,
+        "line_end": 1586,
+        "symbol": "cleanupOwnedProject",
+        "side": "RIGHT",
+        "commit_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff"
+      },
+      "observation": "The current implementation detects only RESTORE QUIESCING with a nonempty frozen set and an empty exact live project, derives the same removal-argument digest from the frozen authority, then requires consecutive empty samples without issuing another delete.",
+      "trigger": "The process dies after completing the frozen restore deletion but before forward-restore-cleanup.json is written, then actual rollback resumes with no forward evidence.",
+      "impact": "The prior safe-but-unrecoverable empty state now completes to PASS, CLEANED and terminal ROLLED_BACK rather than CLEANUP_FAILED and ROLLBACK_FAILED.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "The recovery branch is RESTORE-only, requires QUIESCING plus empty live observations and rejects an empty frozen authority.",
+          "reference": "scripts/lp05/deploy/rollback-cleanup.ts:1571-1586"
+        },
+        {
+          "kind": "test",
+          "description": "The current regression enters actual rollback after deletion, requires ROLLED_BACK, PASS, CLEANED, zero resources and unchanged delete-call count.",
+          "reference": "scripts/lp05/deploy/rollback-cleanup.unit.test.ts:555-660"
+        },
+        {
+          "kind": "ci",
+          "description": "Both exact-head verify and lp05-candidate checks completed successfully, including the updated real Docker scenario.",
+          "reference": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30892031435"
+        }
+      ],
+      "remediation": "Completed at the current head for the genuinely absent forward-evidence case.",
+      "verification": "The committed actual-rollback regression and exact-head candidate check prove the former counterexample now reaches ROLLED_BACK without a second delete.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "state:lp05-restore:forward-cleanup-left-quiescing"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-002",
+      "action": "Distinguish absent forward evidence from present evidence and resolve or reject the latter before actual rollback can publish PASS.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-001",
+      "action": "Recover deletion-before-evidence through actual rollback with no second delete.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "data-integrity",
+      "level": "High",
+      "description": "A present contradictory cleanup record can coexist with a new PASS aggregate and terminal ROLLED_BACK because direct rollback never resolves the forward file.",
+      "mitigation": "Block merge until PRR-002 adds the evidence-presence gate and adversarial actual-rollback tests.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "Low",
+      "description": "The genuinely missing-evidence crash window now recovers with consecutive emptiness and no second deletion.",
+      "mitigation": "Preserve the exact RESTORE/QUIESCING/nonempty-frozen/empty-live constraints while adding evidence reconciliation.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "other",
+      "level": "High",
+      "description": "No production deployment, DNS, public endpoint, real secret or production database was exercised in Review.",
+      "mitigation": "Keep production execution behind the separate release authorization and acceptance workflow.",
+      "owner": "Release owner"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm 11.16.0 install --ignore-scripts using bundled Node 24",
+        "environment": "macOS; Node.js 24.14.0; npm 11.16.0; isolated exact-head review worktree",
+        "head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 locked packages without lifecycle scripts.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run build --workspace @idea/contracts; npm run typecheck:lp05",
+        "environment": "macOS; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The contracts build and dedicated LP-05 TypeScript check passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run format:check; npm run lint; git diff --check",
+        "environment": "macOS; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Formatting, ESLint and remediation-delta whitespace checks passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:deployment:unit; npm run test:deployment:authority; npm run test:deployment:restore-chain",
+        "environment": "macOS; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 80 LP-05 tests passed; the authority subset passed 16 tests and restore-chain subset passed 27 tests.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx scripts/lp05/verify-release-readiness.ts",
+        "environment": "macOS sandbox; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Static release readiness returned LP05_RELEASE_READINESS_PASS.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "review-only digest-valid wrong-project forward-evidence counterexample through executeRollbackWithCleanup",
+        "environment": "vitest exact-head isolated worktree; temporary test removed after execution",
+        "head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "The test expected conflicting evidence to reject, but rollback resolved with a PASS aggregate and terminal ROLLED_BACK.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-002"
+      },
+      {
+        "command": "fresh-context independent exact-delta evidence and recovery review",
+        "environment": "independent agent; exact isolated review worktree; no repository mutations retained",
+        "head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "The independent pass reproduced the same direct-rollback bypass for an existing contradictory forward record.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-002"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-04T08:52:52Z",
+        "head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30892031435, verify job 91936108628 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30892031435/job/91936108628"
+      },
+      {
+        "name": "ci / lp05-candidate",
+        "observed_at": "2026-08-04T08:52:52Z",
+        "head_sha": "e4c9112f35957dd22452c89ef9e522057e81f9ff",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30892031435, lp05-candidate job 91936713305 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30892031435/job/91936713305"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local real Docker hotfix acceptance",
+        "reason": "The exact-head lp05-candidate GitHub check passed the updated real Docker gate; the blocking defect is a contradictory-evidence input omitted by that scenario and was exercised deterministically through the actual rollback function."
+      },
+      {
+        "check": "Reviewer-local full npm run verify",
+        "reason": "Exact-head GitHub ci / verify passed the configured full chain; Review ran the changed LP-05 paths and discriminating adversarial regression locally."
+      },
+      {
+        "check": "Full production deployment and public rollback",
+        "reason": "No production authorization was supplied and Engineering Review is review-only."
+      }
+    ]
+  },
+  "limitations": [
+    "No production host, DNS, public HTTPS endpoint, real secret or production database was contacted.",
+    "Reviewer-local Docker acceptance was not rerun because exact-head ci / lp05-candidate passed; its scenario asserts the intentionally absent evidence case, not contradictory evidence.",
+    "The adversarial counterexamples use the repository FakeDocker model but invoke the production executeRollbackWithCleanup control path and exact evidence verifiers."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #8 still points to the accepted exact base and Cycle 3 head and is ready for review.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh authoritative GitHub PR metadata after all routed changes.",
+      "evidence": "GitHub reported OPEN, draft=false, mergeable=true, CLEAN, base 99734e8e6c456e0366d28ce7d9a731b3544f0a56 and head e4c9112f35957dd22452c89ef9e522057e81f9ff.",
+      "impact_if_false": "The exact-snapshot report would be stale and invalid."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed GitHub checks belong to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read the PR-associated statusCheckRollup after all jobs completed.",
+      "evidence": "ci / verify and ci / lp05-candidate both completed SUCCESS for e4c9112f35957dd22452c89ef9e522057e81f9ff.",
+      "impact_if_false": "Platform checks could not support this snapshot."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The review-only adversarial reproductions did not alter the exact feature snapshot.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Remove temporary tests and require a clean feature diff before report creation.",
+      "evidence": "The temporary regression was removed; before report creation, git status was clean and rollback-cleanup.unit.test.ts matched the routed head.",
+      "impact_if_false": "The reproductions would not describe the routed head faithfully."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
