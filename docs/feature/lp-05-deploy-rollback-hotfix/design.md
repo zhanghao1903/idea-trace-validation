@@ -340,6 +340,15 @@ performs the same live reconciliation, and uses the same terminal record and dig
 success from application rollback alone. A replay after the aggregate-write crash window invokes the application
 branch once, repeats no deletion, and completes only the missing lifecycle/terminal journals.
 
+Forward authorization expiry prevents starting or resuming new forward mutation, but it is not a permanent veto on
+recovery of an already-persisted exact attempt. Manual recovery revalidates the original envelope's complete closed
+shape, proposal and envelope digests, 24-hour authorization-window invariant, expected workflow/feature/source task,
+and exact attempt identity at its immutable authorization time; it then requires byte-equal envelope/attempt/runtime
+binding before any effect. A different or malformed envelope remains fail-closed. For an already-terminal attempt,
+the CLI resolves the immutable aggregate and performs the same read-only production/restore reconciliation before
+resolving terminal evidence and returning. Reappearance and preserved-upgrade resource-set drift reject historical
+success; this branch cannot invoke application rollback, complete another cleanup lifecycle, or delete resources.
+
 ### 6.4 Identity-safe deletion rules
 
 Before production or restore cleanup deletes anything it must prove:

@@ -14,6 +14,7 @@ import {
   executeRollbackWithCleanup,
   markResourceLifecycleReady,
   resolveRollbackCleanupReference,
+  resolveReconciledPersistedTerminalRollbackEvidence,
   verifyCleanupResult,
   verifyDockerResourceIdentity,
   verifyForwardRestoreCleanupEvidence,
@@ -1797,6 +1798,72 @@ describe("LP-05 rollback evidence separation", () => {
         "utf8",
       ),
     ).rejects.toThrow();
+  });
+
+  it("rejects terminal replay when a preserved upgrade resource set drifts", async () => {
+    const root = await evidenceRoot();
+    const previousRelease = { releaseId: "previous" };
+    const value = attempt(previousRelease);
+    const docker = new FakeDocker();
+    const now = clock();
+    docker.addProject(value, "idea-validation-prod", "production", "a");
+    let applicationCalls = 0;
+    const terminal = await executeRollbackWithCleanup({
+      evidenceRoot: root,
+      attempt: value,
+      productionProject: "idea-validation-prod",
+      restoreProject: "lp05-restore-hotfix",
+      restoreDatabaseName: "idea_validation_restore",
+      databaseUser: "idea_validation",
+      databaseName: "idea_validation",
+      runApplicationRollback: async () => {
+        applicationCalls += 1;
+        return {
+          status: "PASS",
+          reasonCode: "PREVIOUS_RELEASE_RESTORED",
+          previousRelease,
+          readinessSha256: "6".repeat(64),
+          smokeSha256: "7".repeat(64),
+          startedAt: now().toISOString(),
+          finishedAt: now().toISOString(),
+        };
+      },
+      runDocker: docker.run,
+      environment: {},
+      now,
+      sleep: async () => undefined,
+    });
+    expect(terminal.terminalEvidence.terminalState).toBe("ROLLED_BACK");
+    docker.addProject(value, "idea-validation-prod", "production", "e");
+    const addedContainer = docker.containers.get("e".repeat(64));
+    if (addedContainer === undefined) throw new Error("TEST_CONTAINER_MISSING");
+    addedContainer.Name = "/idea-validation-prod-worker-1";
+    const addedContainerLabels = (addedContainer.Config as JsonRecord)
+      .Labels as JsonRecord;
+    addedContainerLabels["com.docker.compose.service"] = "worker";
+    const addedNetwork = docker.networks.get("d".repeat(64));
+    if (addedNetwork === undefined) throw new Error("TEST_NETWORK_MISSING");
+    addedNetwork.Name = "idea-validation-prod_aux";
+    const deleteCalls = docker.calls.filter(
+      (args) => args[0] === "rm" || args[1] === "rm",
+    ).length;
+
+    await expect(
+      resolveReconciledPersistedTerminalRollbackEvidence({
+        evidenceRoot: root,
+        attempt: value,
+        productionProject: "idea-validation-prod",
+        restoreProject: "lp05-restore-hotfix",
+        restoreDatabaseName: "idea_validation_restore",
+        runDocker: docker.run,
+        environment: {},
+        now,
+      }),
+    ).rejects.toThrow("ROLLBACK_CLEANUP_RECOVERY_RESOURCE_DRIFT");
+    expect(applicationCalls).toBe(1);
+    expect(
+      docker.calls.filter((args) => args[0] === "rm" || args[1] === "rm"),
+    ).toHaveLength(deleteCalls);
   });
 
   it("materializes one application failure and binds the same digest throughout", async () => {

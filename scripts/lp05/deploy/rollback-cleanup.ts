@@ -2651,19 +2651,24 @@ const reconcilePersistedCleanupResult = async (input: {
     throw new Error("ROLLBACK_CLEANUP_RECOVERY_RESOURCE_REAPPEARED");
 };
 
-const finalizePersistedRollback = async (input: {
+type ReconciledPersistedRollback = {
+  applicationRollback: JsonRecord;
+  cleanupReference: JsonRecord;
+  production: JsonRecord;
+  restore: JsonRecord;
+};
+
+const reconcilePersistedRollback = async (input: {
   evidenceRoot: string;
   attempt: JsonRecord;
   productionProject: string;
   restoreProject: string;
   restoreDatabaseName: string;
-  isolatedTarget?: JsonRecord | null;
-  databaseName: string;
   persisted: { evidence: JsonRecord; reference: JsonRecord };
   runDocker: CleanupDockerRunner;
   environment: NodeJS.ProcessEnv;
   now: () => Date;
-}): Promise<RollbackWithCleanupOutput> => {
+}): Promise<ReconciledPersistedRollback> => {
   const evidence = verifyRollbackCleanupEvidence(input.persisted.evidence);
   const target = parseDeploymentTarget(input.attempt.target);
   if (
@@ -2671,7 +2676,6 @@ const finalizePersistedRollback = async (input: {
     evidence.composeProject !== target.composeProject
   )
     throw new Error("ROLLBACK_CLEANUP_PRODUCTION_PROJECT_MISMATCH");
-  const productionProject = target.composeProject;
   const reference = verifyCleanupReference(
     input.persisted.reference,
     String(input.attempt.attemptId),
@@ -2699,7 +2703,7 @@ const finalizePersistedRollback = async (input: {
     reconcilePersistedCleanupResult({
       scope: "PRODUCTION",
       attempt: input.attempt,
-      composeProject: productionProject,
+      composeProject: String(target.composeProject),
       result: production,
       runDocker: input.runDocker,
       environment: authorityEnvironment,
@@ -2719,13 +2723,69 @@ const finalizePersistedRollback = async (input: {
       now: input.now,
     }),
   ]);
+  return {
+    applicationRollback,
+    cleanupReference: reference,
+    production,
+    restore,
+  };
+};
+
+export const resolveReconciledPersistedTerminalRollbackEvidence =
+  async (input: {
+    evidenceRoot: string;
+    attempt: JsonRecord;
+    productionProject: string;
+    restoreProject: string;
+    restoreDatabaseName: string;
+    runDocker: CleanupDockerRunner;
+    environment: NodeJS.ProcessEnv;
+    now: () => Date;
+  }): Promise<JsonRecord> => {
+    const persisted = await recoverRollbackCleanupEvidence({
+      evidenceRoot: input.evidenceRoot,
+      attempt: input.attempt,
+    });
+    if (persisted === null)
+      throw new Error("TERMINAL_ROLLBACK_CLEANUP_MISSING");
+    const reconciled = await reconcilePersistedRollback({
+      ...input,
+      persisted,
+    });
+    return resolveTerminalRollbackEvidence({
+      evidenceRoot: input.evidenceRoot,
+      attempt: input.attempt,
+      applicationRollback: reconciled.applicationRollback,
+      cleanupReference: reconciled.cleanupReference,
+    });
+  };
+
+const finalizePersistedRollback = async (input: {
+  evidenceRoot: string;
+  attempt: JsonRecord;
+  productionProject: string;
+  restoreProject: string;
+  restoreDatabaseName: string;
+  isolatedTarget?: JsonRecord | null;
+  databaseName: string;
+  persisted: { evidence: JsonRecord; reference: JsonRecord };
+  runDocker: CleanupDockerRunner;
+  environment: NodeJS.ProcessEnv;
+  now: () => Date;
+}): Promise<RollbackWithCleanupOutput> => {
+  const reconciled = await reconcilePersistedRollback(input);
+  const target = parseDeploymentTarget(input.attempt.target);
+  const productionProject = String(target.composeProject);
+  const { applicationRollback, cleanupReference, production, restore } =
+    reconciled;
+  const evidence = verifyRollbackCleanupEvidence(input.persisted.evidence);
   const productionReference =
     production.status === "NOT_APPLICABLE"
-      ? reference
+      ? cleanupReference
       : rollbackCleanupResultReference(evidence, "PRODUCTION");
   const restoreReference =
     restore.status === "NOT_APPLICABLE"
-      ? reference
+      ? cleanupReference
       : rollbackCleanupResultReference(evidence, "RESTORE");
   await Promise.all([
     completeLifecycle({
@@ -2754,11 +2814,11 @@ const finalizePersistedRollback = async (input: {
     evidenceRoot: input.evidenceRoot,
     attempt: input.attempt,
     applicationRollback,
-    cleanupReference: reference,
+    cleanupReference,
   });
   return {
     applicationRollback,
-    cleanupReference: reference,
+    cleanupReference,
     terminalEvidence,
   };
 };

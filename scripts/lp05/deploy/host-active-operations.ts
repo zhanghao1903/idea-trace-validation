@@ -196,7 +196,7 @@ export type HostDockerRunner = (
   signal?: AbortSignal,
 ) => Promise<string>;
 
-const defaultDocker: HostDockerRunner = async (
+export const defaultHostDockerRunner: HostDockerRunner = async (
   args,
   environment = process.env,
   signal,
@@ -623,7 +623,7 @@ export const createHostActiveDeploymentOperations = (options: {
   const runtime = parseHostActiveRuntime(options.runtime);
   const environment = options.environment ?? process.env;
   const dockerActorSignal = new AsyncLocalStorage<AbortSignal>();
-  const baseDocker = options.runDocker ?? defaultDocker;
+  const baseDocker = options.runDocker ?? defaultHostDockerRunner;
   const runDocker: HostDockerRunner = (args, commandEnvironment, signal) =>
     baseDocker(
       args,

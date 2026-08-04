@@ -8,11 +8,12 @@ import { loadDeploymentConfig } from "./config.js";
 import { recoverDeploymentFailure } from "./controller.js";
 import {
   createHostActiveDeploymentOperations,
+  defaultHostDockerRunner,
   type HostDockerRunner,
 } from "./host-active-operations.js";
 import { createHostRollbackAdapter } from "./host-rollback.js";
 import { rollbackApplication } from "./rollback.js";
-import { resolvePersistedTerminalRollbackEvidence } from "./rollback-cleanup.js";
+import { resolveReconciledPersistedTerminalRollbackEvidence } from "./rollback-cleanup.js";
 import {
   assertRuntimeBindingRequest,
   readAttemptRuntimeBinding,
@@ -35,8 +36,15 @@ export interface ManualRollbackDependencies {
 const validateTerminalAttempt = async (input: {
   attempt: JsonRecord;
   evidenceRoot: string;
+  productionProject: string;
+  restoreProject: string;
+  restoreDatabaseName: string;
+  runDocker: HostDockerRunner;
+  environment: NodeJS.ProcessEnv;
+  now: () => Date;
 }): Promise<void> => {
-  const terminal = await resolvePersistedTerminalRollbackEvidence(input);
+  const terminal =
+    await resolveReconciledPersistedTerminalRollbackEvidence(input);
   if (terminal.terminalState !== input.attempt.currentState)
     throw new Error("MANUAL_ROLLBACK_TERMINAL_STATE_MISMATCH");
   if (
@@ -81,7 +89,20 @@ export const executeManualRollback = async (
   )
     throw new Error("ROLLBACK_REQUEST_VALUE");
   const now = dependencies.now ?? (() => new Date());
-  verifyDeploymentAuthorizationEnvelope(request.envelope, now());
+  const envelopeInput = record(request.envelope, "ROLLBACK_ENVELOPE");
+  const authorization = record(
+    envelopeInput.authorization,
+    "ROLLBACK_AUTHORIZATION",
+  );
+  verifyDeploymentAuthorizationEnvelope(
+    request.envelope,
+    new Date(String(authorization.authorizedAt)),
+    {
+      workflowId: "ab5accf2-4bea-4ea2-b3c5-4f3f115d45ff",
+      featureId: "lp-05-deployment-release-8c3f1a6d5e20",
+      sourceThreadId: "019fa641-0154-70f3-9d06-4905baa7e186",
+    },
+  );
   const stateRoot = path.resolve(request.stateRoot);
   const attemptPath = path.resolve(request.attemptPath);
   if (
@@ -113,7 +134,7 @@ export const executeManualRollback = async (
     const attempt = verifyAttemptRecord(
       JSON.parse(await readFile(attemptPath, "utf8")),
     );
-    const envelope = record(request.envelope, "ROLLBACK_ENVELOPE");
+    const envelope = envelopeInput;
     const proposal = record(envelope.proposal, "ROLLBACK_PROPOSAL");
     if (
       attempt.attemptId !== requestedAttempt.attemptId ||
@@ -157,9 +178,17 @@ export const executeManualRollback = async (
     if (
       ["ROLLED_BACK", "ROLLBACK_FAILED"].includes(String(attempt.currentState))
     ) {
+      const runtime = record(binding.runtime, "ROLLBACK_RUNTIME");
+      const restore = record(runtime.restore, "ROLLBACK_RESTORE_RUNTIME");
       await validateTerminalAttempt({
         attempt,
         evidenceRoot: binding.runtime.evidenceRoot,
+        productionProject: String(target.composeProject),
+        restoreProject: String(restore.composeProject),
+        restoreDatabaseName: String(restore.databaseName),
+        runDocker: dependencies.runDocker ?? defaultHostDockerRunner,
+        environment,
+        now,
       });
       return attempt;
     }

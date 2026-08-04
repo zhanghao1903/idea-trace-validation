@@ -33,7 +33,9 @@ afterEach(async () =>
   ),
 );
 
-const fixture = async () => {
+const fixture = async (
+  currentState: "FAILED" | "ROLLING_BACK" = "ROLLING_BACK",
+) => {
   const stateRoot = await mkdtemp(join(tmpdir(), "lp05-manual-rollback-"));
   roots.push(stateRoot);
   const evidenceRoot = join(stateRoot, "evidence");
@@ -123,6 +125,7 @@ const fixture = async () => {
       projection: { rollback: failed.rollback },
     }),
   );
+  const currentAttempt = currentState === "FAILED" ? failed : rollingBack;
   const runtime = {
     schemaVersion: "1.0" as const,
     evidenceRoot,
@@ -167,10 +170,13 @@ const fixture = async () => {
   };
   const attempts = join(stateRoot, "attempts");
   await mkdir(attempts, { recursive: true });
-  const attemptPath = join(attempts, `${String(rollingBack.attemptId)}.json`);
-  await writeAttemptRecord(attemptPath, null, rollingBack);
+  const attemptPath = join(
+    attempts,
+    `${String(currentAttempt.attemptId)}.json`,
+  );
+  await writeAttemptRecord(attemptPath, null, currentAttempt);
   const binding = createAttemptRuntimeBinding({
-    attemptId: String(rollingBack.attemptId),
+    attemptId: String(currentAttempt.attemptId),
     runtime,
     productionDatabase: {
       databaseUser: "idea_validation",
@@ -179,7 +185,7 @@ const fixture = async () => {
     previousEnvironment: null,
   });
   await atomicWrite(
-    join(attempts, `${String(rollingBack.attemptId)}.runtime.json`),
+    join(attempts, `${String(currentAttempt.attemptId)}.runtime.json`),
     canonicalJson(binding),
     0o600,
   );
@@ -187,7 +193,7 @@ const fixture = async () => {
     stateRoot,
     evidenceRoot,
     attemptPath,
-    attempt: rollingBack,
+    attempt: currentAttempt,
     runtime,
     environment,
     envelope,
@@ -197,6 +203,67 @@ const fixture = async () => {
       envelope,
       attemptPath,
       previousEnvironment: null,
+    },
+  };
+};
+
+const exactOwnedContainer = (input: {
+  attempt: JsonRecord;
+  project: string;
+  environment: "production" | "isolated-restore";
+  containerId: string;
+}): JsonRecord => {
+  const target = input.attempt.target as JsonRecord;
+  const candidate = input.attempt.candidate as JsonRecord;
+  return {
+    Id: input.containerId,
+    Name: `/${input.project}-postgres-1`,
+    Created: "2026-08-04T00:00:00.000Z",
+    Image: `sha256:${"9".repeat(64)}`,
+    Config: {
+      Labels: {
+        "com.docker.compose.project": input.project,
+        "com.docker.compose.service": "postgres",
+        "io.idea-validation.environment": input.environment,
+        "io.idea-validation.role": "database",
+        "io.idea-validation.attempt-id": input.attempt.attemptId,
+        "io.idea-validation.target-id": target.targetId,
+        "io.idea-validation.candidate-manifest-sha256":
+          candidate.manifestSha256,
+      },
+    },
+  };
+};
+
+const terminalReappearanceRunner = (input: {
+  attempt: JsonRecord;
+  project: string;
+  environment: "production" | "isolated-restore";
+}): {
+  calls: string[][];
+  run: (args: readonly string[]) => Promise<string>;
+} => {
+  const calls: string[][] = [];
+  const containerId = "f".repeat(64);
+  const container = exactOwnedContainer({ ...input, containerId });
+  return {
+    calls,
+    run: async (args: readonly string[]): Promise<string> => {
+      calls.push([...args]);
+      const projectFilter = args.find((value) =>
+        value.startsWith("label=com.docker.compose.project="),
+      );
+      const listedProject = projectFilter?.split("=").at(-1);
+      if (args[0] === "ps")
+        return listedProject === input.project ? containerId : "";
+      if (
+        (args[0] === "network" && args[1] === "ls") ||
+        (args[0] === "volume" && args[1] === "ls")
+      )
+        return "";
+      if (args[0] === "inspect" && args[1] === containerId)
+        return JSON.stringify([container]);
+      throw new Error(`UNEXPECTED_TERMINAL_DOCKER:${args.join(" ")}`);
     },
   };
 };
@@ -285,12 +352,127 @@ describe("LP-05 manual rollback authority", () => {
     );
     expect(terminal.terminalState).toBe("ROLLED_BACK");
 
+    const dockerCallsBeforeReplay = calls.length;
     const replay = await executeManualRollback(value.request, {
       environment: value.environment,
       runDocker,
-      now: () => new Date("2026-08-04T00:04:00.000Z"),
+      now: () => new Date("2026-08-06T00:04:00.000Z"),
     });
     expect(replay.attemptRecordSha256).toBe(recovered.attemptRecordSha256);
     expect(applicationCalls).toBe(1);
+    expect(calls.length).toBeGreaterThan(dockerCallsBeforeReplay);
+    expect(calls.filter(isDeletion).length).toBe(deletionCallsBeforeRecovery);
   });
+
+  it.each(["FAILED", "ROLLING_BACK"] as const)(
+    "recovers persisted %s authority after the forward envelope expires",
+    async (currentState) => {
+      const value = await fixture(currentState);
+      const calls: string[][] = [];
+      const runDocker = async (args: readonly string[]): Promise<string> => {
+        calls.push([...args]);
+        return "";
+      };
+      let applicationCalls = 0;
+      await expect(
+        executeRollbackWithCleanup({
+          evidenceRoot: value.evidenceRoot,
+          attempt: value.attempt,
+          productionProject: "idea-validation-prod",
+          restoreProject: value.runtime.restore.composeProject,
+          restoreDatabaseName: value.runtime.restore.databaseName,
+          databaseUser: "idea_validation",
+          databaseName: "idea_validation",
+          runApplicationRollback: async (): Promise<JsonRecord> => {
+            applicationCalls += 1;
+            return {
+              status: "NOT_APPLICABLE",
+              reasonCode: "FRESH_INSTALL_INGRESS_DISABLED",
+              previousRelease: null,
+              readinessSha256: null,
+              smokeSha256: null,
+              startedAt: "2026-08-04T00:02:01.000Z",
+              finishedAt: "2026-08-04T00:02:02.000Z",
+            };
+          },
+          runDocker,
+          environment: value.environment,
+          now: () => new Date("2026-08-04T00:02:03.000Z"),
+          afterCleanupEvidencePersisted: async () => {
+            throw new Error("FIXTURE_AGGREGATE_WRITE_CRASH");
+          },
+        }),
+      ).rejects.toThrow("FIXTURE_AGGREGATE_WRITE_CRASH");
+
+      const recovered = await executeManualRollback(value.request, {
+        environment: value.environment,
+        runDocker,
+        now: () => new Date("2026-08-06T00:03:00.000Z"),
+      });
+      expect(recovered.currentState).toBe("ROLLED_BACK");
+      expect(applicationCalls).toBe(1);
+    },
+  );
+
+  it("rejects a replacement envelope after expiry before Docker activity", async () => {
+    const value = await fixture();
+    const authorization = value.envelope.authorization as JsonRecord;
+    const replacement = finalizeAuthorizationEnvelope({
+      proposal: value.envelope.proposal as JsonRecord,
+      authorization: {
+        ...authorization,
+        authorizationEvidenceSha256: sha256("replacement authority"),
+      },
+      createdAt: String(value.envelope.createdAt),
+    });
+    let dockerCalls = 0;
+    await expect(
+      executeManualRollback(
+        { ...value.request, envelope: replacement },
+        {
+          environment: value.environment,
+          runDocker: async () => {
+            dockerCalls += 1;
+            return "";
+          },
+          now: () => new Date("2026-08-06T00:03:00.000Z"),
+        },
+      ),
+    ).rejects.toThrow("ROLLBACK_ENVELOPE_MISMATCH");
+    expect(dockerCalls).toBe(0);
+  });
+
+  it.each(["PRODUCTION", "RESTORE"] as const)(
+    "rejects terminal replay when exact-owned %s resources reappear without deleting",
+    async (scope) => {
+      const value = await fixture();
+      const emptyDocker = async (): Promise<string> => "";
+      const recovered = await executeManualRollback(value.request, {
+        environment: value.environment,
+        runDocker: emptyDocker,
+        now: () => new Date("2026-08-04T00:03:00.000Z"),
+      });
+      expect(recovered.currentState).toBe("ROLLED_BACK");
+      const project =
+        scope === "PRODUCTION"
+          ? "idea-validation-prod"
+          : value.runtime.restore.composeProject;
+      const docker = terminalReappearanceRunner({
+        attempt: recovered,
+        project,
+        environment: scope === "PRODUCTION" ? "production" : "isolated-restore",
+      });
+
+      await expect(
+        executeManualRollback(value.request, {
+          environment: value.environment,
+          runDocker: docker.run,
+          now: () => new Date("2026-08-06T00:03:00.000Z"),
+        }),
+      ).rejects.toThrow("ROLLBACK_CLEANUP_RECOVERY_RESOURCE_REAPPEARED");
+      expect(
+        docker.calls.filter((args) => args[0] === "rm" || args.includes("rm")),
+      ).toHaveLength(0);
+    },
+  );
 });

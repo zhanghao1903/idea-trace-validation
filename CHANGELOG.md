@@ -37,7 +37,13 @@
   rejects principal drift before application rollback, database reads or Docker
   mutation. The documented manual rollback command now uses the same persisted
   cleanup aggregate, live reconciliation and terminal-evidence path as the
-  controller, including idempotent aggregate-crash recovery.
+  controller, including idempotent aggregate-crash recovery. Persisted recovery
+  now validates the original envelope's immutable identity, digest, time-window
+  shape and attempt binding without treating forward-execution expiry as a
+  permanent recovery veto. Already-terminal manual replay now re-observes both
+  production and restore scopes before returning historical authority, rejecting
+  resource reappearance or preserved-upgrade drift without rerunning application
+  rollback or issuing a delete.
 
 ### Docs
 

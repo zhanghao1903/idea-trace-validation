@@ -17,6 +17,8 @@
 - Cycle 8 review result: `1eadfaa61f27ff0de633dc47885cd8c3b60ec7e95dbeb3c922c7af9d5a0605f8`
 - Cycle 9 review result: `f00d1236ddc0f474470b2af17d04c8ba680ff93bdd82972247736b8e75a81abc`
 - Cycle 9 immutable report: `823057a886fa6b0bf562778a9af429d41af11b89`
+- Cycle 10 review result: `444bb157536bb5ec1acd77a209afbc11e7f7f83ada1164355467a1e095ae98f8`
+- Cycle 10 immutable report: `e946441e27b2b545c720eb7443e2a8c907e54585`
 - Scope: repository implementation and local/CI verification only
 - Production deployment: `NOT RUN`
 
@@ -34,7 +36,10 @@
   terminal write.
 - The manual rollback entrypoint now uses the controller's cleanup aggregate, live reconciliation and terminal
   evidence path. Aggregate-crash replay invokes the application branch once, repeats no deletion and cannot return
-  an unproved terminal attempt.
+  an unproved terminal attempt. Exact persisted FAILED/ROLLING_BACK recovery remains available after the original
+  forward authorization expires while retaining exact envelope identity/digest/attempt binding. Already-terminal
+  replay now performs read-only live reconciliation and rejects production/restore reappearance or preserved-upgrade
+  drift without another application callback or deletion.
 - Normal forward restore cleanup persists its own immutable attempt-local authority, transitions the exact V2
   lifecycle from `QUIESCING` to `CLEANED` before PASS, and lets a later phase failure reuse the terminal proof without
   a second deletion or `ROLLBACK_FAILED`.
@@ -49,7 +54,7 @@
 
 ## Verification commands
 
-The implementation worktree produced these results for the initial snapshot and the Cycle 1 remediation:
+The implementation worktree produced these results through the Cycle 10 remediation:
 
 ```text
 npm run format:check
@@ -67,8 +72,8 @@ git diff --check
 | Gate | Result |
 | --- | --- |
 | formatting, lint, Skill/generated contracts, TypeScript and build | PASS |
-| repository unit/contract/integration/Web/acceptance suites | PASS: 152 + 23 + 31 + 8 + 13 tests |
-| `npm run test:deployment:unit` | PASS: 8 files, 97 tests |
+| repository unit/contract/integration/Web/acceptance suites | PASS: 158 + 23 + 31 + 8 + 13 tests |
+| `npm run test:deployment:unit` | PASS: 8 files, 103 tests |
 | `npm run test:deployment:authority` | PASS: 16 tests |
 | `npm run test:deployment:restore-chain` | PASS: 27 tests |
 | `npm run deploy:lp05:validate` | PASS: `LP05_RELEASE_READINESS_PASS` |
@@ -180,6 +185,18 @@ non-terminal. The documented manual CLI now calls the active rollback oracle thr
 resolving the same immutable aggregate and terminal record as the controller. A focused crash-window regression
 persists the aggregate before terminal evidence, then proves one application invocation, no repeated delete,
 `ROLLED_BACK` only after terminal authority, and idempotent already-terminal replay.
+
+## Cycle 10 code-review remediation
+
+Cycle 10 closes PRR-009 and PRR-010. The documented manual recovery path now validates the complete immutable
+authorization envelope at its original authorization instant, preserving proposal/envelope digests, the bounded
+window and expected workflow/feature/source authority while no longer treating elapsed forward authorization as a
+permanent veto on an exact persisted attempt. Parameterized FAILED and ROLLING_BACK aggregate-crash regressions
+recover after expiry, while a replacement envelope is rejected before Docker activity. Already-terminal replay now
+resolves and live-reconciles the persisted aggregate before resolving terminal evidence. Production and restore
+resource-reappearance regressions plus a preserved-upgrade drift regression require observation and rejection with
+one application invocation total and zero replay deletes; the unchanged replay proves actual Docker observation and
+byte-identical terminal return.
 
 ## Release boundary
 
