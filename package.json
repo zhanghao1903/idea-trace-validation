@@ -59,6 +59,7 @@
     "test:deployment:authority": "vitest run --config vitest.unit.config.ts scripts/lp05/shared/contracts.unit.test.ts",
     "test:deployment:restore-chain": "vitest run --config vitest.unit.config.ts scripts/lp05/database/database.unit.test.ts scripts/lp05/shared/contracts.unit.test.ts",
     "test:deployment:local": "tsx scripts/lp05/local-acceptance.ts",
+    "test:deployment:hotfix": "tsx scripts/lp05/deploy/hotfix-docker.acceptance.ts",
     "test:backup-restore:lp05": "vitest run --config vitest.unit.config.ts scripts/lp05/database/database.unit.test.ts",
     "test:rotation:lp05": "vitest run --config vitest.unit.config.ts scripts/lp05/deploy/rotation-rollback.unit.test.ts -t rotation",
     "test:deployment:rollback": "vitest run --config vitest.unit.config.ts scripts/lp05/deploy/rotation-rollback.unit.test.ts -t rollback",
@@ -71,7 +72,7 @@
     "db:migrate:test": "tsx packages/db/src/cli/migrate.ts --test",
     "test:db:up": "tsx scripts/test-db.ts up",
     "test:db:down": "tsx scripts/test-db.ts down",
-    "verify": "npm run format:check && npm run lint && npm run skill:check && npm run report-types:check && npm run typecheck && npm run typecheck:lp05 && npm run build && npm run openapi:check && npm run test && npm run test:deployment:unit && npm run deploy:lp05:validate && npm run test:browser && npm run test:browser:lp04"
+    "verify": "npm run format:check && npm run lint && npm run skill:check && npm run report-types:check && npm run typecheck && npm run typecheck:lp05 && npm run build && npm run openapi:check && npm run test && npm run test:deployment:unit && npm run deploy:lp05:validate && npm run test:deployment:hotfix && npm run test:browser && npm run test:browser:lp04"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

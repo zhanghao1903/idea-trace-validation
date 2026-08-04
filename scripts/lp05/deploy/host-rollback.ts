@@ -5,6 +5,7 @@ import { loadDeploymentConfig } from "./config.js";
 import { canonicalSha256, sha256 } from "../shared/canonical-json.js";
 import { exactKeys, record, type JsonRecord } from "../shared/contracts.js";
 import type { RollbackAdapter } from "./rollback.js";
+import { attemptAuthorityEnvironment } from "./rollback-cleanup.js";
 
 const execute = promisify(execFile);
 
@@ -47,6 +48,7 @@ const serviceContainer = async (
 };
 
 export const createHostRollbackAdapter = (input: {
+  attempt: JsonRecord;
   composeProject: string;
   publicOrigin: string;
   previousEnvironment: JsonRecord | null;
@@ -106,10 +108,10 @@ export const createHostRollbackAdapter = (input: {
         )
       )
         throw new Error("ROLLBACK_PREVIOUS_ENVIRONMENT_VALUE");
-      const environment: NodeJS.ProcessEnv = {
+      const environment = attemptAuthorityEnvironment(input.attempt, {
         PATH: process.env.PATH,
         ...(input.previousEnvironment as Record<string, string>),
-      };
+      });
       const config = loadDeploymentConfig(environment);
       if (
         config.composeProject !== input.composeProject ||

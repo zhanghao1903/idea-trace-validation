@@ -107,15 +107,15 @@ defaults: every nullable field is present as `null`, and every non-null field is
 | `attemptId`, `targetId` | `safeString` | exact authority-label values and current attempt equality |
 | `candidateManifestSha256` | `sha256` | exact authority-label value and current candidate equality |
 | `createdAt` | timestamp | live Docker inspection value |
-| `driver`, `scope`, `mountpoint`, `imageId` | `safeString` or null | variant-specific live inspection values below |
+| `driver`, `scope`, `mountpointSha256`, `imageId` | safe string, SHA-256, or null | variant-specific live inspection values below; the host mountpoint itself is never persisted |
 | `requiredLabelsSha256` | `sha256` | canonical required-label projection digest |
 | `identitySha256` | `sha256` | canonical complete identity digest |
 
 | Variant | Locator | Required variant rules |
 | --- | --- | --- |
-| `CONTAINER` | immutable container ID | `dockerId=locator`; exact service, name, creation time, image ID and required labels enter the identity digest; driver/scope/mountpoint are null |
-| `NETWORK` | immutable network ID | `dockerId=locator`, `service=null`; exact name, driver, scope, creation time and labels enter the digest; mountpoint/image are null |
-| `VOLUME` | exact volume name | `dockerId=null`, `service=null`; exact name, driver, scope, mountpoint, creation time and labels enter the digest; image is null |
+| `CONTAINER` | immutable container ID | `dockerId=locator`; exact service, name, creation time, image ID and required labels enter the identity digest; driver/scope/mountpoint digest are null |
+| `NETWORK` | immutable network ID | `dockerId=locator`, `service=null`; exact name, driver, scope, creation time and labels enter the digest; mountpoint digest/image are null |
+| `VOLUME` | exact volume name | `dockerId=null`, `service=null`; exact name, driver, scope, mountpoint SHA-256, creation time and labels enter the digest; image is null |
 
 `requiredLabelsSha256` is the canonical digest of exactly the Compose project, environment, role, and three
 authority labels.

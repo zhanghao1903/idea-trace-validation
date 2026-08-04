@@ -49,11 +49,12 @@ const main = async (): Promise<void> => {
       inspectLiveProductionIdentity({
         target: request.productionTarget,
         candidate: request.candidate,
-        databaseName: requiredEnvironment("PGDATABASE"),
+        databaseUser: requiredEnvironment("POSTGRES_USER"),
+        databaseName: requiredEnvironment("POSTGRES_DB"),
       }),
     restoreEnvironment: {
       PATH: process.env.PATH,
-      PGUSER: requiredEnvironment("PGUSER"),
+      PGUSER: requiredEnvironment("POSTGRES_USER"),
     },
   });
   process.stdout.write("LP05_ISOLATED_RESTORE_PASS\n");

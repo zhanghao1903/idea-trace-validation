@@ -20,6 +20,10 @@ import {
 import { restoreEncryptedBackup } from "./restore.js";
 import { canonicalSha256 } from "../shared/canonical-json.js";
 import type { JsonRecord } from "../shared/contracts.js";
+import {
+  inspectLiveProductionDatabaseIdentity,
+  inspectLiveProductionIdentity,
+} from "./production-runtime.js";
 
 const candidate = (id: number): RetentionCandidate => ({
   manifest: {
@@ -44,6 +48,159 @@ describe("LP-05 backup retention", () => {
     expect(() => planRetention([], new Set(), 5)).toThrow(
       "RETENTION_POLICY_INVALID",
     ));
+});
+
+describe("LP-05 configured production database principal", () => {
+  const seed = {
+    hostFingerprintSha256: "2".repeat(64),
+    domain: "demo.example.com",
+    deployRoot: "/srv/idea-validation",
+  };
+  const target = {
+    targetId: `target_${canonicalSha256(seed).slice(0, 32)}`,
+    ...seed,
+    expectedIps: ["8.8.8.8"],
+    platform: "linux/amd64",
+    os: { id: "ubuntu", versionId: "24.04" },
+    composeProject: "idea-validation-prod",
+  };
+  const runtimeCandidate = {
+    manifestSha256: "1".repeat(64),
+    releaseId: "lp05-runtime-test",
+    sourceCommit: "a".repeat(40),
+    sourceTree: "b".repeat(40),
+    imageId: `sha256:${"c".repeat(64)}`,
+    archiveSha256: "d".repeat(64),
+    platform: "linux/amd64",
+  };
+
+  const runtime = () => {
+    const calls: string[][] = [];
+    const containers: Record<string, JsonRecord> = {
+      "postgres-id": {
+        Id: "postgres-id",
+        Image: `sha256:${"9".repeat(64)}`,
+        Config: {
+          Labels: {
+            "com.docker.compose.project": "idea-validation-prod",
+            "com.docker.compose.service": "postgres",
+          },
+        },
+        Mounts: [
+          {
+            Type: "volume",
+            Name: "idea-validation-prod_postgres-data",
+            Destination: "/var/lib/postgresql/data",
+          },
+        ],
+      },
+      "app-id": {
+        Id: "app-id",
+        Image: runtimeCandidate.imageId,
+        Config: {
+          Labels: {
+            "com.docker.compose.project": "idea-validation-prod",
+            "com.docker.compose.service": "app",
+          },
+        },
+      },
+      "caddy-id": {
+        Id: "caddy-id",
+        Image: `sha256:${"8".repeat(64)}`,
+        Config: {
+          Labels: {
+            "com.docker.compose.project": "idea-validation-prod",
+            "com.docker.compose.service": "caddy",
+          },
+        },
+      },
+    };
+    const runDocker = async (args: readonly string[]): Promise<string> => {
+      calls.push([...args]);
+      if (args[0] === "ps") {
+        const service = String(
+          args.find((entry) =>
+            entry.startsWith("label=com.docker.compose.service="),
+          ),
+        )
+          .split("=")
+          .at(-1);
+        return `${service}-id`;
+      }
+      if (args[0] === "inspect")
+        return JSON.stringify([containers[String(args[1])]]);
+      if (args[0] === "volume")
+        return JSON.stringify([
+          {
+            Name: "idea-validation-prod_postgres-data",
+            Labels: {
+              "com.docker.compose.project": "idea-validation-prod",
+            },
+          },
+        ]);
+      if (args[0] === "exec") return "100|idea_validation|17.10";
+      throw new Error(`UNEXPECTED_DOCKER:${args.join(" ")}`);
+    };
+    return { calls, runDocker };
+  };
+
+  it("passes the configured user and database on both identity paths", async () => {
+    const sourceRuntime = runtime();
+    const source = await inspectLiveProductionDatabaseIdentity({
+      target,
+      databaseUser: "idea_validation",
+      databaseName: "idea_validation",
+      runDocker: sourceRuntime.runDocker,
+    });
+    const fullRuntime = runtime();
+    const full = await inspectLiveProductionIdentity({
+      target,
+      candidate: runtimeCandidate,
+      databaseUser: "idea_validation",
+      databaseName: "idea_validation",
+      runDocker: fullRuntime.runDocker,
+      fetchImpl: async () => new Response("release-marker", { status: 200 }),
+      certificateSha256: async () => "7".repeat(64),
+    });
+    for (const calls of [sourceRuntime.calls, fullRuntime.calls]) {
+      const exec = calls.find((args) => args[0] === "exec");
+      expect(exec).toBeDefined();
+      expect(
+        exec?.slice(exec.indexOf("--username"), exec.indexOf("--dbname") + 2),
+      ).toEqual([
+        "--username",
+        "idea_validation",
+        "--dbname",
+        "idea_validation",
+      ]);
+      expect(exec?.filter((entry) => entry === "idea_validation")).toHaveLength(
+        2,
+      );
+    }
+    expect(source.databaseName).toBe("idea_validation");
+    expect((full.database as JsonRecord).databaseName).toBe("idea_validation");
+  });
+
+  it("fails on a wrong configured user without retrying another role", async () => {
+    const value = runtime();
+    let execCalls = 0;
+    await expect(
+      inspectLiveProductionDatabaseIdentity({
+        target,
+        databaseUser: "missing_role",
+        databaseName: "idea_validation",
+        runDocker: async (args) => {
+          if (args[0] === "exec") {
+            execCalls += 1;
+            expect(args).toContain("missing_role");
+            throw new Error("ROLE_DOES_NOT_EXIST");
+          }
+          return value.runDocker(args);
+        },
+      }),
+    ).rejects.toThrow("ROLE_DOES_NOT_EXIST");
+    expect(execCalls).toBe(1);
+  });
 });
 
 describe("LP-05 bounded backup pipeline", () => {

@@ -1,0 +1,69 @@
+# LP-05 production deployment rollback hotfix verification
+
+- Feature: `lp-05-deploy-rollback-hotfix-4b7e2c9a6d10`
+- Confirmed requirements: `e2d9b0a30e1e98b227b13ca7fd5c59d46e618b0a`
+- Approved plan: `1c84dd398ed6b44f81682986be7df28ea55b749d`
+- Approved composite digest: `10f03ecf7ff759177fdbd5103fb5c81c2812d3385e46c7e279ea4080dd62c4b6c`
+- Scope: repository implementation and local/CI verification only
+- Production deployment: `NOT RUN`
+
+## Implemented behavior
+
+- Both live production database readers pass the validated `POSTGRES_USER` and `POSTGRES_DB` as explicit PostgreSQL
+  arguments; no ambient/default role fallback is accepted.
+- Production and isolated-restore services, networks and named volumes carry closed attempt/target/candidate authority
+  labels. Production V1 and restore V2 lifecycle files are persisted before mutation.
+- The existing seven-field application rollback object remains closed. Cleanup authority is stored separately in an
+  attempt-relative, digest-resolved rollback-cleanup record; terminal rollback evidence binds both records without
+  adding a field to `DeploymentAttemptV1.rollback`.
+- Fresh-install cleanup proves null previous release, configured-principal application row count zero, exact complete
+  Docker identities, stable frozen sets and consecutive empty observations. Containers/networks are removed by
+  immutable ID and volumes by exact name after just-in-time identity equality. Upgrade, foreign and ambiguous
+  resources are preserved.
+- The Docker-backed acceptance uses unique temporary project names, a pinned PostgreSQL 17.10 image and a configured
+  database role with no `postgres` database role. A real controller phase succeeds, the next phase fails
+  deterministically, and controller recovery reaches `ROLLED_BACK` only after both project resource classes are zero
+  while foreign sentinels remain inspectable.
+
+## Verification commands
+
+The implementation worktree produced these results before code-review dispatch:
+
+```text
+npm run format:check
+npm run lint
+npm run typecheck:lp05
+npm run test:deployment:unit
+npm run test:deployment:authority
+npm run test:deployment:restore-chain
+npm run deploy:lp05:validate
+npm run test:deployment:hotfix
+npm run verify
+git diff --check
+```
+
+| Gate | Result |
+| --- | --- |
+| formatting, lint, Skill/generated contracts, TypeScript and build | PASS |
+| repository unit/contract/integration/Web/acceptance suites | PASS: 132 + 23 + 31 + 8 + 13 tests |
+| `npm run test:deployment:unit` | PASS: 7 files, 77 tests |
+| `npm run test:deployment:authority` | PASS: 16 tests |
+| `npm run test:deployment:restore-chain` | PASS: 27 tests |
+| `npm run deploy:lp05:validate` | PASS: `LP05_RELEASE_READINESS_PASS` |
+| `npm run test:deployment:hotfix` | PASS: `LP05_HOTFIX_DOCKER_ACCEPTANCE_PASS` |
+| browser and LP-04 browser suites | PASS: 7 + 1 tests |
+| `npm run verify` | PASS |
+| `git diff --check` | PASS |
+
+`npm run test:deployment:hotfix` is a mandatory real-Docker gate. It refuses the production Compose project name,
+uses temporary roots, creates only nonce-prefixed projects and has an exact cleanup trap. The test produces local
+fixture evidence only; it grants no deployment authority.
+
+## Release boundary
+
+The previously authorized proposal
+`3a6d65e723939cbac0ffebc80abcdc93d28362ada42f08fd34eca9af7bebd7b3` remains retired and must never be retried.
+After this hotfix is reviewed and merged, a candidate must be rebuilt from the authoritative merge commit and a new
+proposal must be separately authorized before any production operation. No credential, private key, production log,
+Docker volume, failed-attempt file, tag, Release, package, registry image or marketplace asset is committed or
+published by this feature.

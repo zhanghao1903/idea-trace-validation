@@ -46,15 +46,31 @@ const main = async (): Promise<void> => {
     nextHuman,
     adapter: {
       restartApp: async () => {
-        await execute(
+        const { stdout } = await execute(
           "docker",
-          ["compose", "-f", "deploy/compose.production.yaml", "restart", "app"],
+          [
+            "ps",
+            "--filter",
+            `label=com.docker.compose.project=${required("COMPOSE_PROJECT_NAME")}`,
+            "--filter",
+            "label=com.docker.compose.service=app",
+            "--format",
+            "{{.ID}}",
+          ],
           {
             cwd: process.cwd(),
-            env: process.env,
+            env: { PATH: process.env.PATH },
             timeout: 60_000,
           },
         );
+        const ids = stdout.split(/\r?\n/u).filter((value) => value !== "");
+        if (ids.length !== 1 || ids[0] === undefined)
+          throw new Error("ROTATION_APP_CONTAINER_COUNT");
+        await execute("docker", ["restart", "--time", "15", ids[0]], {
+          cwd: process.cwd(),
+          env: { PATH: process.env.PATH },
+          timeout: 60_000,
+        });
       },
       verifyAiCredential: async (value, expected) => {
         const response = await probe(origin, replay, value);

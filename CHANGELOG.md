@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed
+
+- Bind both LP-05 production identity readers to the configured PostgreSQL
+  principal and separate the strict application rollback projection from
+  attempt-bound cleanup evidence. Fresh-install recovery now removes only empty,
+  exact attempt-owned container/network/volume identities, preserves upgrade and
+  foreign resources, and fails closed on any authority drift.
+
 ### Docs
 
 - Reorganize the v0.1 roadmap into five lightweight implementation plans that

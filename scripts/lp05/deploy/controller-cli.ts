@@ -242,6 +242,7 @@ const main = async (): Promise<void> => {
     )
       throw new Error("DEPLOYMENT_PREVIOUS_ENVIRONMENT_MISMATCH");
     const rollbackAdapter = createHostRollbackAdapter({
+      attempt,
       composeProject: String(target.composeProject),
       publicOrigin: `https://${String(target.domain)}/`,
       previousEnvironment:

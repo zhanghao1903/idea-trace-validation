@@ -63,6 +63,7 @@ const labelsFor = (container: JsonRecord, service: string): JsonRecord => {
 
 export const inspectLiveProductionDatabaseIdentity = async (input: {
   target: unknown;
+  databaseUser: string;
   databaseName: string;
   runDocker?: ProductionRuntimeCommand;
 }): Promise<JsonRecord> => {
@@ -96,6 +97,8 @@ export const inspectLiveProductionDatabaseIdentity = async (input: {
       "--no-align",
       "--field-separator",
       "|",
+      "--username",
+      input.databaseUser,
       "--dbname",
       input.databaseName,
       "--command",
@@ -152,6 +155,7 @@ const tlsLeafSha256 = (domain: string): Promise<string> =>
 export const inspectLiveProductionIdentity = async (input: {
   target: unknown;
   candidate: unknown;
+  databaseUser: string;
   databaseName: string;
   runDocker?: ProductionRuntimeCommand;
   fetchImpl?: typeof fetch;
@@ -208,6 +212,8 @@ export const inspectLiveProductionIdentity = async (input: {
       "--no-align",
       "--field-separator",
       "|",
+      "--username",
+      input.databaseUser,
       "--dbname",
       input.databaseName,
       "--command",

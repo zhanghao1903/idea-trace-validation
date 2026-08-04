@@ -107,6 +107,7 @@ const main = async (): Promise<void> => {
           ? null
           : record(attempt.previousRelease, "ROLLBACK_PREVIOUS_RELEASE"),
       adapter: createHostRollbackAdapter({
+        attempt,
         composeProject: String(target.composeProject),
         publicOrigin: `https://${String(target.domain)}/`,
         previousEnvironment:

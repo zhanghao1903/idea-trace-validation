@@ -3,7 +3,6 @@ import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { lstat, readFile } from "node:fs/promises";
 import path from "node:path";
-import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { AsyncLocalStorage } from "node:async_hooks";
 
@@ -55,7 +54,13 @@ import {
   verifyActivePhaseOutput,
 } from "./active-oracles.js";
 import type { DeploymentOracleContext } from "./controller.js";
-import { atomicWrite, exists } from "../shared/filesystem.js";
+import {
+  attemptAuthorityEnvironment,
+  beginResourceLifecycle,
+  cleanupOwnedProject,
+  executeRollbackWithCleanup,
+  markResourceLifecycleReady,
+} from "./rollback-cleanup.js";
 
 const executeFile = promisify(execFile);
 
@@ -472,9 +477,10 @@ const createBackup = async (input: {
 
 const restoreEnvironment = (
   runtime: HostActiveRuntime,
+  attempt: JsonRecord,
   environment: NodeJS.ProcessEnv,
 ): NodeJS.ProcessEnv => ({
-  ...environment,
+  ...attemptAuthorityEnvironment(attempt, environment),
   COMPOSE_PROJECT_NAME: runtime.restore.composeProject,
   POSTGRES_DB: runtime.restore.databaseName,
   RESTORE_APP_PORT: String(runtime.restore.appPort),
@@ -525,179 +531,51 @@ const phasePayload = async (
   );
 };
 
-type RestoreLifecycleState =
-  "CREATING" | "READY" | "QUIESCING" | "CLEANED" | "CLEANUP_FAILED";
-
-const restoreLifecyclePath = (
-  runtime: HostActiveRuntime,
-  attempt: JsonRecord,
-): string =>
-  path.join(
-    runtime.evidenceRoot,
-    String(attempt.attemptId),
-    "restore-lifecycle.json",
-  );
-
-const finalizeRestoreLifecycle = (input: {
-  runtime: HostActiveRuntime;
-  attempt: JsonRecord;
-  state: RestoreLifecycleState;
-  isolatedTarget: JsonRecord | null;
-  cleanup: JsonRecord | null;
-  updatedAt: string;
-}): JsonRecord => {
-  const target = record(input.attempt.target, "RESTORE_LIFECYCLE_TARGET");
-  const candidate = record(
-    input.attempt.candidate,
-    "RESTORE_LIFECYCLE_CANDIDATE",
-  );
-  const lifecycle: JsonRecord = {
-    schemaVersion: "1.0",
-    attemptId: input.attempt.attemptId,
-    envelopeId: input.attempt.envelopeId,
-    targetId: target.targetId,
-    candidateManifestSha256: candidate.manifestSha256,
-    composeProject: input.runtime.restore.composeProject,
-    databaseName: input.runtime.restore.databaseName,
-    state: input.state,
-    isolatedTarget: input.isolatedTarget,
-    cleanup: input.cleanup,
-    updatedAt: input.updatedAt,
-    lifecycleSha256: "",
-  };
-  lifecycle.lifecycleSha256 = canonicalSha256(lifecycle, ["lifecycleSha256"]);
-  return verifyRestoreLifecycle(lifecycle, input.runtime, input.attempt);
-};
-
-const verifyRestoreLifecycle = (
-  value: unknown,
-  runtime: HostActiveRuntime,
-  attempt: JsonRecord,
-): JsonRecord => {
-  const input = record(value, "RESTORE_LIFECYCLE");
-  exactKeys(
-    input,
-    [
-      "schemaVersion",
-      "attemptId",
-      "envelopeId",
-      "targetId",
-      "candidateManifestSha256",
-      "composeProject",
-      "databaseName",
-      "state",
-      "isolatedTarget",
-      "cleanup",
-      "updatedAt",
-      "lifecycleSha256",
-    ],
-    "RESTORE_LIFECYCLE",
-  );
-  const target = record(attempt.target, "RESTORE_LIFECYCLE_TARGET");
-  const candidate = record(attempt.candidate, "RESTORE_LIFECYCLE_CANDIDATE");
-  if (
-    input.schemaVersion !== "1.0" ||
-    input.attemptId !== attempt.attemptId ||
-    input.envelopeId !== attempt.envelopeId ||
-    input.targetId !== target.targetId ||
-    input.candidateManifestSha256 !== candidate.manifestSha256 ||
-    input.composeProject !== runtime.restore.composeProject ||
-    input.databaseName !== runtime.restore.databaseName ||
-    !["CREATING", "READY", "QUIESCING", "CLEANED", "CLEANUP_FAILED"].includes(
-      String(input.state),
-    ) ||
-    typeof input.updatedAt !== "string" ||
-    Number.isNaN(Date.parse(input.updatedAt)) ||
-    typeof input.lifecycleSha256 !== "string" ||
-    canonicalSha256(input, ["lifecycleSha256"]) !== input.lifecycleSha256
-  )
-    throw new Error("RESTORE_LIFECYCLE_INVALID");
-  if (input.state === "CREATING" && input.isolatedTarget !== null)
-    throw new Error("RESTORE_LIFECYCLE_CREATING_TARGET");
-  if (input.state === "READY") parseIsolatedRestoreTarget(input.isolatedTarget);
-  if (input.state === "QUIESCING" && input.isolatedTarget !== null)
-    parseIsolatedRestoreTarget(input.isolatedTarget);
-  if (input.state === "CLEANED" && record(input.cleanup).status !== "PASS")
-    throw new Error("RESTORE_LIFECYCLE_CLEANUP_STATUS");
-  return input;
-};
-
-const persistRestoreLifecycle = async (
-  runtime: HostActiveRuntime,
-  attempt: JsonRecord,
-  lifecycle: JsonRecord,
-): Promise<void> =>
-  atomicWrite(
-    restoreLifecyclePath(runtime, attempt),
-    canonicalJson(verifyRestoreLifecycle(lifecycle, runtime, attempt)),
-    0o600,
-  );
-
 export const beginRestoreLifecycle = async (input: {
   runtime: HostActiveRuntime;
   attempt: JsonRecord;
+  runDocker: RunDocker;
+  environment: NodeJS.ProcessEnv;
   now: () => Date;
-}): Promise<JsonRecord> => {
-  const lifecycle = finalizeRestoreLifecycle({
-    ...input,
-    state: "CREATING",
-    isolatedTarget: null,
-    cleanup: null,
-    updatedAt: input.now().toISOString(),
+}): Promise<JsonRecord> =>
+  beginResourceLifecycle({
+    evidenceRoot: input.runtime.evidenceRoot,
+    scope: "RESTORE",
+    attempt: input.attempt,
+    composeProject: input.runtime.restore.composeProject,
+    databaseName: input.runtime.restore.databaseName,
+    runDocker: input.runDocker,
+    environment: restoreEnvironment(
+      input.runtime,
+      input.attempt,
+      input.environment,
+    ),
+    now: input.now,
   });
-  await persistRestoreLifecycle(input.runtime, input.attempt, lifecycle);
-  return lifecycle;
-};
 
 export const markRestoreLifecycleReady = async (input: {
   runtime: HostActiveRuntime;
   attempt: JsonRecord;
   isolatedTarget: JsonRecord;
-  now: () => Date;
-}): Promise<JsonRecord> => {
-  const lifecycle = finalizeRestoreLifecycle({
-    ...input,
-    state: "READY",
-    isolatedTarget: parseIsolatedRestoreTarget(input.isolatedTarget),
-    cleanup: null,
-    updatedAt: input.now().toISOString(),
-  });
-  await persistRestoreLifecycle(input.runtime, input.attempt, lifecycle);
-  return lifecycle;
-};
-
-const lines = (value: string): string[] =>
-  value.split(/\r?\n/u).filter((entry) => entry !== "");
-
-const assertRestoreProjectResources = async (input: {
-  composeProject: string;
-  containerIds: string[];
-  volumeNames: string[];
   runDocker: RunDocker;
   environment: NodeJS.ProcessEnv;
-}): Promise<void> => {
-  for (const id of input.containerIds) {
-    const inspected = JSON.parse(
-      await input.runDocker(["inspect", id], input.environment),
-    ) as unknown[];
-    const container = record(inspected[0], "RESTORE_CLEANUP_CONTAINER");
-    const labels = record(
-      record(container.Config, "RESTORE_CLEANUP_CONFIG").Labels,
-      "RESTORE_CLEANUP_CONTAINER_LABELS",
-    );
-    if (labels["com.docker.compose.project"] !== input.composeProject)
-      throw new Error("RESTORE_CLEANUP_CONTAINER_AUTHORITY");
-  }
-  for (const name of input.volumeNames) {
-    const inspected = JSON.parse(
-      await input.runDocker(["volume", "inspect", name], input.environment),
-    ) as unknown[];
-    const volume = record(inspected[0], "RESTORE_CLEANUP_VOLUME");
-    const labels = record(volume.Labels, "RESTORE_CLEANUP_VOLUME_LABELS");
-    if (labels["com.docker.compose.project"] !== input.composeProject)
-      throw new Error("RESTORE_CLEANUP_VOLUME_AUTHORITY");
-  }
-};
+  now: () => Date;
+}): Promise<JsonRecord> =>
+  markResourceLifecycleReady({
+    evidenceRoot: input.runtime.evidenceRoot,
+    scope: "RESTORE",
+    attempt: input.attempt,
+    composeProject: input.runtime.restore.composeProject,
+    databaseName: input.runtime.restore.databaseName,
+    isolatedTarget: parseIsolatedRestoreTarget(input.isolatedTarget),
+    runDocker: input.runDocker,
+    environment: restoreEnvironment(
+      input.runtime,
+      input.attempt,
+      input.environment,
+    ),
+    now: input.now,
+  });
 
 export const cleanupIsolatedRestoreEnvironment = async (input: {
   runtime: HostActiveRuntime;
@@ -707,199 +585,25 @@ export const cleanupIsolatedRestoreEnvironment = async (input: {
   now: () => Date;
   settleDelayMs?: number;
   requiredEmptySamples?: number;
-}): Promise<JsonRecord> => {
-  const lifecycleFile = restoreLifecyclePath(input.runtime, input.attempt);
-  let lifecycle = (await exists(lifecycleFile))
-    ? verifyRestoreLifecycle(
-        JSON.parse(await readFile(lifecycleFile, "utf8")),
-        input.runtime,
-        input.attempt,
-      )
-    : null;
-  const restoreEnv = restoreEnvironment(input.runtime, input.environment);
-  const observe = async (): Promise<{
-    containerIds: string[];
-    volumeNames: string[];
-  }> => ({
-    containerIds: lines(
-      await input.runDocker(
-        [
-          "ps",
-          "--all",
-          "--filter",
-          `label=com.docker.compose.project=${input.runtime.restore.composeProject}`,
-          "--format",
-          "{{.ID}}",
-        ],
-        restoreEnv,
-      ),
-    ),
-    volumeNames: lines(
-      await input.runDocker(
-        [
-          "volume",
-          "ls",
-          "--filter",
-          `label=com.docker.compose.project=${input.runtime.restore.composeProject}`,
-          "--format",
-          "{{.Name}}",
-        ],
-        restoreEnv,
-      ),
-    ),
-  });
-  let observed = await observe();
-  if (
-    lifecycle === null &&
-    (observed.containerIds.length > 0 || observed.volumeNames.length > 0)
-  )
-    throw new Error("RESTORE_CLEANUP_LIFECYCLE_REQUIRED");
-  if (lifecycle !== null && lifecycle.state === "CLEANED") {
-    if (observed.containerIds.length === 0 && observed.volumeNames.length === 0)
-      return record(lifecycle.cleanup, "RESTORE_CLEANUP_EVIDENCE");
-  }
-  if (lifecycle === null) {
-    return {
-      status: "PASS",
-      reasonCode: "RESTORE_ENVIRONMENT_NOT_CREATED",
-      composeProject: input.runtime.restore.composeProject,
-      isolatedTargetSha256: null,
-      removedResourceSetSha256: canonicalSha256(observed),
-      quiescenceSamples: 1,
-      settleDelayMs: 0,
-      completedAt: input.now().toISOString(),
-    };
-  }
-  lifecycle = finalizeRestoreLifecycle({
-    runtime: input.runtime,
+}): Promise<JsonRecord> =>
+  cleanupOwnedProject({
+    evidenceRoot: input.runtime.evidenceRoot,
+    scope: "RESTORE",
     attempt: input.attempt,
-    state: "QUIESCING",
-    isolatedTarget:
-      lifecycle.isolatedTarget === null
-        ? null
-        : record(lifecycle.isolatedTarget),
-    cleanup: null,
-    updatedAt: input.now().toISOString(),
-  });
-  await persistRestoreLifecycle(input.runtime, input.attempt, lifecycle);
-  const settleDelayMs = input.settleDelayMs ?? 1_000;
-  const requiredEmptySamples = input.requiredEmptySamples ?? 3;
-  if (
-    !Number.isSafeInteger(settleDelayMs) ||
-    settleDelayMs < 0 ||
-    !Number.isSafeInteger(requiredEmptySamples) ||
-    requiredEmptySamples < 2 ||
-    requiredEmptySamples > 10
-  )
-    throw new Error("RESTORE_CLEANUP_QUIESCENCE_POLICY");
-  const seenContainerIds = new Set<string>();
-  const seenVolumeNames = new Set<string>();
-  let emptySamples = 0;
-  const maximumSamples = requiredEmptySamples + 12;
-  for (let sample = 0; sample < maximumSamples; sample += 1) {
-    observed.containerIds.forEach((value) => seenContainerIds.add(value));
-    observed.volumeNames.forEach((value) => seenVolumeNames.add(value));
-    await assertRestoreProjectResources({
-      composeProject: input.runtime.restore.composeProject,
-      ...observed,
-      runDocker: input.runDocker,
-      environment: restoreEnv,
-    });
-    if (observed.containerIds.length > 0 || observed.volumeNames.length > 0) {
-      emptySamples = 0;
-      await input.runDocker(
-        [
-          ...composeArgs(input.runtime.restore.composeProject, true),
-          "down",
-          "--volumes",
-          "--remove-orphans",
-          "--timeout",
-          "30",
-        ],
-        restoreEnv,
-      );
-    } else {
-      emptySamples += 1;
-      if (emptySamples >= requiredEmptySamples) break;
-    }
-    if (settleDelayMs > 0) await delay(settleDelayMs);
-    observed = await observe();
-  }
-  if (emptySamples < requiredEmptySamples)
-    throw new Error("ACTIVE_RESTORE_CLEANUP_NOT_QUIESCENT");
-  const removedResources = {
-    containerIds: [...seenContainerIds].sort(),
-    volumeNames: [...seenVolumeNames].sort(),
-  };
-  const cleanup: JsonRecord = {
-    status: "PASS",
-    reasonCode: "RESTORE_ENVIRONMENT_EXACT_RESOURCES_REMOVED",
     composeProject: input.runtime.restore.composeProject,
-    isolatedTargetSha256:
-      lifecycle.isolatedTarget === null
-        ? null
-        : canonicalSha256(record(lifecycle.isolatedTarget)),
-    removedResourceSetSha256: canonicalSha256(removedResources),
-    quiescenceSamples: requiredEmptySamples,
-    settleDelayMs,
-    completedAt: input.now().toISOString(),
-  };
-  await persistRestoreLifecycle(
-    input.runtime,
-    input.attempt,
-    finalizeRestoreLifecycle({
-      runtime: input.runtime,
-      attempt: input.attempt,
-      state: "CLEANED",
-      isolatedTarget:
-        lifecycle.isolatedTarget === null
-          ? null
-          : record(lifecycle.isolatedTarget),
-      cleanup,
-      updatedAt: input.now().toISOString(),
-    }),
-  );
-  return cleanup;
-};
-
-const recordRestoreCleanupFailure = async (input: {
-  runtime: HostActiveRuntime;
-  attempt: JsonRecord;
-  now: () => Date;
-  error: unknown;
-}): Promise<void> => {
-  const lifecycleFile = restoreLifecyclePath(input.runtime, input.attempt);
-  if (!(await exists(lifecycleFile))) return;
-  const lifecycle = verifyRestoreLifecycle(
-    JSON.parse(await readFile(lifecycleFile, "utf8")),
-    input.runtime,
-    input.attempt,
-  );
-  await persistRestoreLifecycle(
-    input.runtime,
-    input.attempt,
-    finalizeRestoreLifecycle({
-      runtime: input.runtime,
-      attempt: input.attempt,
-      state: "CLEANUP_FAILED",
-      isolatedTarget:
-        lifecycle.isolatedTarget === null
-          ? null
-          : record(lifecycle.isolatedTarget),
-      cleanup: {
-        status: "FAIL",
-        reasonCode: "RESTORE_ENVIRONMENT_CLEANUP_FAILED",
-        errorSha256: sha256(
-          input.error instanceof Error
-            ? input.error.message
-            : "UNKNOWN_RESTORE_CLEANUP_FAILURE",
-        ),
-        completedAt: input.now().toISOString(),
-      },
-      updatedAt: input.now().toISOString(),
-    }),
-  );
-};
+    databaseName: input.runtime.restore.databaseName,
+    runDocker: input.runDocker,
+    environment: restoreEnvironment(
+      input.runtime,
+      input.attempt,
+      input.environment,
+    ),
+    now: input.now,
+    sleep:
+      input.settleDelayMs === undefined
+        ? undefined
+        : async () => Promise.resolve(),
+  });
 
 export const createHostActiveDeploymentOperations = (options: {
   runtime: HostActiveRuntime;
@@ -933,6 +637,7 @@ export const createHostActiveDeploymentOperations = (options: {
     inspectLiveProductionIdentity({
       target: attempt.target,
       candidate: attempt.candidate,
+      databaseUser: requiredEnvironment(environment, "POSTGRES_USER"),
       databaseName: requiredEnvironment(environment, "POSTGRES_DB"),
       runDocker: (args) => runDocker(args, environment),
       fetchImpl,
@@ -1069,6 +774,10 @@ export const createHostActiveDeploymentOperations = (options: {
     const manifest = await readManifest(runtime, attempt);
     const target = record(attempt.target, "ACTIVE_TARGET");
     const candidate = record(attempt.candidate, "ACTIVE_CANDIDATE");
+    const operationEnvironment = attemptAuthorityEnvironment(
+      attempt,
+      environment,
+    );
     switch (phase) {
       case "PREFLIGHT":
         return activeOutput({
@@ -1080,32 +789,16 @@ export const createHostActiveDeploymentOperations = (options: {
       case "SAFETY_BACKUP": {
         if (attempt.previousRelease === null) {
           const project = String(target.composeProject);
-          const [containers, volumes] = await Promise.all([
-            runDocker(
-              [
-                "ps",
-                "--all",
-                "--filter",
-                `label=com.docker.compose.project=${project}`,
-                "--format",
-                "{{.ID}}",
-              ],
-              environment,
-            ),
-            runDocker(
-              [
-                "volume",
-                "ls",
-                "--filter",
-                `label=com.docker.compose.project=${project}`,
-                "--format",
-                "{{.Name}}",
-              ],
-              environment,
-            ),
-          ]);
-          if (containers !== "" || volumes !== "")
-            throw new Error("ACTIVE_FRESH_TARGET_NOT_EMPTY");
+          await beginResourceLifecycle({
+            evidenceRoot: runtime.evidenceRoot,
+            scope: "PRODUCTION",
+            attempt,
+            composeProject: project,
+            databaseName: config().postgresDb,
+            runDocker,
+            environment: operationEnvironment,
+            now,
+          });
           await runDocker(
             [
               ...composeArgs(config().composeProject),
@@ -1116,12 +809,23 @@ export const createHostActiveDeploymentOperations = (options: {
               "120",
               "postgres",
             ],
-            environment,
+            operationEnvironment,
           );
           const database = await inspectLiveProductionDatabaseIdentity({
             target: attempt.target,
+            databaseUser: config().postgresUser,
             databaseName: config().postgresDb,
-            runDocker: (args) => runDocker(args, environment),
+            runDocker: (args) => runDocker(args, operationEnvironment),
+          });
+          await markResourceLifecycleReady({
+            evidenceRoot: runtime.evidenceRoot,
+            scope: "PRODUCTION",
+            attempt,
+            composeProject: project,
+            databaseName: config().postgresDb,
+            runDocker,
+            environment: operationEnvironment,
+            now,
           });
           return activeOutput({
             phase,
@@ -1144,8 +848,9 @@ export const createHostActiveDeploymentOperations = (options: {
         }
         const database = await inspectLiveProductionDatabaseIdentity({
           target: attempt.target,
+          databaseUser: config().postgresUser,
           databaseName: config().postgresDb,
-          runDocker: (args) => runDocker(args, environment),
+          runDocker: (args) => runDocker(args, operationEnvironment),
         });
         const backup = await createBackup({
           runtime,
@@ -1155,7 +860,7 @@ export const createHostActiveDeploymentOperations = (options: {
           backupId: runtime.preMigrationBackupId,
           purpose: "PRE_MIGRATION_SAFETY",
           storySha256: null,
-          environment,
+          environment: operationEnvironment,
           runDocker,
           now,
           signal: context.signal,
@@ -1170,7 +875,7 @@ export const createHostActiveDeploymentOperations = (options: {
       case "MIGRATE": {
         await runDocker(
           [...composeArgs(config().composeProject), "run", "--rm", "migrate"],
-          environment,
+          operationEnvironment,
         );
         const database = parseDatabaseIdentity(attempt.sourceDatabase);
         const migration = await inspectMigration({
@@ -1179,7 +884,7 @@ export const createHostActiveDeploymentOperations = (options: {
           databaseName: String(database.databaseName),
           user: config().postgresUser,
           manifest,
-          environment,
+          environment: operationEnvironment,
           now,
         });
         return activeOutput({ phase, attempt, now, payload: { migration } });
@@ -1196,7 +901,7 @@ export const createHostActiveDeploymentOperations = (options: {
             "120",
             "app",
           ],
-          environment,
+          operationEnvironment,
         );
         return activeOutput({
           phase,
@@ -1207,7 +912,7 @@ export const createHostActiveDeploymentOperations = (options: {
               runDocker,
               attempt,
               "app",
-              environment,
+              operationEnvironment,
             ),
           },
         });
@@ -1224,7 +929,7 @@ export const createHostActiveDeploymentOperations = (options: {
             "120",
             "caddy",
           ],
-          environment,
+          operationEnvironment,
         );
         return activeOutput({
           phase,
@@ -1240,8 +945,9 @@ export const createHostActiveDeploymentOperations = (options: {
       case "POST_DEPLOY_BACKUP": {
         const database = await inspectLiveProductionDatabaseIdentity({
           target: attempt.target,
+          databaseUser: config().postgresUser,
           databaseName: config().postgresDb,
-          runDocker: (args) => runDocker(args, environment),
+          runDocker: (args) => runDocker(args, operationEnvironment),
         });
         const initial = record(
           attempt.initialSmoke,
@@ -1255,7 +961,7 @@ export const createHostActiveDeploymentOperations = (options: {
           backupId: runtime.postDeployBackupId,
           purpose: "POST_DEPLOY_RECOVERABILITY",
           storySha256: String(initial.syntheticStorySha256),
-          environment,
+          environment: operationEnvironment,
           runDocker,
           now,
           signal: context.signal,
@@ -1264,12 +970,23 @@ export const createHostActiveDeploymentOperations = (options: {
       }
       case "RESTORE_ENVIRONMENT": {
         const productionBefore = await inspectProduction(attempt);
-        const restoreEnv = restoreEnvironment(runtime, environment);
-        const [containers, volumes] = await Promise.all([
+        const restoreEnv = restoreEnvironment(runtime, attempt, environment);
+        const [containers, networks, volumes] = await Promise.all([
           runDocker(
             [
               "ps",
               "--all",
+              "--filter",
+              `label=com.docker.compose.project=${runtime.restore.composeProject}`,
+              "--format",
+              "{{.ID}}",
+            ],
+            restoreEnv,
+          ),
+          runDocker(
+            [
+              "network",
+              "ls",
               "--filter",
               `label=com.docker.compose.project=${runtime.restore.composeProject}`,
               "--format",
@@ -1289,9 +1006,15 @@ export const createHostActiveDeploymentOperations = (options: {
             restoreEnv,
           ),
         ]);
-        if (containers !== "" || volumes !== "")
+        if (containers !== "" || networks !== "" || volumes !== "")
           throw new Error("ACTIVE_RESTORE_TARGET_EXISTS");
-        await beginRestoreLifecycle({ runtime, attempt, now });
+        await beginRestoreLifecycle({
+          runtime,
+          attempt,
+          runDocker,
+          environment,
+          now,
+        });
         await runDocker(
           [
             ...composeArgs(runtime.restore.composeProject, true),
@@ -1317,6 +1040,8 @@ export const createHostActiveDeploymentOperations = (options: {
           runtime,
           attempt,
           isolatedTarget,
+          runDocker,
+          environment,
           now,
         });
         return activeOutput({
@@ -1373,7 +1098,7 @@ export const createHostActiveDeploymentOperations = (options: {
           },
           signal: context.signal,
         });
-        const restoreEnv = restoreEnvironment(runtime, environment);
+        const restoreEnv = restoreEnvironment(runtime, attempt, environment);
         await runDocker(
           [
             ...composeArgs(runtime.restore.composeProject, true),
@@ -1439,13 +1164,15 @@ export const createHostActiveDeploymentOperations = (options: {
           containerLabelSha256: liveTarget.containerLabelSha256,
           volumeLabelSha256: liveTarget.volumeLabelSha256,
         });
-        await cleanupIsolatedRestoreEnvironment({
+        const cleanup = await cleanupIsolatedRestoreEnvironment({
           runtime,
           attempt,
           runDocker,
           environment,
           now,
         });
+        if (cleanup.status !== "PASS")
+          throw new Error("ACTIVE_RESTORE_CLEANUP_FAILED");
         const productionAfter = await inspectProduction(attempt);
         if (canonicalJson(productionBefore) !== canonicalJson(productionAfter))
           throw new Error("ACTIVE_PRODUCTION_CHANGED");
@@ -1510,6 +1237,10 @@ export const createHostActiveDeploymentOperations = (options: {
       ),
     reconcile: async (phase, attempt, persisted, _context) => {
       await readManifest(runtime, attempt);
+      const operationEnvironment = attemptAuthorityEnvironment(
+        attempt,
+        environment,
+      );
       switch (phase) {
         case "PREFLIGHT":
           {
@@ -1536,7 +1267,7 @@ export const createHostActiveDeploymentOperations = (options: {
             databaseName: String(database.databaseName),
             user: config().postgresUser,
             manifest: await readManifest(runtime, attempt),
-            environment,
+            environment: operationEnvironment,
             now,
           });
           const expected = record(record(persisted).payload).migration;
@@ -1552,8 +1283,9 @@ export const createHostActiveDeploymentOperations = (options: {
           const expected = parseDatabaseIdentity(value.sourceDatabase);
           const observed = await inspectLiveProductionDatabaseIdentity({
             target: attempt.target,
+            databaseUser: config().postgresUser,
             databaseName: config().postgresDb,
-            runDocker: (args) => runDocker(args, environment),
+            runDocker: (args) => runDocker(args, operationEnvironment),
           });
           if (canonicalJson(expected) !== canonicalJson(observed))
             throw new Error("ACTIVE_RECONCILE_DATABASE_CHANGED");
@@ -1566,7 +1298,7 @@ export const createHostActiveDeploymentOperations = (options: {
             runDocker,
             attempt,
             "app",
-            environment,
+            operationEnvironment,
           );
           if (
             canonicalJson(observed) !==
@@ -1601,8 +1333,9 @@ export const createHostActiveDeploymentOperations = (options: {
           await verifyBackupFile(backup, environment);
           const observed = await inspectLiveProductionDatabaseIdentity({
             target: attempt.target,
+            databaseUser: config().postgresUser,
             databaseName: config().postgresDb,
-            runDocker: (args) => runDocker(args, environment),
+            runDocker: (args) => runDocker(args, operationEnvironment),
           });
           if (
             canonicalJson(parseDatabaseIdentity(backup.sourceDatabase)) !==
@@ -1633,12 +1366,27 @@ export const createHostActiveDeploymentOperations = (options: {
             throw new Error("ACTIVE_RECONCILE_PRODUCTION_CHANGED");
           if (restore !== null) {
             const isolated = parseIsolatedRestoreTarget(restore.isolatedTarget);
-            const restoreEnv = restoreEnvironment(runtime, environment);
-            const [containers, volumes] = await Promise.all([
+            const restoreEnv = restoreEnvironment(
+              runtime,
+              attempt,
+              environment,
+            );
+            const [containers, networks, volumes] = await Promise.all([
               runDocker(
                 [
                   "ps",
                   "--all",
+                  "--filter",
+                  `label=com.docker.compose.project=${String(isolated.composeProject)}`,
+                  "--format",
+                  "{{.ID}}",
+                ],
+                restoreEnv,
+              ),
+              runDocker(
+                [
+                  "network",
+                  "ls",
                   "--filter",
                   `label=com.docker.compose.project=${String(isolated.composeProject)}`,
                   "--format",
@@ -1658,7 +1406,7 @@ export const createHostActiveDeploymentOperations = (options: {
                 restoreEnv,
               ),
             ]);
-            if (containers !== "" || volumes !== "")
+            if (containers !== "" || networks !== "" || volumes !== "")
               throw new Error("ACTIVE_RECONCILE_RESTORE_CLEANUP");
           }
           break;
@@ -1668,48 +1416,19 @@ export const createHostActiveDeploymentOperations = (options: {
       }
       return persisted;
     },
-    rollback: async (attempt) => {
-      let applicationError: unknown;
-      let application: JsonRecord | null = null;
-      try {
-        application = await options.rollback(attempt);
-      } catch (error) {
-        applicationError = error;
-      }
-      let cleanupError: unknown;
-      let cleanup: JsonRecord | null = null;
-      try {
-        cleanup = await cleanupIsolatedRestoreEnvironment({
-          runtime,
-          attempt,
-          runDocker,
-          environment,
-          now,
-        });
-      } catch (error) {
-        cleanupError = error;
-        try {
-          await recordRestoreCleanupFailure({
-            runtime,
-            attempt,
-            now,
-            error,
-          });
-        } catch (recordError) {
-          cleanupError = new AggregateError(
-            [error, recordError],
-            "ACTIVE_RESTORE_CLEANUP_RECORD_FAILED",
-          );
-        }
-      }
-      if (cleanupError !== undefined || applicationError !== undefined)
-        throw new AggregateError(
-          [cleanupError, applicationError].filter(
-            (value): value is NonNullable<unknown> => value !== undefined,
-          ),
-          "ACTIVE_ROLLBACK_FAILED",
-        );
-      return { ...record(application), restoreCleanup: cleanup };
-    },
+    rollback: async (attempt) =>
+      executeRollbackWithCleanup({
+        evidenceRoot: runtime.evidenceRoot,
+        attempt,
+        productionProject: config().composeProject,
+        restoreProject: runtime.restore.composeProject,
+        restoreDatabaseName: runtime.restore.databaseName,
+        databaseUser: config().postgresUser,
+        databaseName: config().postgresDb,
+        runApplicationRollback: () => options.rollback(attempt),
+        runDocker,
+        environment,
+        now,
+      }),
   };
 };

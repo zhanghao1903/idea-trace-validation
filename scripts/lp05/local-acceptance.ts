@@ -13,6 +13,11 @@ import {
 import type { HttpObservation } from "./smoke/http.js";
 import type { JsonRecord } from "./shared/contracts.js";
 import { inspectLoadedImageConfigId } from "./candidate/loaded-image.js";
+import {
+  inspectLiveProductionDatabaseIdentity,
+  inspectLiveProductionIdentity,
+} from "./database/production-runtime.js";
+import { canonicalSha256 } from "./shared/canonical-json.js";
 
 const execute = promisify(execFile);
 
@@ -124,6 +129,9 @@ export const runLocalAcceptance = async (
     COMPOSE_PROJECT_NAME: project,
     DEPLOY_DOMAIN: "demo.invalid",
     DEPLOY_ROOT: join(temporary, "deploy"),
+    IDEA_VALIDATION_ATTEMPT_ID: `local-${process.pid}`,
+    IDEA_VALIDATION_TARGET_ID: "target_local_acceptance",
+    IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256: String(manifest.manifestSha256),
     POSTGRES_DB: "idea_validation",
     POSTGRES_USER: "idea_validation",
     RELEASE_ID: String(manifest.releaseId),
@@ -179,6 +187,80 @@ export const runLocalAcceptance = async (
     const app = appInspect[0] as JsonRecord;
     const database = databaseInspect[0] as JsonRecord;
     const caddy = caddyInspect[0] as JsonRecord;
+    const targetSeed = {
+      hostFingerprintSha256: "2".repeat(64),
+      domain: "demo.invalid",
+      deployRoot: environment.DEPLOY_ROOT,
+    };
+    const target = {
+      targetId: `target_${canonicalSha256(targetSeed).slice(0, 32)}`,
+      ...targetSeed,
+      expectedIps: ["8.8.8.8"],
+      platform: manifest.platform,
+      os: { id: "ubuntu", versionId: "24.04" },
+      composeProject: project,
+    };
+    const candidate = {
+      manifestSha256: manifest.manifestSha256,
+      releaseId: manifest.releaseId,
+      sourceCommit: manifest.sourceCommit,
+      sourceTree: manifest.sourceTree,
+      imageId: manifest.imageId,
+      archiveSha256: (manifest.ociArchive as JsonRecord).sha256,
+      platform: manifest.platform,
+    };
+    const runDocker = async (args: readonly string[]): Promise<string> =>
+      (await command(args, environment)).trim();
+    const roleCount = await runDocker([
+      "exec",
+      "--user",
+      "postgres",
+      databaseId,
+      "psql",
+      "--no-psqlrc",
+      "--tuples-only",
+      "--no-align",
+      "--username",
+      "idea_validation",
+      "--dbname",
+      "idea_validation",
+      "--command",
+      "SELECT count(*) FROM pg_roles WHERE rolname='postgres'",
+    ]);
+    if (roleCount !== "0") throw new Error("LOCAL_POSTGRES_ROLE_PRESENT");
+    const sourceDatabase = await inspectLiveProductionDatabaseIdentity({
+      target,
+      databaseUser: "idea_validation",
+      databaseName: "idea_validation",
+      runDocker,
+    });
+    const fullProduction = await inspectLiveProductionIdentity({
+      target,
+      candidate,
+      databaseUser: "idea_validation",
+      databaseName: "idea_validation",
+      runDocker,
+      fetchImpl: async () => {
+        const live = await observeLocalTls("/health/live");
+        return new Response("local-release-marker", { status: live.status });
+      },
+      certificateSha256: async () => "7".repeat(64),
+    });
+    const fullDatabase = fullProduction.database as JsonRecord;
+    const comparableFields = [
+      "containerId",
+      "volumeName",
+      "volumeMountId",
+      "systemIdentifier",
+      "databaseName",
+      "postgresVersion",
+    ] as const;
+    if (
+      comparableFields.some(
+        (field) => sourceDatabase[field] !== fullDatabase[field],
+      )
+    )
+      throw new Error("LOCAL_IDENTITY_READER_MISMATCH");
     if (
       (app.Config as JsonRecord).User !== "10001:10001" ||
       (app.HostConfig as JsonRecord).ReadonlyRootfs !== true
