@@ -1,0 +1,416 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 8,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/8",
+    "title": "LP-05 production deployment rollback hotfix",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+    "head_ref": "codex/lp-05-deploy-rollback-hotfix",
+    "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+    "reviewed_at": "2026-08-04T08:10:04Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "Cycle 1 PRR-001 revalidation at the exact remediation head",
+      "complete 93a5f8a84c5dda8edb64ea89075397728aa12ddb..07ec4ecd05f80672a478f1ab5021c0d762b05275 delta across all 9 changed files",
+      "forward restore cleanup evidence, lifecycle completion, crash replay and later rollback reuse",
+      "exact-head local targeted checks, independent fresh-context review and GitHub PR checks"
+    ],
+    "excluded_scope": [
+      "production deployment, DNS, real secrets, production data, public release or publication",
+      "merge execution or feature-branch mutation"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "pr-review-8-93a5f8a84c5d.md",
+      "result_path": "docs/feature/lp-05-deploy-rollback-hotfix/pr-review-8-93a5f8a84c5d.json",
+      "result_sha256": "bdd4ac72ffa7241796747fdb0d57ee1ec520f8a25713c73a85eb3a10fc5586a1",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 8,
+      "reviewed_at": "2026-08-04T07:16:49Z",
+      "base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+      "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": ["PRR-001"],
+      "blocking_finding_ids": ["PRR-001"]
+    },
+    "delta_review": {
+      "previous_base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+      "previous_head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+      "current_base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+      "current_head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+      "triggers": ["HEAD_CHANGED", "EVIDENCE_CHANGED"],
+      "commit_range": "93a5f8a84c5dda8edb64ea89075397728aa12ddb..07ec4ecd05f80672a478f1ab5021c0d762b05275",
+      "commits_reviewed": ["07ec4ecd05f80672a478f1ab5021c0d762b05275"],
+      "changed_files": [
+        "CHANGELOG.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/design.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/verification.md",
+        "docs/feature/lp-05-deployment-release/evidence-schema.md",
+        "docs/operations/lp05.md",
+        "scripts/lp05/deploy/host-active-operations.ts",
+        "scripts/lp05/deploy/hotfix-docker.acceptance.ts",
+        "scripts/lp05/deploy/rollback-cleanup.ts",
+        "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/design.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/verification.md",
+        "docs/feature/lp-05-deployment-release/evidence-schema.md",
+        "docs/operations/lp05.md",
+        "scripts/lp05/deploy/host-active-operations.ts",
+        "scripts/lp05/deploy/hotfix-docker.acceptance.ts",
+        "scripts/lp05/deploy/rollback-cleanup.ts",
+        "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "The remediation adds an immutable forward-restore cleanup record/reference, completes normal cleanup to a terminal lifecycle, reconciles that authority during later rollback, and updates tests and documentation.",
+      "evidence": "Every remediation file and the prior finding were reconciled; exact-head suites and CI pass, while two independent executable counterexamples reproduce the uncovered deletion-before-evidence crash boundary."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "Normal completion and evidence-written replay now work, but a crash after cleanupOwnedProject deletes the frozen resources and before forward-restore-cleanup.json is persisted leaves QUIESCING with no reference. Re-entry returns FAIL and the actual rollback path ends ROLLBACK_FAILED.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Forward restore cleanup persistence and crash replay",
+        "risk_triggers": [
+          "mutation-recovery",
+          "state-transition",
+          "data-integrity",
+          "concurrency",
+          "test-adequacy"
+        ],
+        "reason": "Irreversible resource deletion must have a durable authority at every recovery boundary, not only after the forward evidence write.",
+        "affected_paths": [
+          "scripts/lp05/deploy/rollback-cleanup.ts",
+          "scripts/lp05/deploy/rollback-cleanup.unit.test.ts",
+          "docs/feature/lp-05-deploy-rollback-hotfix/design.md"
+        ],
+        "checks": [
+          "trace the exact order from QUIESCING persistence through deletion, cleanup result return, forward evidence write and terminal lifecycle write",
+          "simulate process death after deletion but before forward evidence persistence",
+          "re-enter both the forward wrapper and actual rollback path without a second delete"
+        ],
+        "finding_ids": ["PRR-001"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Completed forward cleanup and later rollback reuse",
+        "risk_triggers": ["mutation-recovery", "state-transition", "data-integrity"],
+        "reason": "A later forward-phase failure must reuse the completed restore authority without issuing a second deletion.",
+        "affected_paths": [
+          "scripts/lp05/deploy/host-active-operations.ts",
+          "scripts/lp05/deploy/hotfix-docker.acceptance.ts",
+          "scripts/lp05/deploy/rollback-cleanup.ts",
+          "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+        ],
+        "checks": [
+          "verify normal cleanup reaches CLEANED with a forward reference",
+          "verify later rollback persists a separate rollback aggregate and reuses the exact restore result",
+          "verify no second deletion occurs on the completed path"
+        ],
+        "finding_ids": ["PRR-001"],
+        "result": "PASS"
+      },
+      {
+        "surface": "Cleanup reference scope and terminal rollback authority",
+        "risk_triggers": ["trust-boundary", "data-integrity", "test-adequacy"],
+        "reason": "The new forward reference must never substitute for the rollback aggregate that authorizes terminal rollback evidence.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "scripts/lp05/deploy/rollback-cleanup.ts",
+          "docs/feature/lp-05-deploy-rollback-hotfix/verification.md",
+          "docs/feature/lp-05-deployment-release/evidence-schema.md",
+          "docs/operations/lp05.md"
+        ],
+        "checks": [
+          "inspect fixed paths and exact reference kinds",
+          "verify production lifecycle and terminal rollback require ROLLBACK_CLEANUP",
+          "run authority and restore-chain suites"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "FAIL",
+        "reviewer": "fresh-context independent reviewer (/root/lp05_cycle2_independent_review)",
+        "summary": "The independent pass reproduced the same deletion-before-evidence boundary through executeRollbackWithCleanup: resources were already empty and no second delete occurred, but rollback ended ROLLBACK_FAILED and the restore lifecycle became CLEANUP_FAILED."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "Cycle 2 fixes the ordinary forward cleanup path and replay after forward evidence exists, and all configured checks pass. PRR-001 remains blocking because cleanup deletes resources before persisting the forward authority; a process death in that gap cannot reconcile the already successful deletion and makes the actual rollback path fail.",
+    "blocking_finding_ids": ["PRR-001"]
+  },
+  "summary": "Cycle 2 partially remediates PRR-001: normal forward cleanup now reaches CLEANED and later rollback reuses its evidence. Approval remains withheld because the earlier deletion-before-evidence crash window still leaves no replayable authority and converts safe empty cleanup into ROLLBACK_FAILED.",
+  "change_map": [
+    {
+      "area": "Forward restore cleanup authority",
+      "change": "Adds ForwardRestoreCleanupEvidenceV1, a fixed-path reference and terminal lifecycle completion.",
+      "external_behavior": "The ordinary forward path reaches CLEANED before returning PASS.",
+      "risk": "High",
+      "validation": "Committed regression and normal later-rollback reuse pass; deletion-before-evidence crash replay fails."
+    },
+    {
+      "area": "Recovery and active reconciliation",
+      "change": "Reconciles an existing forward record and invokes cleanup authority reconciliation when active restore resources are already absent.",
+      "external_behavior": "A crash after evidence persistence but before lifecycle persistence can finish the transition.",
+      "risk": "High",
+      "validation": "Committed evidence-written crash regression passes; earlier crash counterexamples fail."
+    },
+    {
+      "area": "Reference separation",
+      "change": "Allows forward restore references only for restore lifecycle while retaining rollback-only authority for production and terminal rollback evidence.",
+      "external_behavior": "Later rollback can reuse the restore result but still produces its own aggregate terminal authority.",
+      "risk": "Low",
+      "validation": "LP-05 unit, authority, restore-chain, typecheck and exact-head CI checks pass."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "reliability",
+      "title": "Deletion can still precede every durable forward-cleanup authority",
+      "location": {
+        "path": "scripts/lp05/deploy/rollback-cleanup.ts",
+        "line_start": 2214,
+        "line_end": 2226,
+        "symbol": "cleanupForwardRestoreProject",
+        "side": "RIGHT",
+        "commit_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275"
+      },
+      "observation": "cleanupForwardRestoreProject awaits cleanupOwnedProject, which can delete the complete frozen set and return PASS, before persistForwardRestoreCleanupEvidence writes any replayable authority. The recovery branch only applies when that file already exists. After a process death in between, re-entry sees QUIESCING with a nonempty frozen set, no forward evidence and an empty live project; cleanupOwnedProject treats the empty/nonempty set difference as failure.",
+      "trigger": "Create a READY restore lifecycle, let cleanupOwnedProject complete all deletions and return PASS, then terminate before line 2226 writes forward-restore-cleanup.json. Resume through cleanupForwardRestoreProject or executeRollbackWithCleanup.",
+      "impact": "Although all exact attempt-owned resources are already gone, recovery converts the successful cleanup to FAIL, persists CLEANUP_FAILED, and the real rollback path ends ROLLBACK_FAILED. The forward cleanup is therefore not replayable across the full mutation boundary and requires manual intervention after a benign process failure.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "A review-only exact-head regression simulated deletion completion before the forward evidence write. Re-entry returned FAIL instead of PASS; the temporary test was removed and the worktree returned clean.",
+          "reference": "reviewer counterexample at 07ec4ecd05f80672a478f1ab5021c0d762b05275"
+        },
+        {
+          "kind": "analysis",
+          "description": "A fresh-context independent reviewer exercised the actual executeRollbackWithCleanup path after the same crash point. It observed zero live resources and no second deletion, but terminal ROLLBACK_FAILED and lifecycle CLEANUP_FAILED.",
+          "reference": "/root/lp05_cycle2_independent_review"
+        },
+        {
+          "kind": "code",
+          "description": "The irreversible cleanup call completes at line 2215, while the first forward authority write begins at line 2226; the recovery branch at lines 2175-2212 requires the evidence file to exist.",
+          "reference": "scripts/lp05/deploy/rollback-cleanup.ts:2175-2226"
+        },
+        {
+          "kind": "test",
+          "description": "The committed crash test manually writes forward-restore-cleanup.json before replay, so it covers evidence-written/lifecycle-not-written but not deletion-complete/evidence-not-written.",
+          "reference": "scripts/lp05/deploy/rollback-cleanup.unit.test.ts:555-640"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved design requires replay/live reconciliation of completed cleanup authority and places persistence, idempotency and recovery under the same lifecycle contract.",
+          "reference": "docs/feature/lp-05-deploy-rollback-hotfix/design.md:365-375"
+        }
+      ],
+      "remediation": "Make the deletion-to-authority sequence recoverable at every process boundary. Persist a durable operation/journal before or during deletion, or safely reconcile QUIESCING plus missing forward evidence plus an empty live project against the frozen exact authority and reconstruct the same PASS result. Do not turn an already empty, exactly frozen project into cleanup failure solely because the evidence write did not occur.",
+      "verification": "Add a regression that crashes after the final delete and quiescence proof but before forward-restore-cleanup.json is written, then enters executeRollbackWithCleanup and requires ROLLED_BACK, a resolvable PASS authority, CLEANED restore lifecycle and no second delete.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "state:lp05-restore:forward-cleanup-left-quiescing"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Close the deletion-before-evidence crash window and prove actual rollback replay reaches ROLLED_BACK without another delete.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "deployment-rollback",
+      "level": "High",
+      "description": "A process failure after successful restore deletion but before its evidence write can turn a safe empty state into ROLLBACK_FAILED.",
+      "mitigation": "Block merge until PRR-001 provides durable progress or exact empty-state reconciliation across this boundary.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "other",
+      "level": "High",
+      "description": "No production deployment, DNS, public endpoint, real secret or production database was exercised in Review.",
+      "mitigation": "Keep production execution behind the separate release authorization and acceptance workflow.",
+      "owner": "Release owner"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm 11.16.0 install --ignore-scripts using bundled Node 24",
+        "environment": "macOS; Node.js 24.14.0; npm 11.16.0; isolated exact-head review worktree",
+        "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 locked packages without lifecycle scripts.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run build --workspace @idea/contracts; npm run typecheck:lp05",
+        "environment": "macOS; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The contracts build and dedicated LP-05 TypeScript check passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run format:check; npm run lint; git diff --check",
+        "environment": "macOS; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Formatting, ESLint and remediation-delta whitespace checks passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:deployment:unit; npm run test:deployment:authority; npm run test:deployment:restore-chain",
+        "environment": "macOS; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 79 LP-05 tests passed; the authority subset passed 16 tests and restore-chain subset passed 27 tests.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx scripts/lp05/verify-release-readiness.ts",
+        "environment": "macOS sandbox; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Static release readiness returned LP05_RELEASE_READINESS_PASS.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "review-only deletion-before-forward-evidence crash counterexample",
+        "environment": "vitest exact-head isolated worktree; temporary test removed after execution",
+        "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "The first cleanup returned PASS and deleted every resource, but replay without forward evidence returned FAIL instead of PASS.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      },
+      {
+        "command": "fresh-context independent exact-delta lifecycle review and rollback counterexample",
+        "environment": "independent agent; exact isolated review worktree; no repository mutations retained",
+        "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "The independent pass confirmed PRR-001 through the real rollback wrapper: ROLLBACK_FAILED and CLEANUP_FAILED after deletion-before-evidence crash.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-04T08:10:04Z",
+        "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30889498312, verify job 91928036633 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30889498312/job/91928036633"
+      },
+      {
+        "name": "ci / lp05-candidate",
+        "observed_at": "2026-08-04T08:10:04Z",
+        "head_sha": "07ec4ecd05f80672a478f1ab5021c0d762b05275",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30889498312, lp05-candidate job 91928642162 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30889498312/job/91928642162"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local real Docker hotfix acceptance",
+        "reason": "The exact-head lp05-candidate GitHub check passed the configured Docker candidate gate; the blocking defect requires process interruption between two in-process persistence operations and was exercised with deterministic lifecycle fixtures."
+      },
+      {
+        "check": "Reviewer-local full npm run verify",
+        "reason": "Exact-head GitHub ci / verify passed the configured full chain; Review ran the changed LP-05 paths and discriminating crash regressions locally."
+      },
+      {
+        "check": "Full production deployment and public rollback",
+        "reason": "No production authorization was supplied and Engineering Review is review-only."
+      }
+    ]
+  },
+  "limitations": [
+    "No production host, DNS, public HTTPS endpoint, real secret or production database was contacted.",
+    "Reviewer-local Docker acceptance was not rerun because exact-head ci / lp05-candidate passed; that gate does not interrupt the process in the uncovered deletion-before-evidence window.",
+    "The review counterexample used the repository FakeDocker lifecycle model; the fresh-context pass independently exercised the actual executeRollbackWithCleanup control path with the same deterministic resource model."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #8 still points to the accepted exact base and remediation head and is ready for review.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh authoritative GitHub PR metadata after all routed changes.",
+      "evidence": "GitHub reported OPEN, draft=false, mergeable=true, CLEAN, base 99734e8e6c456e0366d28ce7d9a731b3544f0a56 and head 07ec4ecd05f80672a478f1ab5021c0d762b05275.",
+      "impact_if_false": "The exact-snapshot report would be stale and invalid."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed GitHub checks belong to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read the PR-associated statusCheckRollup after all jobs completed.",
+      "evidence": "ci / verify and ci / lp05-candidate both completed SUCCESS for 07ec4ecd05f80672a478f1ab5021c0d762b05275.",
+      "impact_if_false": "Platform checks could not support this snapshot."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The review-only crash reproductions did not alter the exact feature snapshot.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Remove temporary tests and require a clean feature diff before report creation.",
+      "evidence": "The temporary regression was removed; before report creation, git status was clean and rollback-cleanup.unit.test.ts matched the routed head.",
+      "impact_if_false": "The reproductions would not describe the routed head faithfully."
+    }
+  ],
+  "non_blocking_recommendations": []
+}

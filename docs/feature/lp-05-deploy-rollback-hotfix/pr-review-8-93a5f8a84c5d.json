@@ -1,0 +1,344 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 8,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/8",
+    "title": "LP-05 production deployment rollback hotfix",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+    "head_ref": "codex/lp-05-deploy-rollback-hotfix",
+    "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+    "reviewed_at": "2026-08-04T07:16:49Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete exact base-to-head change classification across all 26 PR files",
+      "configured PostgreSQL principal propagation and negative identity behavior",
+      "production and restore resource lifecycle, identity freeze, deletion, quiescence, cleanup authority and terminal rollback evidence",
+      "forward restore cleanup integration and rollback/replay behavior",
+      "exact-head local targeted checks, real Docker hotfix acceptance and GitHub PR checks"
+    ],
+    "excluded_scope": [
+      "production deployment, DNS, real secrets, production data, public release or publication",
+      "merge execution or feature-branch mutation"
+    ]
+  },
+  "review_context": {
+    "kind": "INITIAL",
+    "forward_risk_review": [
+      {
+        "surface": "Configured PostgreSQL principal and Docker authority labels",
+        "risk_triggers": [
+          "trust-boundary",
+          "data-integrity",
+          "deployment-compatibility",
+          "test-adequacy"
+        ],
+        "reason": "The hotfix must never fall back to the postgres database role and may delete only resources bound to the exact attempt authority.",
+        "affected_paths": [
+          "deploy/compose.production.yaml",
+          "deploy/compose.restore.yaml",
+          "scripts/lp05/database/production-runtime.ts",
+          "scripts/lp05/deploy/rollback-cleanup.ts"
+        ],
+        "checks": [
+          "trace every database identity call through the configured user and database arguments",
+          "inspect exact project, environment, attempt, target and candidate label enforcement",
+          "run the configured-principal negative tests and real Docker acceptance"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      },
+      {
+        "surface": "Restore lifecycle cleanup and later rollback",
+        "risk_triggers": [
+          "mutation-recovery",
+          "state-transition",
+          "data-integrity",
+          "concurrency",
+          "deployment-compatibility",
+          "test-adequacy"
+        ],
+        "reason": "A successful forward restore cleanup must persist a terminal authority that can be reconciled or reused if a later deployment phase fails.",
+        "affected_paths": [
+          "scripts/lp05/deploy/host-active-operations.ts",
+          "scripts/lp05/deploy/rollback-cleanup.ts",
+          "scripts/lp05/deploy/rollback-cleanup.unit.test.ts",
+          "scripts/lp05/deploy/deployment.unit.test.ts"
+        ],
+        "checks": [
+          "trace READY through QUIESCING and CLEANED on the normal RESTORE phase",
+          "inspect which caller persists the aggregate cleanup reference and completes the lifecycle",
+          "run a focused exact-head lifecycle terminal counterexample"
+        ],
+        "finding_ids": ["PRR-001"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Fresh-install automatic rollback and evidence separation",
+        "risk_triggers": [
+          "mutation-recovery",
+          "state-transition",
+          "data-integrity",
+          "test-adequacy"
+        ],
+        "reason": "The accepted hotfix must produce a strict seven-field application rollback plus independent cleanup authority and remove only the frozen production and restore resources.",
+        "affected_paths": [
+          "scripts/lp05/deploy/active-oracles.ts",
+          "scripts/lp05/deploy/hotfix-docker.acceptance.ts",
+          "scripts/lp05/deploy/rollback-cleanup.ts"
+        ],
+        "checks": [
+          "run the real PostgreSQL 17.10 Docker acceptance at the exact head",
+          "verify aggregate and terminal digests remain separate from the application rollback projection",
+          "inspect partial cleanup, late orphan, same-name replacement and application failure tests"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ]
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "The exact-head checks and fresh-install Docker acceptance pass, but the normal forward restore cleanup returns PASS after moving the V2 lifecycle to QUIESCING and deleting resources without persisting CLEANED or a cleanup reference. A later phase failure therefore cannot reconcile that cleanup and can turn an otherwise safe rollback into ROLLBACK_FAILED.",
+    "blocking_finding_ids": ["PRR-001"]
+  },
+  "summary": "PR #8 correctly binds the configured database principal, adds exact attempt labels, performs identity-safe fresh-install cleanup and passes its real Docker rollback acceptance. One blocking lifecycle integration defect remains: the normal RESTORE phase leaves successful cleanup authority in QUIESCING, so later rollback/replay is not valid.",
+  "change_map": [
+    {
+      "area": "database identity",
+      "change": "requires the configured PostgreSQL user on production identity and related read-only operations",
+      "external_behavior": "a deployment with no postgres database role can still prove the configured database identity",
+      "risk": "Low",
+      "validation": "configured-user unit negatives and real PostgreSQL 17.10 Docker acceptance pass"
+    },
+    {
+      "area": "attempt-owned rollback cleanup",
+      "change": "adds production/restore lifecycle records, complete Docker identities, fixed cleanup policy and aggregate terminal evidence",
+      "external_behavior": "fresh empty installs can remove exact attempt resources and end ROLLED_BACK",
+      "risk": "High",
+      "validation": "targeted suite and real Docker hotfix acceptance pass for the injected SAFETY_BACKUP failure"
+    },
+    {
+      "area": "forward restore cleanup",
+      "change": "replaces the prior restore cleanup with cleanupOwnedProject",
+      "external_behavior": "normal restore deletion succeeds but its V2 lifecycle is not completed",
+      "risk": "High",
+      "validation": "PRR-001 exact-head counterexample receives QUIESCING after a PASS cleanup"
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "reliability",
+      "title": "Forward restore cleanup never completes its V2 lifecycle",
+      "location": {
+        "path": "scripts/lp05/deploy/host-active-operations.ts",
+        "line_start": 580,
+        "line_end": 606,
+        "symbol": "cleanupIsolatedRestoreEnvironment",
+        "side": "RIGHT",
+        "commit_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb"
+      },
+      "observation": "The normal RESTORE phase calls cleanupIsolatedRestoreEnvironment, which only forwards cleanupOwnedProject. That helper freezes the lifecycle in QUIESCING, deletes the resources and returns PASS. The only code that persists rollback-cleanup.json and calls completeLifecycle is executeRollbackWithCleanup, which this forward path never invokes. The prior tests that asserted forward cleanup persisted CLEANED were removed, and the replacement tests inspect only the returned CleanupResult.",
+      "trigger": "Run the normal RESTORE phase to a successful cleanup, or call cleanupIsolatedRestoreEnvironment after a READY RestoreLifecycleV2, then inspect restore-lifecycle.json. If a subsequent PRODUCTION_UNCHANGED or POST_RESTORE_SMOKE phase fails, automatic rollback re-enters cleanup with an empty live set and the previously frozen non-empty ownedBeforeCleanup set.",
+      "impact": "The durable lifecycle remains QUIESCING with no cleanup reference even though all restore resources were deleted. A later rollback cannot reconcile the successful cleanup, produces a cleanup set mismatch and can terminate ROLLBACK_FAILED instead of completing the otherwise safe fresh-install rollback. This contradicts the required CLEANED terminal authority and replay behavior.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "A review-only exact-head test created a READY restore lifecycle, ran cleanupOwnedProject to PASS, then read restore-lifecycle.json. The assertion expected CLEANED but received QUIESCING.",
+          "reference": "reviewer counterexample at 93a5f8a84c5dda8edb64ea89075397728aa12ddb"
+        },
+        {
+          "kind": "code",
+          "description": "The forward wrapper returns cleanupOwnedProject directly and the RESTORE phase accepts its PASS without completing a lifecycle.",
+          "reference": "scripts/lp05/deploy/host-active-operations.ts:580-606,1167-1175"
+        },
+        {
+          "kind": "code",
+          "description": "cleanupOwnedProject persists QUIESCING before deletion and returns PASS; completeLifecycle is called only from executeRollbackWithCleanup after aggregate evidence persistence.",
+          "reference": "scripts/lp05/deploy/rollback-cleanup.ts:1539-1622,1849-1899,2168-2201"
+        },
+        {
+          "kind": "spec",
+          "description": "The approved V2 lifecycle requires successful cleanup to transition QUIESCING to CLEANED with a PASS cleanup reference, and replay must reconcile byte-valid terminal authority.",
+          "reference": "docs/feature/lp-05-deploy-rollback-hotfix/design.md:240-255,338-346,356-360"
+        }
+      ],
+      "remediation": "Give the normal forward restore cleanup a complete immutable authority path: persist a compatible cleanup record/reference and transition the exact QUIESCING lifecycle to CLEANED before returning PASS. Re-entry after successful deletion must resolve the terminal reference and confirm the live project remains empty instead of comparing the empty set with the old frozen set.",
+      "verification": "Add a regression that executes the forward restore cleanup, requires restore-lifecycle.json state CLEANED with a resolvable PASS reference, then injects a later phase failure/recovery and proves the same exact cleanup reconciles without ROLLBACK_FAILED or additional deletion.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "state:lp05-restore:forward-cleanup-left-quiescing"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Complete and persist the forward restore cleanup lifecycle, then cover later rollback/replay after that cleanup.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "deployment-rollback",
+      "level": "High",
+      "description": "A post-restore deployment failure can encounter a non-terminal lifecycle whose resources were already deleted.",
+      "mitigation": "Block merge until PRR-001 adds terminal cleanup authority and a later-failure regression.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "other",
+      "level": "High",
+      "description": "No production deployment, DNS, public endpoint, real secret or production database was exercised in Review.",
+      "mitigation": "Keep production execution behind the separate release authorization and acceptance workflow.",
+      "owner": "Release owner"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm 11.16.0 install --ignore-scripts using bundled Node 24",
+        "environment": "macOS; Node.js 24.14.0; npm 11.16.0; isolated exact-head review worktree",
+        "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 locked packages without lifecycle scripts.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run format:check && npm run lint && git diff --check",
+        "environment": "macOS; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Formatting, ESLint and complete PR whitespace checks passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run typecheck:lp05 after building @idea/contracts",
+        "environment": "macOS; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "The dedicated LP-05 TypeScript check passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:deployment:unit; npm run test:deployment:authority; npm run test:deployment:restore-chain",
+        "environment": "macOS; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 77 LP-05 tests passed; the authority subset passed 16 tests and restore-chain subset passed 27 tests.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx scripts/lp05/verify-release-readiness.ts",
+        "environment": "macOS sandbox; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Static release readiness returned LP05_RELEASE_READINESS_PASS.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx scripts/lp05/deploy/hotfix-docker.acceptance.ts",
+        "environment": "macOS; Docker Desktop; randomly generated isolated projects and temporary evidence roots",
+        "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Real PostgreSQL 17.10 custom-principal and injected fresh-install rollback acceptance returned LP05_HOTFIX_DOCKER_ACCEPTANCE_PASS.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "review-only RestoreLifecycleV2 terminal-state counterexample",
+        "environment": "vitest exact-head isolated worktree; temporary test removed after execution",
+        "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "cleanupOwnedProject returned PASS, but restore-lifecycle.json remained QUIESCING instead of CLEANED.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-001"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-04T07:16:49Z",
+        "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30885981570, verify job 91917176110 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30885981570/job/91917176110"
+      },
+      {
+        "name": "ci / lp05-candidate",
+        "observed_at": "2026-08-04T07:16:49Z",
+        "head_sha": "93a5f8a84c5dda8edb64ea89075397728aa12ddb",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30885981570, lp05-candidate job 91917744612 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30885981570/job/91917744612"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Full production deployment and public rollback",
+        "reason": "No production authorization was supplied and Engineering Review is review-only."
+      },
+      {
+        "check": "Full repository npm run verify",
+        "reason": "Exact-head GitHub ci / verify passed the configured full chain; Review ran the changed LP-05 paths, static validation and real hotfix Docker acceptance locally."
+      }
+    ]
+  },
+  "limitations": [
+    "No production host, DNS, public HTTPS endpoint, real secret or production database was contacted.",
+    "The real Docker hotfix acceptance injects failure immediately after fresh PostgreSQL creation; it does not cover the later-failure path after normal forward restore cleanup exposed by PRR-001.",
+    "No sub-agent review was used because delegation was not requested or authorized for this task."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #8 still points to the exact routed base and head and is non-draft.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh authoritative GitHub PR metadata immediately before result preparation.",
+      "evidence": "GitHub reported OPEN, draft=false, mergeable=true, CLEAN, base 99734e8e6c456e0366d28ce7d9a731b3544f0a56 and head 93a5f8a84c5dda8edb64ea89075397728aa12ddb.",
+      "impact_if_false": "The exact-snapshot report would be stale and invalid."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed GitHub checks belong to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read the PR-associated statusCheckRollup after all jobs completed.",
+      "evidence": "ci / verify and ci / lp05-candidate both completed SUCCESS for 93a5f8a84c5dda8edb64ea89075397728aa12ddb.",
+      "impact_if_false": "Platform checks could not support this snapshot."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The review-only lifecycle reproduction did not alter the exact feature snapshot.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Remove the temporary test and require a clean git status before report creation.",
+      "evidence": "git status and git diff for rollback-cleanup.unit.test.ts were empty after the reproduction.",
+      "impact_if_false": "The reproduction would not describe the routed head faithfully."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
