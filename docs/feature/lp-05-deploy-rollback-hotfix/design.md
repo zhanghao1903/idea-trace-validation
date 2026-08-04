@@ -246,8 +246,11 @@ lifecycle-only recovery above. Presence requires a complete parse, schema and ca
 exact attempt, target, candidate, restore-project, database, status and QUIESCING lifecycle-authority resolution.
 Valid matching evidence is finalized and reused by the rollback aggregate. Malformed, digest-invalid, wrong-bound,
 wrong-state or authority-conflicting evidence aborts before application rollback, any new Docker delete, PASS aggregate or terminal
-`ROLLED_BACK` record. A terminal lifecycle continues to resolve only its own fixed cleanup reference; unrelated
-files cannot replace that authority.
+`ROLLED_BACK` record. When the lifecycle is already `CLEANED|CLEANUP_FAILED`, the same initial preflight resolves
+that lifecycle's own fixed cleanup reference, requires its exact terminal state and previous-lifecycle authority,
+and, for PASS, proves the live restore project is still empty. Malformed, digest-invalid or wrong-bound terminal
+authority therefore fails before application rollback or production deletion. Unrelated files cannot replace the
+terminal reference.
 
 ### 6.2 `RestoreLifecycleV2`
 

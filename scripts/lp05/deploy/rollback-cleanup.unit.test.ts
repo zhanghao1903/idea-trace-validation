@@ -218,8 +218,11 @@ const writeForwardEvidence = async (input: {
     startedAt: input.now().toISOString(),
     finishedAt: input.now().toISOString(),
     restore: input.restore,
-    status: "PASS",
-    reasonCode: "FORWARD_RESTORE_CLEANUP_PASS",
+    status: input.restore.status,
+    reasonCode:
+      input.restore.status === "PASS"
+        ? "FORWARD_RESTORE_CLEANUP_PASS"
+        : "FORWARD_RESTORE_CLEANUP_FAIL",
     cleanupSha256: "",
   };
   evidence.cleanupSha256 = canonicalSha256(evidence, ["cleanupSha256"]);
@@ -1074,6 +1077,143 @@ describe("LP-05 rollback evidence separation", () => {
       ),
     ).toEqual(lifecycleBeforeRollback);
   });
+
+  it.each([
+    ["malformed CLEANED", "CLEANED", "MALFORMED"],
+    ["digest-valid wrong-bound CLEANED", "CLEANED", "WRONG_BOUND"],
+    ["malformed CLEANUP_FAILED", "CLEANUP_FAILED", "MALFORMED"],
+    [
+      "digest-valid wrong-bound CLEANUP_FAILED",
+      "CLEANUP_FAILED",
+      "WRONG_BOUND",
+    ],
+  ] as const)(
+    "rejects %s terminal forward evidence before actual rollback side effects",
+    async (_label, terminalState, mode) => {
+      const root = await evidenceRoot();
+      const value = attempt();
+      const docker = new FakeDocker();
+      const now = clock();
+      const restoreProject = "lp05-restore-hotfix";
+      await beginReady({
+        root,
+        scope: "RESTORE",
+        value,
+        project: restoreProject,
+        docker,
+        now,
+      });
+      if (terminalState === "CLEANUP_FAILED") {
+        docker.onContainerRemoved = () => {
+          docker.onContainerRemoved = undefined;
+          throw new Error("FORWARD_RESTORE_DELETE_FAILED");
+        };
+      }
+      const forward = await cleanupForwardRestoreProject({
+        evidenceRoot: root,
+        attempt: value,
+        composeProject: restoreProject,
+        databaseName: "idea_validation_restore",
+        runDocker: docker.run,
+        environment: {},
+        now,
+        sleep: async () => undefined,
+      });
+      expect(forward.status).toBe(
+        terminalState === "CLEANED" ? "PASS" : "FAIL",
+      );
+      const attemptRoot = join(root, String(value.attemptId));
+      const lifecycleFile = join(attemptRoot, "restore-lifecycle.json");
+      const evidenceFile = join(attemptRoot, "forward-restore-cleanup.json");
+      if (mode === "MALFORMED") {
+        await writeFile(evidenceFile, "{", { mode: 0o600 });
+      } else {
+        const wrongBound = await writeForwardEvidence({
+          root,
+          value,
+          restoreProject,
+          restore: forward,
+          now,
+          boundProject: "wrong-restore-project",
+        });
+        const lifecycle = JSON.parse(
+          await readFile(lifecycleFile, "utf8"),
+        ) as JsonRecord;
+        lifecycle.cleanupReference = {
+          ...(lifecycle.cleanupReference as JsonRecord),
+          cleanupSha256: wrongBound.cleanupSha256,
+        };
+        lifecycle.lifecycleSha256 = canonicalSha256(lifecycle, [
+          "lifecycleSha256",
+        ]);
+        await writeFile(lifecycleFile, canonicalJson(lifecycle), {
+          mode: 0o600,
+        });
+      }
+      await beginReady({
+        root,
+        scope: "PRODUCTION",
+        value,
+        project: "idea-validation-prod",
+        docker,
+        now,
+      });
+      const deleteCallsBefore = docker.calls.filter(
+        (args) => args[0] === "rm" || args[1] === "rm",
+      ).length;
+      let applicationRollbackCalls = 0;
+
+      await expect(
+        executeRollbackWithCleanup({
+          evidenceRoot: root,
+          attempt: value,
+          productionProject: "idea-validation-prod",
+          restoreProject,
+          restoreDatabaseName: "idea_validation_restore",
+          databaseUser: "idea_validation",
+          databaseName: "idea_validation",
+          runApplicationRollback: async () => {
+            applicationRollbackCalls += 1;
+            return {
+              status: "NOT_APPLICABLE",
+              reasonCode: "NO_PREVIOUS_RELEASE",
+              previousRelease: null,
+              readinessSha256: null,
+              smokeSha256: null,
+              startedAt: now().toISOString(),
+              finishedAt: now().toISOString(),
+            };
+          },
+          runDocker: docker.run,
+          environment: {},
+          now,
+          sleep: async () => undefined,
+        }),
+      ).rejects.toThrow();
+      expect(applicationRollbackCalls).toBe(0);
+      expect(
+        docker.calls.filter((args) => args[0] === "rm" || args[1] === "rm"),
+      ).toHaveLength(deleteCallsBefore);
+      expect(docker.containers.has("a".repeat(64))).toBe(true);
+      expect(docker.networks.has("b".repeat(64))).toBe(true);
+      expect(docker.volumes.has("idea-validation-prod-postgres-data")).toBe(
+        true,
+      );
+      await expect(
+        readFile(join(attemptRoot, "rollback-cleanup.json"), "utf8"),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(
+        readFile(join(attemptRoot, "terminal-rollback-evidence.json"), "utf8"),
+      ).rejects.toMatchObject({ code: "ENOENT" });
+      expect(JSON.parse(await readFile(lifecycleFile, "utf8"))).toMatchObject({
+        state: terminalState,
+        cleanupReference: {
+          kind: "FORWARD_RESTORE_CLEANUP",
+          relativePath: "forward-restore-cleanup.json",
+        },
+      });
+    },
+  );
 
   it("materializes one application failure and binds the same digest throughout", async () => {
     const root = await evidenceRoot();

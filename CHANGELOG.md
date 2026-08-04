@@ -17,7 +17,9 @@
   rollback now preflights any existing fixed-path forward evidence before the
   application rollback or new cleanup side effects, reuses exact matching
   authority, and rejects malformed or wrong-bound content before writing PASS or
-  terminal evidence.
+  terminal evidence. Terminal restore lifecycles now resolve their own fixed
+  cleanup reference in that same preflight, so corrupt terminal authority cannot
+  trigger application rollback or production deletion before rejection.
 
 ### Docs
 

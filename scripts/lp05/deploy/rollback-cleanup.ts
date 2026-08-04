@@ -2181,8 +2181,31 @@ const resolvePendingForwardRestoreCleanup = async (input: {
   if (
     current !== null &&
     ["CLEANED", "CLEANUP_FAILED"].includes(String(current.state))
-  )
-    return null;
+  ) {
+    const persisted = await resolveCleanupResultReference({
+      evidenceRoot: input.evidenceRoot,
+      attempt: input.attempt,
+      reference: current.cleanupReference,
+      scope: "RESTORE",
+      composeProject: input.composeProject,
+      databaseName: input.databaseName,
+    });
+    if (persisted.authorityLifecycleSha256 !== current.previousLifecycleSha256)
+      throw new Error("CLEANUP_TERMINAL_LIFECYCLE_MISMATCH");
+    if (current.state === "CLEANED") {
+      const live = await observeDockerProjectResources({
+        attempt: input.attempt,
+        project: input.composeProject,
+        expectedEnvironment: "isolated-restore",
+        runDocker: input.runDocker,
+        environment: input.environment,
+        now: input.now,
+      });
+      if (persisted.status !== "PASS" || !observationIsEmpty(live))
+        throw new Error("CLEANUP_TERMINAL_RECONCILIATION_FAILED");
+    }
+    return persisted;
+  }
   const forwardFile = forwardRestoreCleanupEvidencePath(
     input.evidenceRoot,
     String(input.attempt.attemptId),

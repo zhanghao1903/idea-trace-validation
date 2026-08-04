@@ -6,6 +6,10 @@
 - Approved composite digest: `10f03ecf7ff759177fdbd5103fb5c81c2812d3385e46c7e279ea4080dd62c4b6c`
 - Cycle 1 review result: `2acd176f55e096e571ca7601e1c3af01421e3460195dd270d84737dba0b86bd6`
 - Cycle 1 immutable report: `19d4087f89c9f0ee8c0808d9619e21768887711d`
+- Cycle 2 review result: `8d7d3206070ea3da3cc9c6eb79b3dc794a94de0d669bd870c686e4d9824c6aa9`
+- Cycle 3 review result: `e27a758879166520009776b3950ee7ec6a90d297aaf714d811dd3346628f2791`
+- Cycle 4 review result: `236e87ba06125e4c73c5c3b8091e7a99286f57a4b5a7f146e762c1614af6ed19`
+- Cycle 4 immutable report: `f96e0228db082c30e7d24e2a5d1653298aa5197a`
 - Scope: repository implementation and local/CI verification only
 - Production deployment: `NOT RUN`
 
@@ -50,8 +54,8 @@ git diff --check
 | Gate | Result |
 | --- | --- |
 | formatting, lint, Skill/generated contracts, TypeScript and build | PASS |
-| repository unit/contract/integration/Web/acceptance suites | PASS: 138 + 23 + 31 + 8 + 13 tests |
-| `npm run test:deployment:unit` | PASS: 7 files, 83 tests |
+| repository unit/contract/integration/Web/acceptance suites | PASS: 142 + 23 + 31 + 8 + 13 tests |
+| `npm run test:deployment:unit` | PASS: 7 files, 87 tests |
 | `npm run test:deployment:authority` | PASS: 16 tests |
 | `npm run test:deployment:restore-chain` | PASS: 27 tests |
 | `npm run deploy:lp05:validate` | PASS: `LP05_RELEASE_READINESS_PASS` |
@@ -93,6 +97,17 @@ absent evidence recovers from exact `QUIESCING`; valid matching evidence is reso
 is rejected; and digest-valid wrong-project evidence is rejected. Both rejection cases assert no application rollback, no new Docker delete,
 no rollback aggregate, no terminal evidence and an unchanged `QUIESCING` lifecycle. The matching case requires
 `ROLLED_BACK`, terminal `CLEANED`, the forward reference, and no second restore delete.
+
+## Cycle 4 code-review remediation
+
+Cycle 4 showed that the preflight still returned early for terminal RESTORE lifecycles, so corrupted lifecycle-bound
+forward authority was rejected only after application rollback and production deletion. The terminal branch now
+strictly resolves the lifecycle's own cleanup reference during the initial preflight, checks its previous-lifecycle
+authority and terminal result, and re-observes an empty restore project for PASS. The existing valid terminal replay
+regression remains green. Four new actual-rollback regressions replace terminal `CLEANED|CLEANUP_FAILED` evidence
+with malformed and digest-valid wrong-project variants and require rejection with zero application rollback calls,
+zero new Docker deletes, intact production resources, no rollback aggregate or terminal evidence, and the terminal
+lifecycle left unchanged.
 
 ## Release boundary
 
