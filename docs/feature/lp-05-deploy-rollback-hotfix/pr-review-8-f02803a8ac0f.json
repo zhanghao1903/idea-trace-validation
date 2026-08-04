@@ -1,0 +1,589 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 8,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/8",
+    "title": "LP-05 production deployment rollback hotfix",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+    "head_ref": "codex/lp-05-deploy-rollback-hotfix",
+    "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+    "reviewed_at": "2026-08-04T11:09:29Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "Cycle 5 PRR-003 remediation at the exact Cycle 6 head",
+      "complete 6b41ab2e5a136177818cba3941a3a59a29c27079..f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c delta across all 7 changed files",
+      "mixed cleanup scope references, aggregate replay, controller terminal projection, full effective PR reconciliation, local exact-head checks, fresh-context review and GitHub checks"
+    ],
+    "excluded_scope": [
+      "production deployment, DNS, real secrets, production data, public release or publication",
+      "merge execution or feature-branch mutation"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "pr-review-8-6b41ab2e5a13.md",
+      "result_path": "docs/feature/lp-05-deploy-rollback-hotfix/pr-review-8-6b41ab2e5a13.json",
+      "result_sha256": "835eda7037fd4a142016535ae8c80ddc9892ddacca9053c6113f36826a59c50b",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 8,
+      "reviewed_at": "2026-08-04T10:25:53Z",
+      "base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+      "head_sha": "6b41ab2e5a136177818cba3941a3a59a29c27079",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": [
+        "PRR-003",
+        "PRR-002",
+        "PRR-001"
+      ],
+      "blocking_finding_ids": [
+        "PRR-003"
+      ]
+    },
+    "delta_review": {
+      "previous_base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+      "previous_head_sha": "6b41ab2e5a136177818cba3941a3a59a29c27079",
+      "current_base_sha": "99734e8e6c456e0366d28ce7d9a731b3544f0a56",
+      "current_head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+      "triggers": [
+        "HEAD_CHANGED",
+        "EVIDENCE_CHANGED"
+      ],
+      "commit_range": "6b41ab2e5a136177818cba3941a3a59a29c27079..f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+      "commits_reviewed": [
+        "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c"
+      ],
+      "changed_files": [
+        "CHANGELOG.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/design.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/verification.md",
+        "docs/feature/lp-05-deployment-release/evidence-schema.md",
+        "docs/operations/lp05.md",
+        "scripts/lp05/deploy/rollback-cleanup.ts",
+        "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+      ],
+      "reviewed_files": [
+        "CHANGELOG.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/design.md",
+        "docs/feature/lp-05-deploy-rollback-hotfix/verification.md",
+        "docs/feature/lp-05-deployment-release/evidence-schema.md",
+        "docs/operations/lp05.md",
+        "scripts/lp05/deploy/rollback-cleanup.ts",
+        "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "Cycle 6 introduces per-scope rollback-cleanup result references and direct mixed-outcome regressions.",
+      "evidence": "All 7 remediation files and the complete 26-file effective PR were reconciled. The direct executor now terminalizes mixed outcomes, but realistic aggregate replay and controller-level terminal state remain incorrect."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-003",
+        "previous_status": "open",
+        "current_status": "open",
+        "evidence": "Per-scope PASS/FAIL references now let the direct executor finalize both lifecycles and terminal evidence. However, the required replay still conflicts when the real application rollback produces new timestamps or when recovery resumes after aggregate persistence but before lifecycle finalization.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "Terminal RESTORE forward authority remains resolved before application rollback or production deletion.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      },
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "resolved",
+        "current_status": "resolved",
+        "evidence": "The restore deletion-before-forward-evidence recovery remains covered and passes at the current head.",
+        "accepted_by": null,
+        "acceptance_rationale": null,
+        "accepted_at": null
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Per-scope lifecycle references for mixed cleanup outcomes",
+        "risk_triggers": [
+          "mutation-recovery",
+          "state-transition",
+          "data-integrity",
+          "test-adequacy"
+        ],
+        "reason": "Each scope must bind its own PASS/FAIL result while the aggregate remains the terminal authority.",
+        "affected_paths": [
+          "CHANGELOG.md",
+          "docs/feature/lp-05-deploy-rollback-hotfix/design.md",
+          "docs/feature/lp-05-deploy-rollback-hotfix/verification.md",
+          "docs/feature/lp-05-deployment-release/evidence-schema.md",
+          "docs/operations/lp05.md",
+          "scripts/lp05/deploy/rollback-cleanup.ts",
+          "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+        ],
+        "checks": [
+          "exercise production PASS plus restore FAIL",
+          "exercise production FAIL plus restore PASS",
+          "preserve CLEANED=PASS and CLEANUP_FAILED=FAIL"
+        ],
+        "finding_ids": [
+          "PRR-003"
+        ],
+        "result": "PASS"
+      },
+      {
+        "surface": "Aggregate replay and crash-window recovery",
+        "risk_triggers": [
+          "mutation-recovery",
+          "state-transition",
+          "data-integrity",
+          "deployment-compatibility",
+          "test-adequacy"
+        ],
+        "reason": "A retry must reuse durable cleanup authority without rerunning volatile application rollback or reconstructing already-consumed production proof.",
+        "affected_paths": [
+          "scripts/lp05/deploy/rollback-cleanup.ts",
+          "scripts/lp05/deploy/rollback-cleanup.unit.test.ts",
+          "scripts/lp05/deploy/rollback.ts"
+        ],
+        "checks": [
+          "replay with changed application rollback timestamps",
+          "inject recovery immediately after aggregate persistence",
+          "require no second mutation and byte-identical authority"
+        ],
+        "finding_ids": [
+          "PRR-003"
+        ],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Terminal rollback projection into the deployment attempt",
+        "risk_triggers": [
+          "state-transition",
+          "data-integrity",
+          "deployment-compatibility",
+          "test-adequacy"
+        ],
+        "reason": "The attempt state must follow authoritative terminal rollback evidence, including cleanup failures independent of application rollback status.",
+        "affected_paths": [
+          "scripts/lp05/deploy/active-oracles.ts",
+          "scripts/lp05/deploy/controller.ts",
+          "scripts/lp05/deploy/deployment.unit.test.ts"
+        ],
+        "checks": [
+          "run full controller recovery with application NOT_APPLICABLE and cleanup FAIL",
+          "require attempt ROLLBACK_FAILED and the terminal evidence digest"
+        ],
+        "finding_ids": [
+          "PRR-004"
+        ],
+        "result": "FAIL"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "WITHHELD",
+      "independent_pass": {
+        "status": "FAIL",
+        "reviewer": "fresh-context independent reviewer (/root/lp05_cycle6_independent_review)",
+        "summary": "The independent pass confirmed both realistic aggregate replay conflict and the controller's incorrect ROLLED_BACK projection when terminal cleanup evidence is failed."
+      }
+    }
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "Cycle 6 fixes per-scope lifecycle reference status, and configured checks pass. Approval remains withheld because realistic recovery still conflicts with the immutable aggregate (PRR-003), and cleanup failure is discarded when choosing the attempt terminal state (PRR-004).",
+    "blocking_finding_ids": [
+      "PRR-003",
+      "PRR-004"
+    ]
+  },
+  "summary": "Cycle 6 makes the direct mixed-outcome executor reach terminal evidence, but the committed replay test uses a constant application record unlike production and omits the crash-after-aggregate window. A realistic replay raises ROLLBACK_CLEANUP_REPLAY_CONFLICT. Separately, active oracle projection causes the controller to record ROLLED_BACK when authoritative terminal evidence says ROLLBACK_FAILED. Two S2 blockers remain.",
+  "change_map": [
+    {
+      "area": "Per-scope cleanup references",
+      "change": "Adds ROLLBACK_CLEANUP_RESULT references whose status matches the selected production or restore result while preserving one aggregate digest.",
+      "external_behavior": "The direct executor can finalize mixed PASS/FAIL lifecycle states and write terminal ROLLBACK_FAILED evidence.",
+      "risk": "Medium",
+      "validation": "Both committed mixed-result direct-executor regressions pass."
+    },
+    {
+      "area": "Aggregate replay",
+      "change": "Normalizes only aggregate wrapper timestamps before immutable replay comparison.",
+      "external_behavior": "A real retry still changes applicationRollbackSha256, and a crash-window retry can change the production result after resources were deleted.",
+      "risk": "High",
+      "validation": "A temporary exact-head timestamp-varying regression reproduced ROLLBACK_CLEANUP_REPLAY_CONFLICT."
+    },
+    {
+      "area": "Attempt terminal projection",
+      "change": "No controller/oracle contract change accompanies the new independently failing cleanup outcome.",
+      "external_behavior": "Application PASS or NOT_APPLICABLE masks aggregate cleanup FAIL and records the attempt as ROLLED_BACK.",
+      "risk": "High",
+      "validation": "A temporary controller fixture with cleanup-failed reason and application NOT_APPLICABLE received ROLLED_BACK instead of ROLLBACK_FAILED; independent control-flow review confirmed the production path."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-004",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "correctness",
+      "title": "Cleanup failure is discarded when selecting the attempt terminal state",
+      "location": {
+        "path": "scripts/lp05/deploy/active-oracles.ts",
+        "line_start": 362,
+        "line_end": 366,
+        "symbol": "createActiveDeploymentOracles.rollback",
+        "side": "RIGHT",
+        "commit_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c"
+      },
+      "observation": "The active rollback oracle resolves authoritative terminal evidence and returns its reason and digest, but projection.rollback contains only the strict application rollback. recoverDeploymentFailure derives ROLLED_BACK versus ROLLBACK_FAILED solely from projection.rollback.status.",
+      "trigger": "Application rollback is PASS or NOT_APPLICABLE while production or restore cleanup is FAIL, so terminal evidence is ROLLBACK_FAILED but the projected application status is non-failing.",
+      "impact": "The durable deployment attempt says ROLLED_BACK even though authoritative cleanup and terminal evidence say ROLLBACK_FAILED. Operators and later lifecycle steps receive a false success terminal state while owned resources may remain.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "A temporary exact-head controller regression returned the cleanup-failed terminal reason with application NOT_APPLICABLE and expected ROLLBACK_FAILED; the controller produced ROLLED_BACK. The temporary edit was removed and the worktree returned clean.",
+          "reference": "scripts/lp05/deploy/deployment.unit.test.ts:453-581"
+        },
+        {
+          "kind": "code",
+          "description": "The oracle returns terminal reason/digest but projects only applicationRollback, and the controller branches only on that projection's status.",
+          "reference": "scripts/lp05/deploy/active-oracles.ts:339-367; scripts/lp05/deploy/controller.ts:263-279"
+        },
+        {
+          "kind": "analysis",
+          "description": "A fresh-context independent review confirmed the closed control-flow contradiction and that it is distinct from the per-scope reference defect.",
+          "reference": "/root/lp05_cycle6_independent_review"
+        }
+      ],
+      "remediation": "Propagate and verify the authoritative terminal rollback state through the active-oracle/controller contract. The controller must not infer aggregate cleanup success from applicationRollback.status alone.",
+      "verification": "Add a full-controller recovery regression where application rollback is NOT_APPLICABLE or PASS and one cleanup scope fails. Require currentState ROLLBACK_FAILED, reason and evidence digest bound to terminal rollback evidence, with no success projection contradiction.",
+      "status": "open",
+      "origin": "DELTA_EXPOSED",
+      "fingerprint": "state:lp05-controller:cleanup-fail-projected-rolled-back"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "reliability",
+      "title": "Mixed cleanup recovery still conflicts with the durable aggregate",
+      "location": {
+        "path": "scripts/lp05/deploy/rollback-cleanup.ts",
+        "line_start": 2130,
+        "line_end": 2142,
+        "symbol": "persistRollbackCleanupEvidence",
+        "side": "RIGHT",
+        "commit_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c"
+      },
+      "observation": "Cycle 6 correctly gives each applicable scope a status-compatible reference. Replay comparison, however, preserves only aggregate startedAt and finishedAt. executeRollbackWithCleanup reruns application rollback before consulting existing aggregate authority, and production rollback timestamps are volatile. After an aggregate-write crash, recomputing already-completed production cleanup can also change PASS to FAIL because the deleted resource set and database proof cannot be reconstructed.",
+      "trigger": "Retry the same rollback after aggregate persistence, either after full lifecycle finalization with a newly timestamped application rollback result or after a crash before production lifecycle CLEANED is persisted.",
+      "impact": "Recovery raises ROLLBACK_CLEANUP_REPLAY_CONFLICT before terminal completion. In the crash window, production can remain QUIESCING with resources already removed and terminal-rollback-evidence.json absent, preventing the required durable ROLLBACK_FAILED closure.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "The committed mixed-result replay passed only with a constant application object. A temporary exact-head variant changed only its timestamps on the second invocation and failed at persistRollbackCleanupEvidence with ROLLBACK_CLEANUP_REPLAY_CONFLICT. The temporary test was removed and the worktree returned clean.",
+          "reference": "scripts/lp05/deploy/rollback-cleanup.unit.test.ts:1218-1346"
+        },
+        {
+          "kind": "code",
+          "description": "rollbackApplication generates new startedAt/finishedAt values, executeRollbackWithCleanup invokes it before aggregate resolution, and aggregate equality includes applicationRollbackSha256 plus both scoped results.",
+          "reference": "scripts/lp05/deploy/rollback.ts:10-39; scripts/lp05/deploy/rollback-cleanup.ts:2085-2145,2599-2666"
+        },
+        {
+          "kind": "analysis",
+          "description": "Fresh-context review additionally traced the aggregate-write-before-lifecycle crash window: retry cannot reconstruct production database proof and changes the durable production PASS result.",
+          "reference": "/root/lp05_cycle6_independent_review"
+        },
+        {
+          "kind": "spec",
+          "description": "The design requires completed cleanup replay to return the same authority, and the Cycle 5 remediation verification explicitly requires replay without another delete or aggregate conflict.",
+          "reference": "docs/feature/lp-05-deploy-rollback-hotfix/design.md:390-398; docs/feature/lp-05-deploy-rollback-hotfix/verification.md:116-123"
+        }
+      ],
+      "remediation": "Resolve and reuse an existing exact aggregate or terminal authority before rerunning volatile application rollback or reconstructing already-consumed production cleanup proof. Resume missing lifecycle/terminal writes from the persisted scoped results and reject only genuine semantic conflicts.",
+      "verification": "Add crash injection immediately after aggregate persistence and replay with changed application timestamps. Require no second application or Docker side effect, production CLEANED, restore CLEANUP_FAILED, unchanged aggregate bytes, and terminal ROLLBACK_FAILED. Preserve the symmetric mixed-result case.",
+      "status": "open",
+      "origin": "PREVIOUSLY_MISSED",
+      "fingerprint": "state:lp05-cleanup:mixed-aggregate-reference-status"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "data-integrity",
+      "title": "Terminal forward cleanup authority bypasses rollback preflight",
+      "location": {
+        "path": "scripts/lp05/deploy/rollback-cleanup.ts",
+        "line_start": 2255,
+        "line_end": 2290,
+        "symbol": "resolvePendingForwardRestoreCleanup",
+        "side": "RIGHT",
+        "commit_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c"
+      },
+      "observation": "Terminal lifecycle cleanup references continue to resolve during the initial preflight before application rollback or production cleanup.",
+      "trigger": "Rollback begins from terminal RESTORE lifecycle evidence that is malformed or wrong-bound.",
+      "impact": "Invalid authority rejects before new side effects.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The terminal corruption matrix remains green at the exact current head.",
+          "reference": "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+        }
+      ],
+      "remediation": "Completed at the current head.",
+      "verification": "Preserve malformed and wrong-bound terminal CLEANED/CLEANUP_FAILED zero-side-effect regressions.",
+      "status": "resolved",
+      "origin": "DELTA_INTRODUCED",
+      "fingerprint": "evidence:lp05-restore:rollback-bypasses-forward-reference"
+    },
+    {
+      "id": "PRR-001",
+      "severity": "S2",
+      "blocking": true,
+      "confidence": "High",
+      "category": "reliability",
+      "title": "Deletion-before-evidence crash is replayable through actual rollback",
+      "location": {
+        "path": "scripts/lp05/deploy/rollback-cleanup.ts",
+        "line_start": 1571,
+        "line_end": 1586,
+        "symbol": "cleanupOwnedProject",
+        "side": "RIGHT",
+        "commit_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c"
+      },
+      "observation": "RESTORE QUIESCING with a nonempty frozen set and an empty exact live project is recovered from frozen authority without another delete.",
+      "trigger": "The process dies after frozen restore deletion but before forward evidence is written.",
+      "impact": "The safe empty restore state can complete from retained lifecycle authority.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The absent-forward-evidence replay and no-second-delete regression remains green.",
+          "reference": "scripts/lp05/deploy/rollback-cleanup.unit.test.ts"
+        }
+      ],
+      "remediation": "Completed at the current head for the restore deletion-before-forward-evidence case.",
+      "verification": "Preserve exact frozen-set recovery and no-second-delete coverage.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "state:lp05-restore:forward-cleanup-left-quiescing"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-004",
+      "action": "Make the deployment attempt terminal state follow authoritative aggregate cleanup/terminal evidence and add full-controller mixed-failure coverage.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-003",
+      "action": "Resume from persisted aggregate scope results without rerunning volatile application rollback or reconstructing consumed production proof; add realistic and crash-window replay regressions.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Preflight terminal RESTORE lifecycle cleanup authority before application rollback or production deletion.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-001",
+      "action": "Recover restore deletion-before-evidence through actual rollback with no second delete.",
+      "status": "completed"
+    }
+  ],
+  "risks": [
+    {
+      "category": "reliability-concurrency",
+      "level": "High",
+      "description": "A recovery retry can conflict with already durable cleanup authority after exact-owned resources were deleted.",
+      "mitigation": "Block merge until PRR-003 resumes from durable aggregate evidence and passes injected crash recovery.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "High",
+      "description": "The controller can record ROLLED_BACK while terminal cleanup evidence is ROLLBACK_FAILED.",
+      "mitigation": "Block merge until PRR-004 binds the attempt terminal state to authoritative terminal evidence.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "other",
+      "level": "High",
+      "description": "No production deployment, DNS, public endpoint, real secret or production database was exercised in Review.",
+      "mitigation": "Keep production execution behind separate authorization and acceptance workflow.",
+      "owner": "Release owner"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm 11.16.0 install --ignore-scripts --offline using bundled Node 24",
+        "environment": "macOS; Node.js 24.14.0; npm 11.16.0; isolated exact-head review worktree",
+        "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Installed 364 locked packages from local cache without lifecycle scripts.",
+        "required_for_approval": false,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run build --workspace @idea/contracts; npm run typecheck:lp05",
+        "environment": "macOS; Node.js 24.14.0; npm 11.16.0; exact review worktree",
+        "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Contracts build and dedicated LP-05 TypeScript check passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run format:check; npm run lint; git diff --check",
+        "environment": "macOS; Node.js 24.14.0; npm 11.16.0; exact review worktree",
+        "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Formatting, ESLint and Cycle 6 whitespace checks passed.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "npm run test:deployment:unit; npm run test:deployment:authority; npm run test:deployment:restore-chain",
+        "environment": "macOS; Node.js 24.14.0; npm 11.16.0; exact review worktree",
+        "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "All 89 LP-05 unit tests passed; authority passed 16 tests and restore-chain passed 27 tests.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "node --import tsx scripts/lp05/verify-release-readiness.ts",
+        "environment": "macOS sandbox; bundled Node.js 24.14.0; exact review worktree",
+        "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Static release readiness returned LP05_RELEASE_READINESS_PASS.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "review-only mixed-result replay with a changed application rollback timestamp",
+        "environment": "Vitest exact-head isolated worktree; temporary test removed after execution",
+        "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "The second invocation failed with ROLLBACK_CLEANUP_REPLAY_CONFLICT at rollback-cleanup.ts:2142.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-003"
+      },
+      {
+        "command": "review-only controller terminal-state regression with application NOT_APPLICABLE and cleanup-failed terminal result",
+        "environment": "Vitest exact-head isolated worktree; temporary test removed after execution",
+        "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "The controller produced ROLLED_BACK where cleanup-failed terminal authority requires ROLLBACK_FAILED.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-004"
+      },
+      {
+        "command": "fresh-context independent exact-delta, replay and controller-state review",
+        "environment": "independent agent; exact isolated review worktree; no repository mutations retained",
+        "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+        "status": "FAIL",
+        "exit_code": 1,
+        "summary": "The independent pass confirmed realistic replay conflict and incorrect attempt terminal projection.",
+        "required_for_approval": true,
+        "evidence_ref": "PRR-003, PRR-004"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-04T11:09:29Z",
+        "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30901669528, verify job 91967165532 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30901669528/job/91967165532"
+      },
+      {
+        "name": "ci / lp05-candidate",
+        "observed_at": "2026-08-04T11:09:29Z",
+        "head_sha": "f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30901669528, lp05-candidate job 91967771827 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30901669528/job/91967771827"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local real Docker hotfix acceptance",
+        "reason": "The exact-head lp05-candidate GitHub check passed; both blockers were discriminated through exact control paths without production mutation."
+      },
+      {
+        "check": "Reviewer-local full npm run verify",
+        "reason": "Exact-head GitHub ci / verify passed the configured full chain; Review ran the changed LP-05 paths and two discriminating regressions locally."
+      },
+      {
+        "check": "Full production deployment and public rollback",
+        "reason": "No production authorization was supplied and Engineering Review is review-only."
+      }
+    ]
+  },
+  "limitations": [
+    "No production host, DNS, public HTTPS endpoint, real secret or production database was contacted.",
+    "Reviewer-local Docker acceptance was not rerun because exact-head ci / lp05-candidate passed; the blockers are deterministic journal and state-projection defects.",
+    "The adversarial regressions used repository test fixtures while invoking the exact aggregate persistence and controller transition paths."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #8 still points to the accepted exact base and Cycle 6 head and is ready for review.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refresh authoritative GitHub PR metadata after all routed changes.",
+      "evidence": "GitHub reported OPEN, draft=false, mergeable=true, CLEAN, base 99734e8e6c456e0366d28ce7d9a731b3544f0a56 and head f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c.",
+      "impact_if_false": "The exact-snapshot report would be stale and invalid."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed GitHub checks belong to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Read the PR-associated statusCheckRollup after all jobs completed.",
+      "evidence": "ci / verify and ci / lp05-candidate both completed SUCCESS for f02803a8ac0f2f7bdec5c4244f07f4739cf6b45c.",
+      "impact_if_false": "Platform checks could not support this snapshot."
+    },
+    {
+      "id": "ASM-003",
+      "statement": "The review-only regressions did not alter the exact feature snapshot.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Remove both temporary test changes and require a clean exact diff before report creation.",
+      "evidence": "Both temporary tests were removed; git status and git diff were clean before immutable report artifacts were added.",
+      "impact_if_false": "The reproductions would not describe the routed head faithfully."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
