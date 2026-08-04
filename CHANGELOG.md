@@ -10,7 +10,10 @@
   exact attempt-owned container/network/volume identities, preserves upgrade and
   foreign resources, and fails closed on any authority drift. Forward restore
   cleanup now reaches a digest-bound `CLEANED` lifecycle before returning and is
-  safely reused by later rollback without deleting the same resources twice.
+  safely reused by later rollback without deleting the same resources twice. A
+  restart after the exact restore deletion but before forward evidence is
+  written now reconciles the persisted frozen set against consecutive empty
+  observations and completes rollback without repeating the deletion.
 
 ### Docs
 

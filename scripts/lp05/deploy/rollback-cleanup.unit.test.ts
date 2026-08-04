@@ -552,6 +552,113 @@ describe("LP-05 attempt-owned cleanup", () => {
 });
 
 describe("LP-05 rollback evidence separation", () => {
+  it("recovers actual rollback after restore deletion completed before forward evidence", async () => {
+    const root = await evidenceRoot();
+    const value = attempt();
+    const docker = new FakeDocker();
+    const now = clock();
+    const restoreProject = "lp05-restore-hotfix";
+    await beginReady({
+      root,
+      scope: "RESTORE",
+      value,
+      project: restoreProject,
+      docker,
+      now,
+    });
+    expect(
+      (
+        await cleanupOwnedProject({
+          evidenceRoot: root,
+          scope: "RESTORE",
+          attempt: value,
+          composeProject: restoreProject,
+          databaseName: "idea_validation_restore",
+          runDocker: docker.run,
+          environment: {},
+          now,
+          sleep: async () => undefined,
+        })
+      ).status,
+    ).toBe("PASS");
+    const attemptRoot = join(root, String(value.attemptId));
+    expect(
+      JSON.parse(
+        await readFile(join(attemptRoot, "restore-lifecycle.json"), "utf8"),
+      ),
+    ).toMatchObject({ state: "QUIESCING", cleanupReference: null });
+    await expect(
+      readFile(join(attemptRoot, "forward-restore-cleanup.json"), "utf8"),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+    const restoreDeleteCalls = docker.calls.filter(
+      (args) =>
+        (args[0] === "rm" || args[1] === "rm") &&
+        (args.includes("c".repeat(64)) ||
+          args.includes("d".repeat(64)) ||
+          args.includes(`${restoreProject}-postgres-data`)),
+    ).length;
+
+    await beginReady({
+      root,
+      scope: "PRODUCTION",
+      value,
+      project: "idea-validation-prod",
+      docker,
+      now,
+    });
+    const output = await executeRollbackWithCleanup({
+      evidenceRoot: root,
+      attempt: value,
+      productionProject: "idea-validation-prod",
+      restoreProject,
+      restoreDatabaseName: "idea_validation_restore",
+      databaseUser: "idea_validation",
+      databaseName: "idea_validation",
+      runApplicationRollback: async () => ({
+        status: "NOT_APPLICABLE",
+        reasonCode: "NO_PREVIOUS_RELEASE",
+        previousRelease: null,
+        readinessSha256: null,
+        smokeSha256: null,
+        startedAt: now().toISOString(),
+        finishedAt: now().toISOString(),
+      }),
+      runDocker: docker.run,
+      environment: {},
+      now,
+      sleep: async () => undefined,
+    });
+    expect(output.terminalEvidence.terminalState).toBe("ROLLED_BACK");
+    expect(output.cleanupReference).toMatchObject({
+      kind: "ROLLBACK_CLEANUP",
+      status: "PASS",
+    });
+    expect(
+      docker.calls.filter(
+        (args) =>
+          (args[0] === "rm" || args[1] === "rm") &&
+          (args.includes("c".repeat(64)) ||
+            args.includes("d".repeat(64)) ||
+            args.includes(`${restoreProject}-postgres-data`)),
+      ),
+    ).toHaveLength(restoreDeleteCalls);
+    expect(
+      JSON.parse(
+        await readFile(join(attemptRoot, "restore-lifecycle.json"), "utf8"),
+      ),
+    ).toMatchObject({
+      state: "CLEANED",
+      cleanupReference: {
+        kind: "ROLLBACK_CLEANUP",
+        relativePath: "rollback-cleanup.json",
+        status: "PASS",
+      },
+    });
+    expect(docker.containers.size).toBe(0);
+    expect(docker.networks.size).toBe(0);
+    expect(docker.volumes.size).toBe(0);
+  });
+
   it("finishes a persisted forward cleanup after a lifecycle-write crash", async () => {
     const root = await evidenceRoot();
     const value = attempt();

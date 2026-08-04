@@ -233,7 +233,13 @@ the immutable `ForwardRestoreCleanupEvidenceV1` at
 `CLEANED|CLEANUP_FAILED` before the forward phase returns. If a later phase fails, rollback resolves this terminal
 restore authority, proves the live restore project remains empty, performs no second deletion, and includes the same
 restore result in the separate immutable rollback aggregate. A crash after the forward evidence write but before the
-lifecycle transition can replay the exact evidence and finish the transition; conflicting evidence fails closed.
+lifecycle transition can replay the exact evidence and finish the transition. A crash after the frozen RESTORE set
+was deleted but before forward evidence was written recovers only when the persisted V2 lifecycle is exactly
+`QUIESCING`, its frozen set is nonempty, the current exact project is empty, and the fixed consecutive-empty policy
+passes. Recovery derives the removal-argument digest from that frozen set, writes no second delete, and may then
+finalize either forward evidence or the rollback aggregate. A partial/nonempty mismatch fails closed. This recovery
+is not available to production cleanup because database-principal and application-row proof cannot be reconstructed
+from the lifecycle alone; conflicting evidence or identity remains a failure.
 
 ### 6.2 `RestoreLifecycleV2`
 

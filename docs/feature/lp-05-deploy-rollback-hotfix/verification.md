@@ -51,7 +51,7 @@ git diff --check
 | --- | --- |
 | formatting, lint, Skill/generated contracts, TypeScript and build | PASS |
 | repository unit/contract/integration/Web/acceptance suites | PASS: 134 + 23 + 31 + 8 + 13 tests |
-| `npm run test:deployment:unit` | PASS: 7 files, 79 tests |
+| `npm run test:deployment:unit` | PASS: 7 files, 80 tests |
 | `npm run test:deployment:authority` | PASS: 16 tests |
 | `npm run test:deployment:restore-chain` | PASS: 27 tests |
 | `npm run deploy:lp05:validate` | PASS: `LP05_RELEASE_READINESS_PASS` |
@@ -72,6 +72,17 @@ PRR-001 identified that successful forward restore cleanup deleted the exact res
 later rollback resolve the terminal result while proving the project remains empty. A focused unit regression proves
 both crash-window recovery and later rollback without a second delete or `ROLLBACK_FAILED`; the real Docker gate
 also executes the forward cleanup before controller rollback and reaches `ROLLED_BACK` with no project resources.
+
+## Cycle 2 code-review remediation
+
+Cycle 2 found the adjacent earlier crash window in which the frozen RESTORE set had been deleted but
+`forward-restore-cleanup.json` did not yet exist. Recovery now accepts only an exact V2 `QUIESCING` authority with a
+nonempty frozen set and a currently empty exact project, re-runs the fixed consecutive-empty oracle, derives the
+removal digest from the frozen authority and issues no second delete. The focused regression enters the actual
+`executeRollbackWithCleanup` path from that state and requires a resolvable PASS rollback authority,
+`ROLLED_BACK`, a terminal `CLEANED` restore lifecycle and zero second-delete calls. The real-Docker hotfix gate now
+also separates deletion from forward evidence persistence before resuming the wrapper. Partial deletion, authority
+drift, and production cleanup remain fail-closed.
 
 ## Release boundary
 

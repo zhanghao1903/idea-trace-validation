@@ -1568,28 +1568,46 @@ export const cleanupOwnedProject = async (input: {
       });
       if (count !== 0) throw new Error("CLEANUP_APPLICATION_DATA_PRESENT");
     }
-    lifecycle = await transitionLifecycleToQuiescing({
-      ...input,
-      observed: observedBefore,
-    });
-    const reverified = await observeDockerProjectResources({
-      attempt: input.attempt,
-      project: input.composeProject,
-      expectedEnvironment,
-      runDocker: input.runDocker,
-      environment: input.environment,
-      now: input.now,
-    });
-    if (!observationSetEqual(observedBefore, reverified))
-      throw new Error("CLEANUP_RESOURCE_SET_DRIFT");
-    removedResourceSetSha256 = await removeFrozenResources({
-      frozen: observedBefore,
-      attempt: input.attempt,
-      project: input.composeProject,
-      expectedEnvironment,
-      runDocker: input.runDocker,
-      environment: input.environment,
-    });
+    const resumesCompletedRestoreDeletion =
+      input.scope === "RESTORE" &&
+      lifecycle.state === "QUIESCING" &&
+      observationIsEmpty(observedBefore);
+    if (resumesCompletedRestoreDeletion) {
+      // QUIESCING durably freezes the only authorized deletion set. An empty
+      // live RESTORE project means a prior process completed that exact delete
+      // but died before writing its forward evidence; production recovery stays
+      // fail-closed because its database-principal/count proof is not derivable.
+      const frozen = verifyDockerResourceObservation(
+        lifecycle.ownedBeforeCleanup,
+      );
+      if (observationIsEmpty(frozen))
+        throw new Error("CLEANUP_RECOVERY_FROZEN_SET_EMPTY");
+      observedBefore = frozen;
+      removedResourceSetSha256 = removalArgumentsSha256(frozen);
+    } else {
+      lifecycle = await transitionLifecycleToQuiescing({
+        ...input,
+        observed: observedBefore,
+      });
+      const reverified = await observeDockerProjectResources({
+        attempt: input.attempt,
+        project: input.composeProject,
+        expectedEnvironment,
+        runDocker: input.runDocker,
+        environment: input.environment,
+        now: input.now,
+      });
+      if (!observationSetEqual(observedBefore, reverified))
+        throw new Error("CLEANUP_RESOURCE_SET_DRIFT");
+      removedResourceSetSha256 = await removeFrozenResources({
+        frozen: observedBefore,
+        attempt: input.attempt,
+        project: input.composeProject,
+        expectedEnvironment,
+        runDocker: input.runDocker,
+        environment: input.environment,
+      });
+    }
     const started = Date.now();
     let emptySamples = 0;
     for (let sample = 0; sample < CLEANUP_POLICY.maximumSamples; sample += 1) {

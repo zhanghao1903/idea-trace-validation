@@ -20,6 +20,7 @@ import {
   attemptAuthorityEnvironment,
   beginResourceLifecycle,
   cleanupForwardRestoreProject,
+  cleanupOwnedProject,
   executeRollbackWithCleanup,
   markResourceLifecycleReady,
   type CleanupDockerRunner,
@@ -471,6 +472,18 @@ const main = async (): Promise<void> => {
       environment: restoreEnvironment,
       now,
     });
+    const deletionBeforeEvidence = await cleanupOwnedProject({
+      evidenceRoot: join(root, "evidence"),
+      scope: "RESTORE",
+      attempt: value,
+      composeProject: restoreProject,
+      databaseName: "idea_validation_restore",
+      runDocker: docker,
+      environment: restoreEnvironment,
+      now,
+    });
+    if (deletionBeforeEvidence.status !== "PASS")
+      throw new Error("HOTFIX_RESTORE_DELETION_BEFORE_EVIDENCE");
     const forwardRestoreCleanup = await cleanupForwardRestoreProject({
       evidenceRoot: join(root, "evidence"),
       attempt: value,
