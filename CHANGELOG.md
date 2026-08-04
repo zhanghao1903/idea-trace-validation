@@ -27,6 +27,9 @@
   so crash recovery reuses its original results and timestamps without rerunning
   rollback or cleanup. The controller now consumes the verified terminal state
   and digest, preventing cleanup failure from being journaled as `ROLLED_BACK`.
+  Aggregate recovery now also re-observes every successful or not-applicable
+  resource scope before terminalization, rejecting production/restore
+  reappearance and preserved-upgrade set drift without issuing another delete.
 
 ### Docs
 

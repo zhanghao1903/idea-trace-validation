@@ -207,7 +207,12 @@ The sole aggregate cleanup authority is atomically written mode `0600` at
 
 The aggregate is written once. Its closed application object and both cleanup results are the recovery authority.
 Replay resolves this fixed-path record before invoking volatile application rollback or any consumed cleanup proof,
-retains the original bytes, completes only missing lifecycle/terminal journal writes, and never repeats a side effect.
+retains the original bytes, and never repeats a mutation. Before it completes any missing lifecycle or terminal
+journal, it actively re-observes every `PASS` and `NOT_APPLICABLE` scope. A destructive-cleanup result must still
+have an empty live project, a no-resource result must remain empty, and
+`UPGRADE_PRODUCTION_PRESERVED` must retain the exact persisted resource-set digest. Reappearance, ownership drift or
+upgrade set drift stops recovery before any terminal write; this reconciliation is read-only and never grants a
+second delete.
 
 `CleanupResultV1` always has the exact keys `scope`, `status`, `reasonCode`, `authorityLifecycleSha256`,
 `databasePrincipal`, `applicationTableCount`, `observedBefore`, `removedResourceSetSha256`, `observedAfter`, and

@@ -134,6 +134,18 @@ application invocation, unchanged aggregate bytes, correct mixed terminal lifecy
 digest. A full-controller regression requires cleanup FAIL plus application `NOT_APPLICABLE` to journal
 `ROLLBACK_FAILED` with that exact digest while preserving the seven-field application projection.
 
+## Cycle 7 code-review remediation
+
+Cycle 7 closes the aggregate-recovery live-state gap. Finalization now actively re-observes every persisted
+production and restore `PASS` or `NOT_APPLICABLE` result before writing lifecycle or terminal state. A cleaned or
+never-created scope must still be empty; upgrade production must reproduce the exact preserved resource-set digest.
+The check is deliberately read-only and reuses the immutable aggregate, application result and cleanup results.
+Three crash-window regressions recreate exact-owned restore resources, recreate exact-owned production resources,
+and drift a preserved upgrade resource set after aggregate persistence. Each retry must reject before terminal
+evidence, issue zero additional delete calls, and leave the durable cleanup authority available for operator
+investigation. The unchanged-state recovery regression continues to prove one application invocation, byte-identical
+aggregate evidence and successful missing-journal completion.
+
 ## Release boundary
 
 The previously authorized proposal

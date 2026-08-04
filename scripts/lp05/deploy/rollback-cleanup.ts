@@ -2597,6 +2597,42 @@ type RollbackWithCleanupOutput = {
   terminalEvidence: JsonRecord;
 };
 
+const reconcilePersistedCleanupResult = async (input: {
+  scope: CleanupScope;
+  attempt: JsonRecord;
+  composeProject: string;
+  result: JsonRecord;
+  runDocker: CleanupDockerRunner;
+  environment: NodeJS.ProcessEnv;
+  now: () => Date;
+}): Promise<void> => {
+  const result = verifyCleanupResult(input.result);
+  if (result.status === "FAIL") return;
+  const preservesUpgradeResources =
+    result.status === "NOT_APPLICABLE" &&
+    result.reasonCode === "UPGRADE_PRODUCTION_PRESERVED";
+  const live = await observeDockerProjectResources({
+    attempt: input.attempt,
+    project: input.composeProject,
+    expectedEnvironment:
+      input.scope === "PRODUCTION" ? "production" : "isolated-restore",
+    runDocker: input.runDocker,
+    environment: input.environment,
+    now: input.now,
+    enforceAuthority: preservesUpgradeResources ? false : undefined,
+  });
+  if (preservesUpgradeResources) {
+    if (!observationSetEqual(result.observedAfter, live))
+      throw new Error("ROLLBACK_CLEANUP_RECOVERY_RESOURCE_DRIFT");
+    return;
+  }
+  if (
+    !observationIsEmpty(live) ||
+    !observationSetEqual(result.observedAfter, live)
+  )
+    throw new Error("ROLLBACK_CLEANUP_RECOVERY_RESOURCE_REAPPEARED");
+};
+
 const finalizePersistedRollback = async (input: {
   evidenceRoot: string;
   attempt: JsonRecord;
@@ -2606,6 +2642,8 @@ const finalizePersistedRollback = async (input: {
   isolatedTarget?: JsonRecord | null;
   databaseName: string;
   persisted: { evidence: JsonRecord; reference: JsonRecord };
+  runDocker: CleanupDockerRunner;
+  environment: NodeJS.ProcessEnv;
   now: () => Date;
 }): Promise<RollbackWithCleanupOutput> => {
   const evidence = verifyRollbackCleanupEvidence(input.persisted.evidence);
@@ -2628,6 +2666,34 @@ const finalizePersistedRollback = async (input: {
     throw new Error("ROLLBACK_CLEANUP_APPLICATION_DIGEST");
   const production = verifyCleanupResult(evidence.production);
   const restore = verifyCleanupResult(evidence.restore);
+  const authorityEnvironment = attemptAuthorityEnvironment(
+    input.attempt,
+    input.environment,
+  );
+  await Promise.all([
+    reconcilePersistedCleanupResult({
+      scope: "PRODUCTION",
+      attempt: input.attempt,
+      composeProject: input.productionProject,
+      result: production,
+      runDocker: input.runDocker,
+      environment: authorityEnvironment,
+      now: input.now,
+    }),
+    reconcilePersistedCleanupResult({
+      scope: "RESTORE",
+      attempt: input.attempt,
+      composeProject: input.restoreProject,
+      result: restore,
+      runDocker: input.runDocker,
+      environment: {
+        ...authorityEnvironment,
+        COMPOSE_PROJECT_NAME: input.restoreProject,
+        POSTGRES_DB: input.restoreDatabaseName,
+      },
+      now: input.now,
+    }),
+  ]);
   const productionReference =
     production.status === "NOT_APPLICABLE"
       ? reference

@@ -1526,6 +1526,215 @@ describe("LP-05 rollback evidence separation", () => {
     ).toMatchObject({ state: "CLEANED" });
   });
 
+  it("rejects aggregate recovery when exact-owned restore resources reappear", async () => {
+    const root = await evidenceRoot();
+    const value = attempt();
+    const docker = new FakeDocker();
+    const now = clock();
+    const restoreProject = "lp05-restore-hotfix";
+    await beginReady({
+      root,
+      scope: "PRODUCTION",
+      value,
+      project: "idea-validation-prod",
+      docker,
+      now,
+    });
+    await beginReady({
+      root,
+      scope: "RESTORE",
+      value,
+      project: restoreProject,
+      docker,
+      now,
+    });
+    let injectCrash = true;
+    const execute = () =>
+      executeRollbackWithCleanup({
+        evidenceRoot: root,
+        attempt: value,
+        productionProject: "idea-validation-prod",
+        restoreProject,
+        restoreDatabaseName: "idea_validation_restore",
+        databaseUser: "idea_validation",
+        databaseName: "idea_validation",
+        runApplicationRollback: async () => {
+          throw new Error("APPLICATION_ROLLBACK_FAILED");
+        },
+        runDocker: docker.run,
+        environment: {},
+        now,
+        sleep: async () => undefined,
+        afterCleanupEvidencePersisted: async () => {
+          if (!injectCrash) return;
+          injectCrash = false;
+          throw new Error("CRASH_AFTER_ROLLBACK_CLEANUP_AGGREGATE");
+        },
+      });
+
+    await expect(execute()).rejects.toThrow(
+      "CRASH_AFTER_ROLLBACK_CLEANUP_AGGREGATE",
+    );
+    docker.addProject(value, restoreProject, "isolated-restore", "c");
+    const deleteCalls = docker.calls.filter(
+      (args) => args[0] === "rm" || args[1] === "rm",
+    ).length;
+
+    await expect(execute()).rejects.toThrow(
+      "ROLLBACK_CLEANUP_RECOVERY_RESOURCE_REAPPEARED",
+    );
+    expect(
+      docker.calls.filter((args) => args[0] === "rm" || args[1] === "rm"),
+    ).toHaveLength(deleteCalls);
+    await expect(
+      readFile(
+        join(root, String(value.attemptId), "terminal-rollback-evidence.json"),
+        "utf8",
+      ),
+    ).rejects.toThrow();
+    expect(
+      JSON.parse(
+        await readFile(
+          join(root, String(value.attemptId), "restore-lifecycle.json"),
+          "utf8",
+        ),
+      ),
+    ).toMatchObject({ state: "QUIESCING" });
+  });
+
+  it("rejects aggregate recovery when exact-owned production resources reappear", async () => {
+    const root = await evidenceRoot();
+    const value = attempt();
+    const docker = new FakeDocker();
+    const now = clock();
+    await beginReady({
+      root,
+      scope: "PRODUCTION",
+      value,
+      project: "idea-validation-prod",
+      docker,
+      now,
+    });
+    let injectCrash = true;
+    const execute = () =>
+      executeRollbackWithCleanup({
+        evidenceRoot: root,
+        attempt: value,
+        productionProject: "idea-validation-prod",
+        restoreProject: "lp05-restore-hotfix",
+        restoreDatabaseName: "idea_validation_restore",
+        databaseUser: "idea_validation",
+        databaseName: "idea_validation",
+        runApplicationRollback: async () => ({
+          status: "NOT_APPLICABLE",
+          reasonCode: "NO_PREVIOUS_RELEASE",
+          previousRelease: null,
+          readinessSha256: null,
+          smokeSha256: null,
+          startedAt: now().toISOString(),
+          finishedAt: now().toISOString(),
+        }),
+        runDocker: docker.run,
+        environment: {},
+        now,
+        sleep: async () => undefined,
+        afterCleanupEvidencePersisted: async () => {
+          if (!injectCrash) return;
+          injectCrash = false;
+          throw new Error("CRASH_AFTER_ROLLBACK_CLEANUP_AGGREGATE");
+        },
+      });
+
+    await expect(execute()).rejects.toThrow(
+      "CRASH_AFTER_ROLLBACK_CLEANUP_AGGREGATE",
+    );
+    docker.addProject(value, "idea-validation-prod", "production", "a");
+    const deleteCalls = docker.calls.filter(
+      (args) => args[0] === "rm" || args[1] === "rm",
+    ).length;
+
+    await expect(execute()).rejects.toThrow(
+      "ROLLBACK_CLEANUP_RECOVERY_RESOURCE_REAPPEARED",
+    );
+    expect(
+      docker.calls.filter((args) => args[0] === "rm" || args[1] === "rm"),
+    ).toHaveLength(deleteCalls);
+    await expect(
+      readFile(
+        join(root, String(value.attemptId), "terminal-rollback-evidence.json"),
+        "utf8",
+      ),
+    ).rejects.toThrow();
+  });
+
+  it("rejects aggregate recovery when a preserved upgrade resource set drifts", async () => {
+    const root = await evidenceRoot();
+    const previousRelease = { releaseId: "previous" };
+    const value = attempt(previousRelease);
+    const docker = new FakeDocker();
+    const now = clock();
+    docker.addProject(value, "idea-validation-prod", "production", "a");
+    let injectCrash = true;
+    const execute = () =>
+      executeRollbackWithCleanup({
+        evidenceRoot: root,
+        attempt: value,
+        productionProject: "idea-validation-prod",
+        restoreProject: "lp05-restore-hotfix",
+        restoreDatabaseName: "idea_validation_restore",
+        databaseUser: "idea_validation",
+        databaseName: "idea_validation",
+        runApplicationRollback: async () => ({
+          status: "PASS",
+          reasonCode: "PREVIOUS_RELEASE_RESTORED",
+          previousRelease,
+          readinessSha256: "6".repeat(64),
+          smokeSha256: "7".repeat(64),
+          startedAt: now().toISOString(),
+          finishedAt: now().toISOString(),
+        }),
+        runDocker: docker.run,
+        environment: {},
+        now,
+        sleep: async () => undefined,
+        afterCleanupEvidencePersisted: async () => {
+          if (!injectCrash) return;
+          injectCrash = false;
+          throw new Error("CRASH_AFTER_ROLLBACK_CLEANUP_AGGREGATE");
+        },
+      });
+
+    await expect(execute()).rejects.toThrow(
+      "CRASH_AFTER_ROLLBACK_CLEANUP_AGGREGATE",
+    );
+    docker.addProject(value, "idea-validation-prod", "production", "e");
+    const addedContainer = docker.containers.get("e".repeat(64));
+    if (addedContainer === undefined) throw new Error("TEST_CONTAINER_MISSING");
+    addedContainer.Name = "/idea-validation-prod-worker-1";
+    const addedContainerLabels = (addedContainer.Config as JsonRecord)
+      .Labels as JsonRecord;
+    addedContainerLabels["com.docker.compose.service"] = "worker";
+    const addedNetwork = docker.networks.get("d".repeat(64));
+    if (addedNetwork === undefined) throw new Error("TEST_NETWORK_MISSING");
+    addedNetwork.Name = "idea-validation-prod_aux";
+    const deleteCalls = docker.calls.filter(
+      (args) => args[0] === "rm" || args[1] === "rm",
+    ).length;
+
+    await expect(execute()).rejects.toThrow(
+      "ROLLBACK_CLEANUP_RECOVERY_RESOURCE_DRIFT",
+    );
+    expect(
+      docker.calls.filter((args) => args[0] === "rm" || args[1] === "rm"),
+    ).toHaveLength(deleteCalls);
+    await expect(
+      readFile(
+        join(root, String(value.attemptId), "terminal-rollback-evidence.json"),
+        "utf8",
+      ),
+    ).rejects.toThrow();
+  });
+
   it("materializes one application failure and binds the same digest throughout", async () => {
     const root = await evidenceRoot();
     const value = attempt();
