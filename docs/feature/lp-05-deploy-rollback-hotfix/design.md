@@ -47,8 +47,8 @@ new merge commit.
 | Boundary | Change | Compatibility |
 | --- | --- | --- |
 | `scripts/lp05/database/production-runtime.ts` | Require a database username and pass it to both `psql` identity calls | Internal TypeScript call sites change; returned identity shape is unchanged |
-| `deploy/compose.production.yaml` | Add non-secret attempt/target/candidate authority labels to production resources | Existing Compose project and service names remain unchanged |
-| `scripts/lp05/deploy/host-active-operations.ts` | Persist production lifecycle before fresh mutation; perform fail-closed cleanup; return application rollback separately | Forward phase and attempt-state contracts remain unchanged |
+| `deploy/compose.production.yaml`, `deploy/compose.restore.yaml` | Add non-secret attempt/target/candidate authority labels to production and isolated-restore resources | Existing Compose project and service names remain unchanged |
+| `scripts/lp05/deploy/host-active-operations.ts` | Persist production/restore lifecycle before mutation; perform fail-closed cleanup; return application rollback separately | Forward phase and attempt-state contracts remain unchanged |
 | `scripts/lp05/deploy/active-oracles.ts` | Bind cleanup-record reference into rollback transition evidence without projecting it into `attempt.rollback` | Existing `DeploymentAttemptV1.rollback` remains byte-compatible and closed |
 | New `scripts/lp05/deploy/rollback-cleanup.ts` | Closed lifecycle/evidence parser, persistence, ownership inspection, and reference creation | Additive internal evidence file; old attempts need no migration |
 
@@ -69,88 +69,235 @@ The container process may continue to run as OS user `postgres`; database authen
 explicitly selected with `--username <databaseUser>`. A nonexistent or mismatched configured user fails. There is no
 fallback to `postgres`, another role, `.psqlrc`, `PGUSER`, or a newly created compatibility role.
 
-## 5. Resource ownership labels
+## 5. Resource authority and lifecycle contracts
 
-Every production container, network, and named volume created by the authorized Compose invocation carries these
-labels in addition to existing Compose/environment/role labels:
+Every production and isolated-restore container, network, and named volume created by an authorized Compose
+invocation carries the three authority labels below plus exact Compose project, environment, and role labels.
+Production environment is `production`; restore environment is `isolated-restore`; each declarative service,
+network, and volume has one fixed safe role value in its Compose file.
 
-| Label | Value source | Validation |
+| Label | Fixed interpolation key | Value source / validation |
 | --- | --- | --- |
-| `io.idea-validation.attempt-id` | current `attempt.attemptId` | exact equality |
-| `io.idea-validation.target-id` | `attempt.target.targetId` | exact equality |
-| `io.idea-validation.candidate-manifest-sha256` | `attempt.candidate.manifestSha256` | exact lowercase SHA-256 |
+| `io.idea-validation.attempt-id` | `IDEA_VALIDATION_ATTEMPT_ID` | exact current `attempt.attemptId` |
+| `io.idea-validation.target-id` | `IDEA_VALIDATION_TARGET_ID` | exact `attempt.target.targetId` |
+| `io.idea-validation.candidate-manifest-sha256` | `IDEA_VALIDATION_CANDIDATE_MANIFEST_SHA256` | exact lowercase `attempt.candidate.manifestSha256` |
 
-The active-operation layer creates an attempt-scoped environment from parsed attempt authority and uses it for every
-production Compose command. These values are not accepted from the caller's ambient environment. Before a fresh
-`compose up postgres`, it enumerates project containers, networks, and volumes and requires all three sets to be
-empty. The lifecycle record is persisted in `CREATING` state before the Compose mutation.
+The active-operation layer overwrites those three keys from parsed attempt authority for every production and
+restore Compose command; caller-provided values are ignored. Static render checks require the resulting labels on
+every service, network, and named volume in `compose.production.yaml` and `compose.restore.yaml`.
 
-An upgrade may contain resources labelled by a previous attempt; the new destructive cleanup is unreachable when
-`previousRelease` is non-null. Existing upgrade rollback remains unchanged.
+### 5.1 Closed resource identity and observation
+
+All records in §§5-6 use closed objects and reject unknown or missing keys. `safeString` means an existing
+repository-safe identifier of 1-256 UTF-8 bytes with control characters, path separators, `.` and `..` rejected;
+`safeName` uses the existing Docker/config name parser; `sha256` is exactly 64 lowercase hexadecimal characters;
+and timestamps are canonical UTC RFC 3339 strings. Arrays are bounded to 10,000 entries. There are no implicit
+defaults: every nullable field is present as `null`, and every non-null field is required.
+
+`DockerResourceIdentityV1` is a closed discriminated union with this exact matrix:
+
+| Field | Type | Owner / validation |
+| --- | --- | --- |
+| `kind` | `CONTAINER|NETWORK|VOLUME` | live Docker object type |
+| `locator` | `safeString` | immutable 64-hex Docker ID for container/network; exact `safeName` for volume |
+| `dockerId` | 64-hex ID or null | equals locator for container/network; null for volume |
+| `name`, `composeProject` | `safeName` | live object name and exact Compose project label |
+| `service` | `safeName` or null | exact Compose service for containers; null for network/volume |
+| `role` | `safeName` | exact declarative role label for every service, network, and volume |
+| `attemptId`, `targetId` | `safeString` | exact authority-label values and current attempt equality |
+| `candidateManifestSha256` | `sha256` | exact authority-label value and current candidate equality |
+| `createdAt` | timestamp | live Docker inspection value |
+| `driver`, `scope`, `mountpoint`, `imageId` | `safeString` or null | variant-specific live inspection values below |
+| `requiredLabelsSha256` | `sha256` | canonical required-label projection digest |
+| `identitySha256` | `sha256` | canonical complete identity digest |
+
+| Variant | Locator | Required variant rules |
+| --- | --- | --- |
+| `CONTAINER` | immutable container ID | `dockerId=locator`; exact service, name, creation time, image ID and required labels enter the identity digest; driver/scope/mountpoint are null |
+| `NETWORK` | immutable network ID | `dockerId=locator`, `service=null`; exact name, driver, scope, creation time and labels enter the digest; mountpoint/image are null |
+| `VOLUME` | exact volume name | `dockerId=null`, `service=null`; exact name, driver, scope, mountpoint, creation time and labels enter the digest; image is null |
+
+`requiredLabelsSha256` is the canonical digest of exactly the Compose project, environment, role, and three
+authority labels.
+Any missing or mismatched required label rejects the identity. `identitySha256` is the canonical digest of the
+complete closed identity with that field omitted.
+
+`DockerResourceObservationV1` contains exactly `schemaVersion`, `observedAt`, `containers`, `networks`, `volumes`,
+`counts`, and `resourceSetSha256`. Each array is sorted by `locator`, has no duplicate locator or name, and contains
+only parsed identities. `counts` is the closed safe-integer object `{containers,networks,volumes}` and equals the
+array lengths. `resourceSetSha256` is the canonical digest of the three arrays and counts; `observedAt` is excluded
+from set equality.
+
+| Observation field | Type / bound | Source / validation |
+| --- | --- | --- |
+| `schemaVersion` | literal `"1.0"` | parser-owned |
+| `observedAt` | timestamp | live enumeration completion time |
+| `containers`, `networks`, `volumes` | arrays of the matching identity variant, 0-10,000 | one complete exact-project enumeration |
+| `counts` | closed `{containers,networks,volumes}` of safe integers 0-10,000 | exact array lengths |
+| `resourceSetSha256` | `sha256` | canonical `{containers,networks,volumes,counts}` digest |
+
+### 5.2 `CleanupPolicyV1`
+
+The closed policy has exactly `emptySampleCount=3`, `sampleIntervalMs=250`, `maximumSamples=15`, and
+`maximumDurationMs=30000`. These constants are stored in each lifecycle digest; they cannot come from ambient
+configuration or caller input.
+
+### 5.3 `ProductionLifecycleV1`
+
+The record is atomically persisted mode `0600` at
+`<evidenceRoot>/<attemptId>/production-lifecycle.json` before any fresh-target Compose mutation.
+
+| Field | Type / required | Owner, validation, and default |
+| --- | --- | --- |
+| `schemaVersion` | `"1.0"`, required | literal |
+| `attemptId`, `envelopeId`, `targetId` | safe strings, required | byte-equal current attempt; no default |
+| `candidateManifestSha256` | SHA-256, required | byte-equal candidate; no default |
+| `composeProject` | safe name, required | byte-equal target; no default |
+| `authorityLabels` | closed three-key object, required | values derived from attempt; live equality required |
+| `state` | `CREATING|READY|QUIESCING|CLEANED|CLEANUP_FAILED`, required | legal transition below |
+| `preMutation` | observation, required | all counts zero; immutable after CREATING |
+| `ownedBeforeCleanup` | observation or null, required | null until QUIESCING; then exact frozen set |
+| `cleanupReference` | `CleanupReferenceV1` or null, required | null before terminal state |
+| `policy` | `CleanupPolicyV1`, required | exact fixed constants |
+| `createdAt`, `updatedAt` | RFC 3339 strings, required | ordered; createdAt immutable |
+| `previousLifecycleSha256` | SHA-256 or null, required | null only at CREATING; otherwise exact prior record |
+| `lifecycleSha256` | SHA-256, required | canonical digest with this field omitted |
+
+`CREATING` requires zero pre-mutation counts, null cleanup fields, and null previous digest. `READY` chains from
+CREATING and records a nonempty exact owned observation. `QUIESCING` chains from CREATING or READY and freezes
+`ownedBeforeCleanup`. `CLEANED` requires a PASS cleanup reference whose post-observation is zero. `CLEANUP_FAILED`
+requires a FAIL reference. A byte-identical current record is replayable only after live reconciliation; conflicting
+authority/state/digest fails. Records are retained with their attempt and never synthesized for old attempts.
+
+Before fresh `compose up postgres`, all three project resource classes must be empty and the zero observation must
+already be in CREATING. An upgrade may contain labels from a previous attempt; fresh destructive cleanup is
+unreachable when `previousRelease` is non-null, so existing upgrade rollback remains unchanged.
 
 ## 6. Rollback cleanup authority
 
-### 6.1 Record path and closed shape
+### 6.1 References and aggregate record
 
-The sole aggregate cleanup authority is written atomically with mode `0600` at:
+`CleanupReferenceV1` contains exactly `schemaVersion="1.0"`, `kind="ROLLBACK_CLEANUP"`, `attemptId`,
+`relativePath="rollback-cleanup.json"`, `status`, and `cleanupSha256`. Its resolver joins the fixed relative path to
+the validated attempt evidence directory, rejects traversal/alternate paths, loads the record, and requires exact
+attempt/status/digest equality.
 
-```text
-<evidenceRoot>/<attemptId>/rollback-cleanup.json
-```
+The sole aggregate cleanup authority is atomically written mode `0600` at
+`<evidenceRoot>/<attemptId>/rollback-cleanup.json`. `RollbackCleanupEvidenceV1` contains exactly:
 
-`RollbackCleanupEvidenceV1` is closed and digest-bound:
+| Field | Type / required | Rule |
+| --- | --- | --- |
+| `schemaVersion` | `"1.0"`, required | literal |
+| `attemptId`, `envelopeId`, `targetId` | safe strings, required | exact current attempt |
+| `candidateManifestSha256` | SHA-256, required | exact candidate |
+| `composeProject` | safe name, required | exact production target |
+| `startedAt`, `finishedAt` | timestamps, required | ordered |
+| `applicationRollbackSha256` | SHA-256, required | digest of existing strict application rollback |
+| `production`, `restore` | `CleanupResultV1`, required | scoped variants below |
+| `status` | `PASS|FAIL`, required | PASS only when application rollback and all applicable cleanup succeed |
+| `reasonCode` | safe string, required | deterministic diagnostic |
+| `cleanupSha256` | SHA-256, required | canonical digest with this field omitted |
 
-| Field | Type | Required | Rule |
-| --- | --- | --- | --- |
-| `schemaVersion` | `"1.0"` | yes | exact literal |
-| `attemptId` / `envelopeId` / `targetId` | string | yes | exact current attempt authority |
-| `candidateManifestSha256` | SHA-256 | yes | exact current candidate |
-| `composeProject` | safe name | yes | exact target project |
-| `startedAt` / `finishedAt` | RFC 3339 string | yes | ordered timestamps |
-| `applicationRollbackSha256` | SHA-256 | yes | digest of the existing strict application rollback result |
-| `production` | closed result | yes | `PASS`, `NOT_APPLICABLE`, or `FAIL`; details below |
-| `restoreLifecycleSha256` | SHA-256 or null | yes | reference only; the existing restore lifecycle remains its detail authority |
-| `status` | `PASS` or `FAIL` | yes | PASS only when every applicable cleanup is proven |
-| `reasonCode` | safe string | yes | deterministic diagnostic |
-| `cleanupSha256` | SHA-256 | yes | canonical digest omitting this field |
+`CleanupResultV1` always has the exact keys `scope`, `status`, `reasonCode`, `authorityLifecycleSha256`,
+`databasePrincipal`, `applicationTableCount`, `observedBefore`, `removedResourceSetSha256`, `observedAfter`, and
+`errorSha256`; fields are never omitted.
 
-For a fresh installation, `production` contains closed pre/post observations:
+| Result field | Type / bound | Owner / validation |
+| --- | --- | --- |
+| `scope` | `PRODUCTION|RESTORE` | fixed by cleanup branch |
+| `status` | `PASS|NOT_APPLICABLE|FAIL` | derived from the variant invariants |
+| `reasonCode` | `safeString` | deterministic implementation-owned enum value, never raw command output |
+| `authorityLifecycleSha256` | `sha256` or null | exact QUIESCING lifecycle digest when lifecycle exists |
+| `databasePrincipal` | closed `{databaseUser:safeName,databaseName:safeName}` or null | non-null only for production PASS after trusted identity/row proof |
+| `applicationTableCount` | safe integer 0-9,007,199,254,740,991 or null | production PASS requires exact `0`; otherwise null |
+| `observedBefore`, `observedAfter` | observation or null | complete live observations; null only for FAIL before a trustworthy enumeration |
+| `removedResourceSetSha256` | `sha256` or null | digest of exact delete arguments; empty-set digest for NOT_APPLICABLE; null only for pre-delete FAIL |
+| `errorSha256` | `sha256` or null | canonical redacted error digest; non-null only for FAIL |
 
-| Field | Rule |
-| --- | --- |
-| `status`, `reasonCode` | PASS only after all checks and post-cleanup quiescence |
-| `databaseUser`, `databaseName` | validated non-secret config values |
-| `applicationTableCount` | exact count across application-owned public tables; must be `0` |
-| `observedBefore` | sorted container IDs, network IDs, volume names, plus canonical resource-set digest |
-| `ownershipLabelSha256` | digest of the exact required label projection for every observed resource |
-| `removedResourceSetSha256` | digest of the exact pre-cleanup resource identities |
-| `observedAfter` | three empty sorted sets, zero counts, quiescence samples, and digest |
+| Variant | Required non-null values | Required null values / invariants |
+| --- | --- | --- |
+| `PASS` | lifecycle SHA, before/after observations, removed-set SHA; production also has principal and count `0` | error null; after counts all zero under fixed policy; restore principal/count null |
+| `NOT_APPLICABLE` | reason, equal zero before/after observations, empty removed-set SHA | lifecycle may be null only when no lifecycle/resource exists; principal/count/error null |
+| `FAIL` | error SHA, last trustworthy observations where available, lifecycle SHA when created | fields without trustworthy evidence are null; FAIL never authorizes terminal success |
 
-When no production mutation occurred, `production.status=NOT_APPLICABLE` records a no-resource observation. On an
-upgrade, it records `NOT_APPLICABLE` because previous-release rollback owns recovery and production resources must
-not be destroyed. A failed proof is persisted as `FAIL` when possible and can never authorize deletion.
+`scope=PRODUCTION` uses `databasePrincipal={databaseUser,databaseName}` and exact application row count.
+`scope=RESTORE` requires principal/count null and binds the RestoreLifecycleV2 QUIESCING digest. The aggregate does
+not duplicate a lifecycle record; it binds its exact authority digest and observations.
 
-The attempt keeps its original seven-field application `rollback` object. `restoreCleanup`, production cleanup, or
-any unknown key in that object continues to fail `exactKeys`. The active rollback oracle returns an internal pair:
-the strict application rollback and a verified cleanup reference. The controller projects only application rollback
-and uses the canonical digest of both items as the terminal transition's `evidenceSha256`.
+### 6.2 `RestoreLifecycleV2`
 
-### 6.2 Fresh-install deletion rules
+New attempts write `schemaVersion="2.0"` at the existing
+`<evidenceRoot>/<attemptId>/restore-lifecycle.json` path. `RestoreLifecycleV2` contains exactly:
 
-Before running `docker compose down --volumes --remove-orphans` the cleanup operation must prove all of the following:
+| Field | Type / required | Owner, validation, and default |
+| --- | --- | --- |
+| `schemaVersion` | literal `"2.0"` | parser-owned |
+| `attemptId`, `envelopeId`, `targetId` | `safeString` | exact current attempt |
+| `candidateManifestSha256` | `sha256` | exact current candidate |
+| `restoreComposeProject`, `databaseName` | `safeName` | attempt-scoped restore runtime; no caller override |
+| `isolatedTarget` | closed existing isolated-target object or null | exact restore-start output; null before creation or after partial creation with no trustworthy target |
+| `authorityLabels` | closed three-key authority-label object | exact current attempt; resource identities separately bind project/environment/role |
+| `state` | `CREATING|READY|QUIESCING|CLEANED|CLEANUP_FAILED` | same legal transition graph as production |
+| `preMutation` | observation | all counts zero; immutable after CREATING |
+| `ownedBeforeCleanup` | observation or null | null until QUIESCING; then exact frozen set |
+| `cleanupReference` | cleanup reference or null | null before terminal state |
+| `policy` | cleanup policy | exact fixed constants |
+| `createdAt`, `updatedAt` | timestamps | ordered; createdAt immutable |
+| `previousLifecycleSha256` | `sha256` or null | null only at CREATING; otherwise exact prior V2 record |
+| `lifecycleSha256` | `sha256` | canonical digest with this field omitted |
 
-1. `attempt.previousRelease === null`;
-2. the attempt-bound production lifecycle exists and was persisted before the first Compose mutation;
-3. the configured database user can read the configured database and the exact application row count is zero;
-4. every project resource is enumerated by exact `com.docker.compose.project` and has all three matching authority
-   labels; no additional project resource is uninspected;
-5. the database container and volume belong to the recorded resource set; if either identity is ambiguous, cleanup
-   stops before deletion.
+V2 state invariants, atomic mode-`0600` persistence, current-attempt equality, replay/live reconciliation, conflict
+failure and retention rules are identical to ProductionLifecycleV1. All restore containers, networks, and volumes
+prove project/environment/role plus attempt/target/candidate labels. CLEANED requires all three counts zero.
 
-The command is issued only after the complete pre-cleanup set passes. Afterwards the operation repeatedly enumerates
-containers, networks, and volumes and requires the configured number of consecutive empty samples. It records
-`PASS` only after quiescence. A missing label, foreign value, nonzero application count, partial cleanup, unknown
-field, digest mismatch, or post-cleanup reappearance produces `FAIL`/`ROLLBACK_FAILED` and preserves diagnostics.
+Existing V1 records remain readable only for historical verification. They cannot authorize cleanup for a new
+attempt and are never rewritten. The aggregate restore result binds the V2 QUIESCING digest; the final lifecycle
+then references the aggregate cleanup digest, so the chain is directional and non-circular.
+
+### 6.3 Terminal transition envelope
+
+`TerminalRollbackEvidenceV1` is atomically written mode `0600` at
+`<evidenceRoot>/<attemptId>/terminal-rollback-evidence.json`:
+
+| Field | Type / required | Binding |
+| --- | --- | --- |
+| `schemaVersion` | literal `"1.0"` | parser-owned |
+| `attemptId`, `envelopeId`, `targetId` | `safeString` | exact current attempt |
+| `candidateManifestSha256` | `sha256` | exact current candidate |
+| `applicationRollbackSha256` | `sha256` | canonical existing seven-field rollback digest |
+| `cleanupReference` | cleanup reference | resolves to the sole aggregate record with exact status/digest |
+| `terminalState` | `ROLLED_BACK|ROLLBACK_FAILED` | derived only from verified application and cleanup statuses |
+| `reasonCode` | `safeString` | deterministic terminal reason |
+| `evidenceSha256` | `sha256` | canonical digest of every preceding field |
+
+`terminalState=ROLLED_BACK` requires application status `PASS|NOT_APPLICABLE`, cleanup status PASS, and byte-valid
+referenced records; otherwise it is `ROLLBACK_FAILED`. The canonical digest omits only `evidenceSha256` and is the
+exact terminal transition digest. Replay requires byte-identical envelope plus live lifecycle/reference
+reconciliation; any conflicting field, resolver target, current-attempt binding, digest or terminal state fails.
+
+The attempt retains its existing seven-field closed application `rollback`; `restoreCleanup` or any extra key still
+fails `exactKeys`. The controller projects only the verified application rollback from the terminal envelope.
+
+### 6.4 Identity-safe deletion rules
+
+Before production or restore cleanup deletes anything it must prove:
+
+1. production deletion additionally requires `previousRelease === null` and zero application rows read with the
+   configured database principal;
+2. the matching lifecycle was persisted before mutation and is now chained into QUIESCING;
+3. every project resource is present in the frozen observation and proves exact project/attempt/target/candidate
+   labels; database container/volume identities are unambiguous;
+4. a second complete observation immediately before deletion is canonical-byte-equal to the frozen set.
+
+No project-wide `compose down` or `--remove-orphans` is permitted. Cleanup removes only frozen identities, in order:
+containers by immutable ID; volumes by exact name after a just-in-time full identity re-inspection; networks by
+immutable ID. A disappeared or changed identity fails its delete. A new same-project resource is absent from the
+frozen set and is never an argument; it remains, makes the post-observation nonzero, and produces FAIL. A same-name
+replacement volume fails just-in-time equality and remains untouched.
+
+Afterwards all three classes are enumerated under the fixed cleanup policy. PASS requires consecutive zero samples.
+Missing labels, set drift, nonzero application rows, partial cleanup, digest mismatch, late additions/replacements,
+or reappearance produce `ROLLBACK_FAILED` and preserved diagnostics.
 
 ## 7. Operation and state flow
 
@@ -158,14 +305,14 @@ field, digest mismatch, or post-cleanup reappearance produces `FAIL`/`ROLLBACK_F
 sequenceDiagram
   participant C as Deployment controller
   participant A as Active operations
-  participant L as Production lifecycle
+  participant L as Production or restore lifecycle
   participant P as PostgreSQL
   participant D as Docker
   participant J as Attempt journal
 
   C->>A: SAFETY_BACKUP(attempt)
   A->>D: enumerate project containers/networks/volumes
-  A->>L: persist CREATING + attempt authority
+  A->>L: persist CREATING + closed authority and zero observation
   A->>D: compose up postgres with authority labels
   A->>P: psql --username POSTGRES_USER --dbname POSTGRES_DB
   alt forward phase succeeds
@@ -176,8 +323,9 @@ sequenceDiagram
     C->>A: rollback(attempt)
     A->>D: stop ingress
     A->>P: recount application rows as configured user
-    A->>D: inspect all exact-project ownership labels
-    A->>D: compose down --volumes --remove-orphans
+    A->>D: freeze exact identities and labels
+    A->>D: re-enumerate; abort on set drift
+    A->>D: remove only exact container IDs, reverified volume names, network IDs
     A->>D: require consecutive empty observations
     A->>L: persist rollback-cleanup PASS or FAIL
     A-->>C: strict app rollback + cleanup reference
@@ -198,19 +346,21 @@ stateDiagram-v2
   CLEANUP_FAILED --> [*]
 ```
 
-The existing attempt graph remains `FAILED -> ROLLING_BACK -> ROLLED_BACK|ROLLBACK_FAILED`. A successful fresh
+The restore branch follows the same flow through RestoreLifecycleV2, including exact network observations. The
+existing attempt graph remains `FAILED -> ROLLING_BACK -> ROLLED_BACK|ROLLBACK_FAILED`. A successful fresh
 cleanup pairs application rollback `NOT_APPLICABLE` with cleanup `PASS`, producing `ROLLED_BACK`. Either application
 or cleanup failure produces `ROLLBACK_FAILED`.
 
 ## 8. Persistence, idempotency, and concurrency
 
-- Lifecycle and cleanup files use existing canonical JSON, atomic write, `0600`, digest, and evidence-root safety
-  helpers.
+- Lifecycle, cleanup, and terminal-envelope files use existing canonical JSON, atomic write, `0600`, digest, and
+  evidence-root safety helpers.
 - Existing valid records are re-read and verified against the exact attempt. Replaying a completed cleanup requires
   current resources to remain empty and returns the same authority; conflicting content fails.
 - The controller's existing exclusive attempt/recovery lock remains the mutation owner. Cleanup still joins all
   forward actors before rollback, so no forward mutation can recreate resources after `CLEANED`.
-- Destructive cleanup never relies on name prefixes, ambient environment, caller-authored PASS, or a partial label.
+- Destructive cleanup never relies on name prefixes, broad Compose project deletion, ambient environment,
+  caller-authored PASS, or a partial label. Delete arguments come only from a frozen, reverified identity set.
 - Cleanup and application rollback errors are aggregated only after each branch has attempted to persist its own
   diagnostic authority. Raw logs and secrets are never stored.
 
@@ -220,7 +370,7 @@ or cleanup failure produces `ROLLBACK_FAILED`.
 | --- | --- | --- |
 | Configured database role missing/mismatched | identity or empty-data proof fails; `ROLLBACK_FAILED` | no |
 | Database contains application rows | record count/digest and require manual handling | no |
-| Foreign/unlabelled/mixed project resource | record ownership failure and exact resource digest | no |
+| Foreign/unlabelled/mixed/late project resource | record ownership or set-drift failure and exact resource digest | no; it is never a delete argument |
 | Cleanup command partially succeeds | re-enumerate; nonzero set yields `ROLLBACK_FAILED` | no further broad deletion |
 | Restore lifecycle cleanup fails | aggregate cleanup FAIL; existing lifecycle retains detail | production cleanup may run only if independently authorized by proofs |
 | Application rollback fails | aggregate FAIL; attempt `ROLLBACK_FAILED` | fresh cleanup may run only if independently authorized by proofs |
@@ -242,15 +392,19 @@ or cleanup failure produces `ROLLBACK_FAILED`.
 
 1. Unit/contract tests assert both identity commands contain exact `--username` and reject wrong principals without
    fallback.
-2. Closed-record tests reject every omitted/extra field, wrong digest, and wrong attempt/target/candidate binding.
+2. Closed-record tests cover every lifecycle state and cleanup variant and reject omitted/extra fields, wrong digest,
+   invalid nullability, illegal chain, unsafe resolver path, and wrong attempt/envelope/target/candidate/project binding.
 3. Docker-backed acceptance starts PostgreSQL 17.10 with `idea_validation`, proves role `postgres` is absent, and
    exercises both source and full identity readers.
-4. Docker-backed fault acceptance starts an empty, uniquely named project, persists lifecycle authority, creates
-   PostgreSQL, injects the next forward failure, and drives the real controller recovery to `ROLLED_BACK`; final
-   container/network/volume counts are all zero.
-5. Negative resource fixtures prove foreign project, foreign attempt, missing label, nonzero application rows,
-   partial cleanup, false zero-resource claims, and extra keys fail closed without deleting the foreign resource.
-6. Existing LP-05 deployment unit/authority/restore-chain/local readiness checks and the repository `verify` command
+4. Docker-backed fault acceptance starts empty, uniquely named production and restore projects, persists V1/V2
+   lifecycle authority, creates PostgreSQL, injects the next forward failure, and drives real controller recovery to
+   `ROLLED_BACK`; both projects finish with zero container/network/volume counts.
+5. Negative resource fixtures and real Docker hooks inject foreign project, foreign attempt, missing label, nonzero
+   rows, partial cleanup, false zero claims, post-freeze same-project orphan, same-name replacement, and reappearance.
+   Every sentinel remains untouched and cleanup fails.
+6. Cleanup-reference resolution and `TerminalRollbackEvidenceV1` digest are independently recomputed in positive and
+   negative cases.
+7. Existing LP-05 deployment unit/authority/restore-chain/local readiness checks and the repository `verify` command
    remain green.
 
 ## 12. Rollout and compatibility
