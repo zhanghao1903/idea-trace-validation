@@ -690,7 +690,7 @@ describe("LP-05 rollback evidence separation", () => {
     ).toMatchObject({
       state: "CLEANED",
       cleanupReference: {
-        kind: "ROLLBACK_CLEANUP",
+        kind: "ROLLBACK_CLEANUP_RESULT",
         relativePath: "rollback-cleanup.json",
         status: "PASS",
       },
@@ -1214,6 +1214,211 @@ describe("LP-05 rollback evidence separation", () => {
       });
     },
   );
+
+  it("persists and replays terminal restore failure with production cleanup success", async () => {
+    const root = await evidenceRoot();
+    const value = attempt();
+    const docker = new FakeDocker();
+    const now = clock();
+    const restoreProject = "lp05-restore-hotfix";
+    await beginReady({
+      root,
+      scope: "RESTORE",
+      value,
+      project: restoreProject,
+      docker,
+      now,
+    });
+    docker.onContainerRemoved = () => {
+      docker.onContainerRemoved = undefined;
+      throw new Error("FORWARD_RESTORE_DELETE_FAILED");
+    };
+    const forward = await cleanupForwardRestoreProject({
+      evidenceRoot: root,
+      attempt: value,
+      composeProject: restoreProject,
+      databaseName: "idea_validation_restore",
+      runDocker: docker.run,
+      environment: {},
+      now,
+      sleep: async () => undefined,
+    });
+    expect(forward.status).toBe("FAIL");
+    const restoreDeleteCalls = docker.calls.filter(
+      (args) =>
+        (args[0] === "rm" || args[1] === "rm") &&
+        (args.includes("c".repeat(64)) ||
+          args.includes("d".repeat(64)) ||
+          args.includes(`${restoreProject}-postgres-data`)),
+    ).length;
+    await beginReady({
+      root,
+      scope: "PRODUCTION",
+      value,
+      project: "idea-validation-prod",
+      docker,
+      now,
+    });
+    const applicationRollback = {
+      status: "NOT_APPLICABLE",
+      reasonCode: "NO_PREVIOUS_RELEASE",
+      previousRelease: null,
+      readinessSha256: null,
+      smokeSha256: null,
+      startedAt: "2026-08-04T00:10:00.000Z",
+      finishedAt: "2026-08-04T00:10:01.000Z",
+    };
+    const execute = () =>
+      executeRollbackWithCleanup({
+        evidenceRoot: root,
+        attempt: value,
+        productionProject: "idea-validation-prod",
+        restoreProject,
+        restoreDatabaseName: "idea_validation_restore",
+        databaseUser: "idea_validation",
+        databaseName: "idea_validation",
+        runApplicationRollback: async () => applicationRollback,
+        runDocker: docker.run,
+        environment: {},
+        now,
+        sleep: async () => undefined,
+      });
+
+    const output = await execute();
+    expect(output.cleanupReference).toMatchObject({
+      kind: "ROLLBACK_CLEANUP",
+      status: "FAIL",
+    });
+    expect(output.terminalEvidence.terminalState).toBe("ROLLBACK_FAILED");
+    const attemptRoot = join(root, String(value.attemptId));
+    const aggregate = verifyRollbackCleanupEvidence(
+      JSON.parse(
+        await readFile(join(attemptRoot, "rollback-cleanup.json"), "utf8"),
+      ),
+    );
+    expect(aggregate).toMatchObject({
+      status: "FAIL",
+      production: { status: "PASS" },
+      restore: { status: "FAIL" },
+    });
+    expect(
+      JSON.parse(
+        await readFile(join(attemptRoot, "production-lifecycle.json"), "utf8"),
+      ),
+    ).toMatchObject({
+      state: "CLEANED",
+      cleanupReference: {
+        kind: "ROLLBACK_CLEANUP_RESULT",
+        status: "PASS",
+        cleanupSha256: aggregate.cleanupSha256,
+      },
+    });
+    expect(
+      JSON.parse(
+        await readFile(join(attemptRoot, "restore-lifecycle.json"), "utf8"),
+      ),
+    ).toMatchObject({
+      state: "CLEANUP_FAILED",
+      cleanupReference: {
+        kind: "FORWARD_RESTORE_CLEANUP",
+        status: "FAIL",
+      },
+    });
+
+    const replay = await execute();
+    expect(replay).toEqual(output);
+    expect(
+      docker.calls.filter(
+        (args) =>
+          (args[0] === "rm" || args[1] === "rm") &&
+          (args.includes("c".repeat(64)) ||
+            args.includes("d".repeat(64)) ||
+            args.includes(`${restoreProject}-postgres-data`)),
+      ),
+    ).toHaveLength(restoreDeleteCalls);
+    expect(
+      verifyRollbackCleanupEvidence(
+        JSON.parse(
+          await readFile(join(attemptRoot, "rollback-cleanup.json"), "utf8"),
+        ),
+      ),
+    ).toEqual(aggregate);
+  });
+
+  it("persists symmetric production failure with restore cleanup success", async () => {
+    const root = await evidenceRoot();
+    const value = attempt();
+    const docker = new FakeDocker();
+    const now = clock();
+    const restoreProject = "lp05-restore-hotfix";
+    await beginReady({
+      root,
+      scope: "PRODUCTION",
+      value,
+      project: "idea-validation-prod",
+      docker,
+      now,
+    });
+    await beginReady({
+      root,
+      scope: "RESTORE",
+      value,
+      project: restoreProject,
+      docker,
+      now,
+    });
+
+    const output = await executeRollbackWithCleanup({
+      evidenceRoot: root,
+      attempt: value,
+      productionProject: "idea-validation-prod",
+      restoreProject,
+      restoreDatabaseName: "idea_validation_restore",
+      databaseUser: "idea_validation",
+      databaseName: "idea_validation",
+      runApplicationRollback: async () => {
+        throw new Error("APPLICATION_ROLLBACK_FAILED");
+      },
+      runDocker: docker.run,
+      environment: {},
+      now,
+      sleep: async () => undefined,
+    });
+    expect(output.terminalEvidence.terminalState).toBe("ROLLBACK_FAILED");
+    const attemptRoot = join(root, String(value.attemptId));
+    const aggregate = verifyRollbackCleanupEvidence(
+      JSON.parse(
+        await readFile(join(attemptRoot, "rollback-cleanup.json"), "utf8"),
+      ),
+    );
+    expect(aggregate).toMatchObject({
+      status: "FAIL",
+      production: { status: "FAIL" },
+      restore: { status: "PASS" },
+    });
+    expect(
+      JSON.parse(
+        await readFile(join(attemptRoot, "production-lifecycle.json"), "utf8"),
+      ),
+    ).toMatchObject({
+      state: "CLEANUP_FAILED",
+      cleanupReference: {
+        kind: "ROLLBACK_CLEANUP_RESULT",
+        status: "FAIL",
+      },
+    });
+    expect(
+      JSON.parse(
+        await readFile(join(attemptRoot, "restore-lifecycle.json"), "utf8"),
+      ),
+    ).toMatchObject({
+      state: "CLEANED",
+      cleanupReference: {
+        kind: "ROLLBACK_CLEANUP_RESULT",
+        status: "PASS",
+      },
+    });
+  });
 
   it("materializes one application failure and binds the same digest throughout", async () => {
     const root = await evidenceRoot();

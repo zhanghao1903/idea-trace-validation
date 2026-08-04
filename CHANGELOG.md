@@ -19,7 +19,10 @@
   authority, and rejects malformed or wrong-bound content before writing PASS or
   terminal evidence. Terminal restore lifecycles now resolve their own fixed
   cleanup reference in that same preflight, so corrupt terminal authority cannot
-  trigger application rollback or production deletion before rejection.
+  trigger application rollback or production deletion before rejection. Mixed
+  production/restore cleanup outcomes now use scope-compatible lifecycle
+  references to one immutable aggregate, allowing terminal `ROLLBACK_FAILED`
+  evidence and conflict-free replay without weakening lifecycle status rules.
 
 ### Docs
 

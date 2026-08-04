@@ -179,9 +179,14 @@ unreachable when `previousRelease` is non-null, so existing upgrade rollback rem
 
 `CleanupReferenceV1` contains exactly `schemaVersion="1.0"`, `kind`, `attemptId`, `relativePath`, `status`, and
 `cleanupSha256`. `kind="ROLLBACK_CLEANUP"` fixes `relativePath="rollback-cleanup.json"`;
+`kind="ROLLBACK_CLEANUP_RESULT"` fixes the same path but binds `status` to the selected production or restore
+result rather than the aggregate status;
 `kind="FORWARD_RESTORE_CLEANUP"` fixes `relativePath="forward-restore-cleanup.json"` and is valid only for the
 restore lifecycle. Each resolver joins only its fixed relative path to the validated attempt evidence directory,
 rejects traversal/alternate paths, loads the closed record, and requires exact authority/status/digest equality.
+Only the aggregate `ROLLBACK_CLEANUP` reference may enter terminal rollback evidence. A lifecycle uses the
+scope-result reference so `CLEANED -> PASS` and `CLEANUP_FAILED -> FAIL` remain true even when the other scope makes
+the aggregate FAIL.
 
 The sole aggregate cleanup authority is atomically written mode `0600` at
 `<evidenceRoot>/<attemptId>/rollback-cleanup.json`. `RollbackCleanupEvidenceV1` contains exactly:
@@ -198,6 +203,9 @@ The sole aggregate cleanup authority is atomically written mode `0600` at
 | `status` | `PASS|FAIL`, required | PASS only when application rollback and all applicable cleanup succeed |
 | `reasonCode` | safe string, required | deterministic diagnostic |
 | `cleanupSha256` | SHA-256, required | canonical digest with this field omitted |
+
+The aggregate is written once. Replay retains its original timestamps and digest and accepts only byte-equivalent
+application, production and restore results; it never creates a second evidence file or rewrites immutable bytes.
 
 `CleanupResultV1` always has the exact keys `scope`, `status`, `reasonCode`, `authorityLifecycleSha256`,
 `databasePrincipal`, `applicationTableCount`, `observedBefore`, `removedResourceSetSha256`, `observedAfter`, and

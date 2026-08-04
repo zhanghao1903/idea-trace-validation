@@ -729,9 +729,11 @@ export const verifyCleanupReference = (
   const expectedPath =
     kind === "ROLLBACK_CLEANUP"
       ? "rollback-cleanup.json"
-      : kind === "FORWARD_RESTORE_CLEANUP"
-        ? "forward-restore-cleanup.json"
-        : null;
+      : kind === "ROLLBACK_CLEANUP_RESULT"
+        ? "rollback-cleanup.json"
+        : kind === "FORWARD_RESTORE_CLEANUP"
+          ? "forward-restore-cleanup.json"
+          : null;
   if (
     input.schemaVersion !== "1.0" ||
     expectedPath === null ||
@@ -813,7 +815,10 @@ const verifyLifecycle = (input: {
       String(expected.attemptId),
     );
     if (
-      (input.scope === "PRODUCTION" && reference.kind !== "ROLLBACK_CLEANUP") ||
+      (input.scope === "PRODUCTION" &&
+        !["ROLLBACK_CLEANUP", "ROLLBACK_CLEANUP_RESULT"].includes(
+          String(reference.kind),
+        )) ||
       (state === "CLEANED" && reference.status !== "PASS") ||
       (state === "CLEANUP_FAILED" && reference.status !== "FAIL")
     )
@@ -1788,17 +1793,14 @@ const cleanupEvidencePath = (evidenceRoot: string, attemptId: string): string =>
     "rollback-cleanup.json",
   );
 
-export const resolveRollbackCleanupReference = async (input: {
+const readRollbackCleanupEvidence = async (input: {
   evidenceRoot: string;
   attempt: JsonRecord;
-  reference: unknown;
+  reference: JsonRecord;
 }): Promise<JsonRecord> => {
   const expected = authority(input.attempt);
   const target = parseDeploymentTarget(input.attempt.target);
   const attemptId = String(expected.attemptId);
-  const reference = verifyCleanupReference(input.reference, attemptId);
-  if (reference.kind !== "ROLLBACK_CLEANUP")
-    throw new Error("ROLLBACK_CLEANUP_REFERENCE_KIND");
   const file = cleanupEvidencePath(input.evidenceRoot, attemptId);
   const evidence = verifyRollbackCleanupEvidence(
     JSON.parse(await readFile(file, "utf8")),
@@ -1809,9 +1811,25 @@ export const resolveRollbackCleanupReference = async (input: {
     evidence.targetId !== expected.targetId ||
     evidence.candidateManifestSha256 !== expected.candidateManifestSha256 ||
     evidence.composeProject !== target.composeProject ||
-    evidence.status !== reference.status ||
-    evidence.cleanupSha256 !== reference.cleanupSha256
+    evidence.cleanupSha256 !== input.reference.cleanupSha256
   )
+    throw new Error("CLEANUP_REFERENCE_MISMATCH");
+  return evidence;
+};
+
+export const resolveRollbackCleanupReference = async (input: {
+  evidenceRoot: string;
+  attempt: JsonRecord;
+  reference: unknown;
+}): Promise<JsonRecord> => {
+  const reference = verifyCleanupReference(
+    input.reference,
+    String(input.attempt.attemptId),
+  );
+  if (reference.kind !== "ROLLBACK_CLEANUP")
+    throw new Error("ROLLBACK_CLEANUP_REFERENCE_KIND");
+  const evidence = await readRollbackCleanupEvidence({ ...input, reference });
+  if (evidence.status !== reference.status)
     throw new Error("CLEANUP_REFERENCE_MISMATCH");
   return evidence;
 };
@@ -2004,15 +2022,27 @@ const resolveCleanupResultReference = async (input: {
     input.reference,
     String(input.attempt.attemptId),
   );
-  if (reference.kind === "ROLLBACK_CLEANUP") {
-    const aggregate = await resolveRollbackCleanupReference({
+  if (
+    ["ROLLBACK_CLEANUP", "ROLLBACK_CLEANUP_RESULT"].includes(
+      String(reference.kind),
+    )
+  ) {
+    const aggregate = await readRollbackCleanupEvidence({
       evidenceRoot: input.evidenceRoot,
       attempt: input.attempt,
       reference,
     });
-    return verifyCleanupResult(
+    const result = verifyCleanupResult(
       input.scope === "PRODUCTION" ? aggregate.production : aggregate.restore,
     );
+    if (
+      (reference.kind === "ROLLBACK_CLEANUP" &&
+        aggregate.status !== reference.status) ||
+      (reference.kind === "ROLLBACK_CLEANUP_RESULT" &&
+        result.status !== reference.status)
+    )
+      throw new Error("CLEANUP_REFERENCE_MISMATCH");
+    return result;
   }
   if (
     input.scope !== "RESTORE" ||
@@ -2028,6 +2058,28 @@ const resolveCleanupResultReference = async (input: {
     databaseName: input.databaseName,
   });
   return verifyCleanupResult(evidence.restore);
+};
+
+const rollbackCleanupResultReference = (
+  evidence: JsonRecord,
+  scope: CleanupScope,
+): JsonRecord => {
+  const result = verifyCleanupResult(
+    scope === "PRODUCTION" ? evidence.production : evidence.restore,
+  );
+  if (result.status === "NOT_APPLICABLE")
+    throw new Error("ROLLBACK_CLEANUP_RESULT_REFERENCE_NOT_APPLICABLE");
+  return verifyCleanupReference(
+    {
+      schemaVersion: "1.0",
+      kind: "ROLLBACK_CLEANUP_RESULT",
+      attemptId: evidence.attemptId,
+      relativePath: "rollback-cleanup.json",
+      status: result.status,
+      cleanupSha256: evidence.cleanupSha256,
+    },
+    String(evidence.attemptId),
+  );
 };
 
 const persistRollbackCleanupEvidence = async (input: {
@@ -2074,12 +2126,21 @@ const persistRollbackCleanupEvidence = async (input: {
     input.evidenceRoot,
     String(input.attempt.attemptId),
   );
+  let durable = verified;
   if (await exists(file)) {
     const persisted = verifyRollbackCleanupEvidence(
       JSON.parse(await readFile(file, "utf8")),
     );
-    if (canonicalJson(persisted) !== canonicalJson(verified))
+    const replay: JsonRecord = {
+      ...verified,
+      startedAt: persisted.startedAt,
+      finishedAt: persisted.finishedAt,
+      cleanupSha256: "",
+    };
+    replay.cleanupSha256 = canonicalSha256(replay, ["cleanupSha256"]);
+    if (canonicalJson(persisted) !== canonicalJson(replay))
       throw new Error("ROLLBACK_CLEANUP_REPLAY_CONFLICT");
+    durable = persisted;
   } else {
     await atomicWrite(file, canonicalJson(verified), 0o600);
   }
@@ -2089,12 +2150,12 @@ const persistRollbackCleanupEvidence = async (input: {
       kind: "ROLLBACK_CLEANUP",
       attemptId: expected.attemptId,
       relativePath: "rollback-cleanup.json",
-      status,
-      cleanupSha256: verified.cleanupSha256,
+      status: durable.status,
+      cleanupSha256: durable.cleanupSha256,
     },
     String(expected.attemptId),
   );
-  return { evidence: verified, reference };
+  return { evidence: durable, reference };
 };
 
 const completeLifecycle = async (input: {
@@ -2603,6 +2664,14 @@ export const executeRollbackWithCleanup = async (input: {
     startedAt,
     finishedAt: input.now().toISOString(),
   });
+  const productionReference =
+    production.status === "NOT_APPLICABLE"
+      ? persisted.reference
+      : rollbackCleanupResultReference(persisted.evidence, "PRODUCTION");
+  const restoreReference =
+    restore.status === "NOT_APPLICABLE"
+      ? persisted.reference
+      : rollbackCleanupResultReference(persisted.evidence, "RESTORE");
   await Promise.all([
     completeLifecycle({
       evidenceRoot: input.evidenceRoot,
@@ -2611,7 +2680,7 @@ export const executeRollbackWithCleanup = async (input: {
       composeProject: input.productionProject,
       databaseName: input.databaseName,
       result: production,
-      reference: persisted.reference,
+      reference: productionReference,
       now: input.now,
     }),
     completeLifecycle({
@@ -2622,7 +2691,7 @@ export const executeRollbackWithCleanup = async (input: {
       databaseName: input.restoreDatabaseName,
       isolatedTarget: input.isolatedTarget ?? null,
       result: restore,
-      reference: persisted.reference,
+      reference: restoreReference,
       now: input.now,
     }),
   ]);

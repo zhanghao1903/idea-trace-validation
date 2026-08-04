@@ -10,6 +10,8 @@
 - Cycle 3 review result: `e27a758879166520009776b3950ee7ec6a90d297aaf714d811dd3346628f2791`
 - Cycle 4 review result: `236e87ba06125e4c73c5c3b8091e7a99286f57a4b5a7f146e762c1614af6ed19`
 - Cycle 4 immutable report: `f96e0228db082c30e7d24e2a5d1653298aa5197a`
+- Cycle 5 review result: `85cb6601b8cd1874928b6591c039f8bf85d0b2ae278c67900bf53a46188a98a4`
+- Cycle 5 immutable report: `d423c3bfc697861f71940a3337643f612139e0ea`
 - Scope: repository implementation and local/CI verification only
 - Production deployment: `NOT RUN`
 
@@ -54,8 +56,8 @@ git diff --check
 | Gate | Result |
 | --- | --- |
 | formatting, lint, Skill/generated contracts, TypeScript and build | PASS |
-| repository unit/contract/integration/Web/acceptance suites | PASS: 142 + 23 + 31 + 8 + 13 tests |
-| `npm run test:deployment:unit` | PASS: 7 files, 87 tests |
+| repository unit/contract/integration/Web/acceptance suites | PASS: 144 + 23 + 31 + 8 + 13 tests |
+| `npm run test:deployment:unit` | PASS: 7 files, 89 tests |
 | `npm run test:deployment:authority` | PASS: 16 tests |
 | `npm run test:deployment:restore-chain` | PASS: 27 tests |
 | `npm run deploy:lp05:validate` | PASS: `LP05_RELEASE_READINESS_PASS` |
@@ -108,6 +110,17 @@ regression remains green. Four new actual-rollback regressions replace terminal 
 with malformed and digest-valid wrong-project variants and require rejection with zero application rollback calls,
 zero new Docker deletes, intact production resources, no rollback aggregate or terminal evidence, and the terminal
 lifecycle left unchanged.
+
+## Cycle 5 code-review remediation
+
+Cycle 5 closed PRR-002 and exposed PRR-003: one aggregate FAIL reference could not simultaneously finalize a
+successful production cleanup as `CLEANED` and a failed restore cleanup as `CLEANUP_FAILED`. The sole immutable
+aggregate remains the terminal authority, while each non-not-applicable lifecycle now receives a closed
+`ROLLBACK_CLEANUP_RESULT` reference to the same file and digest with status bound to its own result. Aggregate replay
+retains the originally persisted timestamps and rejects any semantic change. New actual-rollback regressions require
+production PASS/CLEANED plus restore FAIL/CLEANUP_FAILED, aggregate FAIL, terminal `ROLLBACK_FAILED`, and replay
+without a second restore delete or aggregate conflict; the symmetric production FAIL plus restore PASS case must
+also finalize both lifecycle states and terminal evidence.
 
 ## Release boundary
 
