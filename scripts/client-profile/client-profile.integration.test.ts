@@ -3,19 +3,28 @@ import {
   type IncomingMessage,
   type ServerResponse,
 } from "node:http";
+import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { canonicalJson } from "./canonical-json.js";
-import type { DeploymentConnectionHandoffV1 } from "./contracts.js";
+import {
+  deploymentHandoffAuthoritySha256,
+  parseProfile,
+  type DeploymentConnectionHandoffV1,
+} from "./contracts.js";
 import { initializeProfile } from "./initialize.js";
+import { skillTreeSha256 } from "./safe-files.js";
 import { openapiCompatibilityDigest, verifyConnection } from "./verify.js";
 
 const REQUEST_ID = "req_01KYZMC5YD76BMCGXBCPERA3M1";
 const IDEA_ID = "idea_01KYZMC5YD76BMCGXBCPERA3M1";
 const TOKEN = "isolated-ai-token-abcdefghijklmnopqrstuvwxyz-123456";
+const CURRENT_COMMIT = execFileSync("git", ["rev-parse", "HEAD"], {
+  encoding: "utf8",
+}).trim();
 
 const roots: string[] = [];
 let priorToken: string | undefined;
@@ -56,8 +65,10 @@ const startFixture = async () => {
   const openapi = JSON.parse(
     readFileSync(path.resolve("openapi/lp03.v1.json"), "utf8"),
   ) as unknown;
+  let servedOpenapi = openapi;
   let storedProposer: unknown;
   let writes = 0;
+  let credentialMode: "ACCEPT" | "REJECT" | "UNKNOWN" = "ACCEPT";
   const server = createServer(async (request, response) => {
     if (request.url === "/health/live")
       return json(response, 200, {
@@ -71,9 +82,17 @@ const startFixture = async () => {
         data: { status: "ready" },
         meta: { requestId: REQUEST_ID },
       });
-    if (request.url === "/openapi.json") return json(response, 200, openapi);
+    if (request.url === "/openapi.json")
+      return json(response, 200, servedOpenapi);
     if (request.url === "/api/v1/ideas" && request.method === "POST") {
-      if (request.headers.authorization !== `Bearer ${TOKEN}`)
+      if (credentialMode === "UNKNOWN") {
+        request.socket.destroy();
+        return;
+      }
+      if (
+        credentialMode === "REJECT" ||
+        request.headers.authorization !== `Bearer ${TOKEN}`
+      )
         return json(response, 401, {
           ok: false,
           error: { code: "WRITE_CREDENTIAL_REQUIRED" },
@@ -110,12 +129,51 @@ const startFixture = async () => {
     baseUrl: `http://127.0.0.1:${address.port}`,
     openapi,
     writes: () => writes,
+    setCredentialAccepted: (accepted: boolean) => {
+      credentialMode = accepted ? "ACCEPT" : "REJECT";
+    },
+    setCredentialUnknown: () => {
+      credentialMode = "UNKNOWN";
+    },
+    setOpenapi: (value: unknown) => {
+      servedOpenapi = value;
+    },
     close: () =>
       new Promise<void>((resolve, reject) =>
         server.close((error) =>
           error === undefined ? resolve() : reject(error),
         ),
       ),
+  };
+};
+
+const validHandoff = async (
+  baseUrl: string,
+  openapi: unknown,
+  overrides: Partial<DeploymentConnectionHandoffV1> = {},
+): Promise<DeploymentConnectionHandoffV1> => {
+  const { authoritySha256: ignored, ...authorityOverrides } = overrides;
+  void ignored;
+  const authority = {
+    schemaVersion: 1 as const,
+    kind: "idea-validation-deployment-handoff" as const,
+    baseUrl,
+    openapiUrl: `${baseUrl}/openapi.json`,
+    releaseId: "isolated-release",
+    sourceCommit: CURRENT_COMMIT,
+    skillCommit: CURRENT_COMMIT,
+    skillVersion: "0.1.0",
+    skillTreeSha256: await skillTreeSha256(path.resolve("skills")),
+    openapiSha256: openapiCompatibilityDigest(openapi),
+    declaredAiScopes: ["idea:write"],
+    credentialId: "isolated-ai",
+    expiresAt: null,
+    issuedAt: "2026-08-05T00:00:00Z",
+    ...authorityOverrides,
+  };
+  return {
+    ...authority,
+    authoritySha256: deploymentHandoffAuthoritySha256(authority),
   };
 };
 
@@ -126,21 +184,7 @@ describe("client initialization over real HTTP", () => {
       const root = temporaryRoot();
       const handoffPath = path.join(root, "handoff.json");
       const outputPath = path.join(root, "profile.json");
-      const handoff: DeploymentConnectionHandoffV1 = {
-        schemaVersion: 1,
-        kind: "idea-validation-deployment-handoff",
-        baseUrl: fixture.baseUrl,
-        openapiUrl: `${fixture.baseUrl}/openapi.json`,
-        releaseId: "isolated-release",
-        sourceCommit: "a".repeat(40),
-        skillCommit: "b".repeat(40),
-        skillVersion: "0.1.0",
-        openapiSha256: openapiCompatibilityDigest(fixture.openapi),
-        declaredAiScopes: ["idea:write"],
-        credentialId: "isolated-ai",
-        expiresAt: null,
-        issuedAt: "2026-08-05T00:00:00Z",
-      };
+      const handoff = await validHandoff(fixture.baseUrl, fixture.openapi);
       writeFileSync(handoffPath, canonicalJson(handoff), { mode: 0o600 });
       process.env.IDEA_VALIDATION_AI_TOKEN = TOKEN;
       const common = {
@@ -188,6 +232,134 @@ describe("client initialization over real HTTP", () => {
     }
   });
 
+  it("returns and persists UNVERIFIED after the same bearer is revoked", async () => {
+    const fixture = await startFixture();
+    try {
+      const root = temporaryRoot();
+      const handoffPath = path.join(root, "handoff.json");
+      const outputPath = path.join(root, "profile.json");
+      writeFileSync(
+        handoffPath,
+        canonicalJson(await validHandoff(fixture.baseUrl, fixture.openapi)),
+        { mode: 0o600 },
+      );
+      process.env.IDEA_VALIDATION_AI_TOKEN = TOKEN;
+      const common = {
+        handoffPath,
+        clientId: "revoked-client-01",
+        displayName: "Revoked test client",
+        credentialSource: {
+          kind: "ENV" as const,
+          name: "IDEA_VALIDATION_AI_TOKEN",
+        },
+        outputPath,
+        skillRoot: path.resolve("skills"),
+        allowLoopbackHttp: true,
+        verifySyntheticWrite: true,
+      };
+      expect((await initializeProfile(common)).credentialVerified).toBe(true);
+      fixture.setCredentialUnknown();
+      await expect(initializeProfile(common)).rejects.toThrow(
+        "CREDENTIAL_RESULT_UNKNOWN",
+      );
+      expect(
+        parseProfile(JSON.parse(readFileSync(outputPath, "utf8"))).validation
+          .credentialUsability,
+      ).toBe("VERIFIED");
+      fixture.setCredentialAccepted(false);
+      const rejected = await initializeProfile(common);
+      expect(rejected.changed).toBe(true);
+      expect(rejected.credentialVerified).toBe(false);
+      expect(rejected.profile.validation.credentialUsability).toBe(
+        "UNVERIFIED",
+      );
+      expect(rejected.profile.validation.credentialEvidence).toBeNull();
+      expect(
+        parseProfile(JSON.parse(readFileSync(outputPath, "utf8"))).validation
+          .credentialUsability,
+      ).toBe("UNVERIFIED");
+    } finally {
+      await fixture.close();
+    }
+  });
+
+  it("rejects nonexistent commit, wrong Skill tree/version and release tampering before writes", async () => {
+    const fixture = await startFixture();
+    try {
+      const root = temporaryRoot();
+      const outputPath = path.join(root, "profile.json");
+      process.env.IDEA_VALIDATION_AI_TOKEN = TOKEN;
+      const invoke = async (
+        handoff: DeploymentConnectionHandoffV1,
+      ): Promise<unknown> => {
+        const handoffPath = path.join(root, `handoff-${Math.random()}.json`);
+        writeFileSync(handoffPath, canonicalJson(handoff), { mode: 0o600 });
+        return initializeProfile({
+          handoffPath,
+          clientId: "authority-client-01",
+          displayName: "Authority test client",
+          credentialSource: {
+            kind: "ENV",
+            name: "IDEA_VALIDATION_AI_TOKEN",
+          },
+          outputPath,
+          skillRoot: path.resolve("skills"),
+          allowLoopbackHttp: true,
+          verifySyntheticWrite: true,
+        });
+      };
+
+      await expect(
+        invoke(
+          await validHandoff(fixture.baseUrl, fixture.openapi, {
+            skillCommit: "b".repeat(40),
+          }),
+        ),
+      ).rejects.toThrow("SKILL_COMMIT_NOT_FOUND");
+      await expect(
+        invoke(
+          await validHandoff(fixture.baseUrl, fixture.openapi, {
+            sourceCommit: "b562a3c0ede8384afef2007b8057a1250650a39f",
+          }),
+        ),
+      ).rejects.toThrow("SOURCE_OPENAPI_MISMATCH");
+      await expect(
+        invoke(
+          await validHandoff(fixture.baseUrl, fixture.openapi, {
+            skillTreeSha256: "f".repeat(64),
+          }),
+        ),
+      ).rejects.toThrow("SKILL_TREE_COMMIT_MISMATCH");
+      await expect(
+        invoke(
+          await validHandoff(fixture.baseUrl, fixture.openapi, {
+            skillVersion: "9.9.9",
+          }),
+        ),
+      ).rejects.toThrow("SKILL_VERSION_MISMATCH");
+      const releaseTampered = await validHandoff(
+        fixture.baseUrl,
+        fixture.openapi,
+      );
+      releaseTampered.releaseId = "different-release";
+      await expect(invoke(releaseTampered)).rejects.toThrow(
+        "HANDOFF_AUTHORITY_MISMATCH",
+      );
+      const liveDrift = structuredClone(fixture.openapi) as Record<
+        string,
+        unknown
+      >;
+      (liveDrift.components as Record<string, unknown>).schemas = {};
+      fixture.setOpenapi(liveDrift);
+      await expect(
+        invoke(await validHandoff(fixture.baseUrl, fixture.openapi)),
+      ).rejects.toThrow("OPENAPI_INCOMPATIBLE");
+      expect(fixture.writes()).toBe(0);
+    } finally {
+      await fixture.close();
+    }
+  });
+
   it("keeps credential usability unverified for the wrong token without creating data", async () => {
     const fixture = await startFixture();
     try {
@@ -196,21 +368,7 @@ describe("client initialization over real HTTP", () => {
       const outputPath = path.join(root, "profile.json");
       writeFileSync(
         handoffPath,
-        canonicalJson({
-          schemaVersion: 1,
-          kind: "idea-validation-deployment-handoff",
-          baseUrl: fixture.baseUrl,
-          openapiUrl: `${fixture.baseUrl}/openapi.json`,
-          releaseId: "isolated-release",
-          sourceCommit: "a".repeat(40),
-          skillCommit: "b".repeat(40),
-          skillVersion: "0.1.0",
-          openapiSha256: openapiCompatibilityDigest(fixture.openapi),
-          declaredAiScopes: ["idea:write"],
-          credentialId: "isolated-ai",
-          expiresAt: null,
-          issuedAt: "2026-08-05T00:00:00Z",
-        }),
+        canonicalJson(await validHandoff(fixture.baseUrl, fixture.openapi)),
         { mode: 0o600 },
       );
       process.env.IDEA_VALIDATION_AI_TOKEN =
@@ -262,21 +420,15 @@ describe("client initialization over real HTTP", () => {
     const baseUrl = `http://127.0.0.1:${address.port}`;
     try {
       await expect(
-        verifyConnection({
-          schemaVersion: 1,
-          kind: "idea-validation-deployment-handoff",
-          baseUrl,
-          openapiUrl: `${baseUrl}/openapi.json`,
-          releaseId: "redirect-release",
-          sourceCommit: "a".repeat(40),
-          skillCommit: "b".repeat(40),
-          skillVersion: "0.1.0",
-          openapiSha256: "c".repeat(64),
-          declaredAiScopes: ["idea:write"],
-          credentialId: "isolated-ai",
-          expiresAt: null,
-          issuedAt: "2026-08-05T00:00:00Z",
-        }),
+        verifyConnection(
+          await validHandoff(
+            baseUrl,
+            JSON.parse(
+              readFileSync(path.resolve("openapi/lp03.v1.json"), "utf8"),
+            ) as unknown,
+            { releaseId: "redirect-release" },
+          ),
+        ),
       ).rejects.toThrow("REDIRECT_REJECTED");
       expect(redirected).toBe(0);
     } finally {

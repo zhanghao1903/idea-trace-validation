@@ -128,7 +128,9 @@ Codex、Claude 和兼容 Markdown-Skill 客户端先加载
 [`idea-validation-workflow`](./skills/idea-validation-workflow/SKILL.md)。初始化使用两份彼此分离的输入：
 
 - 部署操作者可安全分发的 `DeploymentConnectionHandoffV1`，包含 HTTPS
-  origin、release、Skill/OpenAPI 与非秘密 credential identity；
+  origin、release、已由 Git
+  commit/树字节/完整 OpenAPI 摘要验证的 Skill/OpenAPI，以及非秘密 credential
+  identity；
 - 只存在于客户端安全运行时的 AI bearer 环境变量或 `0600` token file。raw
   token 不进入 profile、命令参数、prompt、Git、日志或证据。
 

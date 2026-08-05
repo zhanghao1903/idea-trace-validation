@@ -47,34 +47,17 @@ export const openapiCompatibilityProjection = (value: unknown): unknown => {
     aiWrite.scheme !== "bearer"
   )
     throw new Error("OPENAPI_INCOMPATIBLE");
-  const projectedPaths: Record<string, unknown> = {};
   for (const path of Object.keys(REQUIRED_OPERATIONS).sort()) {
     const item = asRecord(paths[path]);
-    const methods: Record<string, unknown> = {};
     for (const method of REQUIRED_OPERATIONS[path] ?? []) {
       const operation = asRecord(item[method]);
-      const responses = asRecord(operation.responses);
-      const security = Array.isArray(operation.security)
-        ? operation.security
-        : [];
-      methods[method] = {
-        responseStatuses: Object.keys(responses).sort(),
-        aiWrite: security.some(
-          (entry) =>
-            entry !== null && typeof entry === "object" && "aiWrite" in entry,
-        ),
-        requestRequired:
-          operation.requestBody !== undefined &&
-          asRecord(operation.requestBody).required === true,
-      };
+      asRecord(operation.responses);
     }
-    projectedPaths[path] = methods;
   }
-  return {
-    openapi: document.openapi,
-    aiWrite: { type: aiWrite.type, scheme: aiWrite.scheme },
-    paths: projectedPaths,
-  };
+  // The Skills consume parameters, request/response schemas, actor fields,
+  // security declarations and referenced components. Hash the complete
+  // canonical document so no consumed contract can drift outside the gate.
+  return document;
 };
 
 export const openapiCompatibilityDigest = (value: unknown): string =>

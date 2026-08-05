@@ -1,3 +1,5 @@
+import { canonicalSha256 } from "./canonical-json.js";
+
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$/u;
 const SHA256 = /^[a-f0-9]{64}$/u;
 const GIT_SHA = /^[a-f0-9]{40}$/u;
@@ -19,12 +21,19 @@ export interface DeploymentConnectionHandoffV1 {
   sourceCommit: string;
   skillCommit: string;
   skillVersion: string;
+  skillTreeSha256: string;
   openapiSha256: string;
   declaredAiScopes: string[];
   credentialId: string;
   expiresAt: string | null;
   issuedAt: string;
+  authoritySha256: string;
 }
+
+export type DeploymentConnectionHandoffAuthority = Omit<
+  DeploymentConnectionHandoffV1,
+  "authoritySha256"
+>;
 
 export interface CredentialEvidenceV1 {
   kind: "SYNTHETIC_IDEA_READBACK";
@@ -158,11 +167,13 @@ export const parseHandoff = (value: unknown): DeploymentConnectionHandoffV1 => {
       "sourceCommit",
       "skillCommit",
       "skillVersion",
+      "skillTreeSha256",
       "openapiSha256",
       "declaredAiScopes",
       "credentialId",
       "expiresAt",
       "issuedAt",
+      "authoritySha256",
     ],
     "HANDOFF_FIELDS_INVALID",
   );
@@ -171,7 +182,7 @@ export const parseHandoff = (value: unknown): DeploymentConnectionHandoffV1 => {
     input.kind !== "idea-validation-deployment-handoff"
   )
     throw new Error("HANDOFF_VERSION_INVALID");
-  return {
+  const parsed: DeploymentConnectionHandoffV1 = {
     schemaVersion: 1,
     kind: "idea-validation-deployment-handoff",
     baseUrl: text(input.baseUrl, /^.{1,2048}$/u, "BASE_URL_INVALID"),
@@ -184,12 +195,30 @@ export const parseHandoff = (value: unknown): DeploymentConnectionHandoffV1 => {
       SKILL_VERSION,
       "SKILL_VERSION_INVALID",
     ),
+    skillTreeSha256: text(input.skillTreeSha256, SHA256, "SKILL_TREE_INVALID"),
     openapiSha256: text(input.openapiSha256, SHA256, "OPENAPI_DIGEST_INVALID"),
     declaredAiScopes: scopes(input.declaredAiScopes),
     credentialId: text(input.credentialId, SAFE_ID, "CREDENTIAL_ID_INVALID"),
     expiresAt: timestamp(input.expiresAt, true, "EXPIRY_INVALID"),
     issuedAt: timestamp(input.issuedAt, false, "ISSUED_AT_INVALID") as string,
+    authoritySha256: text(
+      input.authoritySha256,
+      SHA256,
+      "HANDOFF_AUTHORITY_INVALID",
+    ),
   };
+  if (deploymentHandoffAuthoritySha256(parsed) !== parsed.authoritySha256)
+    throw new Error("HANDOFF_AUTHORITY_MISMATCH");
+  return parsed;
+};
+
+export const deploymentHandoffAuthoritySha256 = (
+  handoff: DeploymentConnectionHandoffAuthority,
+): string => {
+  const { authoritySha256: ignored, ...authority } =
+    handoff as DeploymentConnectionHandoffV1;
+  void ignored;
+  return canonicalSha256(authority);
 };
 
 const parseSource = (value: unknown): CredentialSource => {

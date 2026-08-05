@@ -12,12 +12,13 @@ import {
   type CredentialSource,
 } from "./contracts.js";
 import { redactSecrets, resolveCredential } from "./credential.js";
+import { assertDeploymentAuthority } from "./git-authority.js";
 import {
   deriveProfileId,
   profileIdentity,
   storeProfile,
 } from "./profile-store.js";
-import { readJsonFile, skillTreeSha256 } from "./safe-files.js";
+import { readJsonFile } from "./safe-files.js";
 import { assertOpenapiUrl, normalizeBaseUrl } from "./url.js";
 import { verifyConnection, verifySyntheticWrite } from "./verify.js";
 
@@ -48,8 +49,9 @@ export const initializeProfile = async (input: {
   const displayName = assertDisplayName(input.displayName);
   if (handoff.expiresAt !== null && Date.parse(handoff.expiresAt) <= Date.now())
     throw new Error("CREDENTIAL_EXPIRED");
-  const credential = await resolveCredential(input.credentialSource);
+  await assertDeploymentAuthority(handoff, input.skillRoot);
   const connection = await verifyConnection(handoff);
+  const credential = await resolveCredential(input.credentialSource);
   const evidence = input.verifySyntheticWrite
     ? await verifySyntheticWrite({
         handoff,
@@ -60,7 +62,6 @@ export const initializeProfile = async (input: {
       })
     : null;
   const updatedAt = input.now?.() ?? new Date().toISOString();
-  const skillTree = await skillTreeSha256(input.skillRoot);
   const profile: ClientConnectionProfileV1 = {
     schemaVersion: 1,
     kind: "idea-validation-client-profile",
@@ -73,7 +74,7 @@ export const initializeProfile = async (input: {
     skill: {
       commit: handoff.skillCommit,
       version: handoff.skillVersion,
-      treeSha256: skillTree,
+      treeSha256: handoff.skillTreeSha256,
     },
     clientId,
     displayName,

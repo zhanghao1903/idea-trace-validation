@@ -3,11 +3,18 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { canonicalJson, canonicalSha256 } from "./canonical-json.js";
-import { parseArgs, repeatedValues, requiredValue } from "./cli-args.js";
 import {
+  optionalValue,
+  parseArgs,
+  repeatedValues,
+  requiredValue,
+} from "./cli-args.js";
+import {
+  deploymentHandoffAuthoritySha256,
   parseHandoff,
   type DeploymentConnectionHandoffV1,
 } from "./contracts.js";
+import { resolveDeploymentAuthority } from "./git-authority.js";
 import { atomicWrite0600 } from "./safe-files.js";
 import { normalizeBaseUrl } from "./url.js";
 import { openapiCompatibilityDigest } from "./verify.js";
@@ -19,6 +26,7 @@ export const createDeploymentHandoff = async (input: {
   skillCommit: string;
   skillVersion: string;
   openapiPath: string;
+  skillRoot: string;
   credentialId: string;
   expiresAt: string | null;
   issuedAt: string;
@@ -30,7 +38,15 @@ export const createDeploymentHandoff = async (input: {
   const openapi = JSON.parse(
     await readFile(input.openapiPath, "utf8"),
   ) as unknown;
-  const handoff = parseHandoff({
+  const openapiSha256 = openapiCompatibilityDigest(openapi);
+  const authority = await resolveDeploymentAuthority({
+    skillRoot: input.skillRoot,
+    sourceCommit: input.sourceCommit,
+    skillCommit: input.skillCommit,
+    skillVersion: input.skillVersion,
+    openapiSha256,
+  });
+  const handoffAuthority = {
     schemaVersion: 1,
     kind: "idea-validation-deployment-handoff",
     baseUrl,
@@ -39,11 +55,16 @@ export const createDeploymentHandoff = async (input: {
     sourceCommit: input.sourceCommit,
     skillCommit: input.skillCommit,
     skillVersion: input.skillVersion,
-    openapiSha256: openapiCompatibilityDigest(openapi),
+    skillTreeSha256: authority.skillTreeSha256,
+    openapiSha256,
     declaredAiScopes: [...input.declaredAiScopes].sort(),
     credentialId: input.credentialId,
     expiresAt: input.expiresAt,
     issuedAt: input.issuedAt,
+  } as const;
+  const handoff = parseHandoff({
+    ...handoffAuthority,
+    authoritySha256: deploymentHandoffAuthoritySha256(handoffAuthority),
   });
   await atomicWrite0600(input.outputPath, canonicalJson(handoff));
   return handoff;
@@ -59,6 +80,7 @@ const run = async (): Promise<void> => {
       "--skill-commit",
       "--skill-version",
       "--openapi-file",
+      "--skill-root",
       "--credential-id",
       "--expires-at",
       "--issued-at",
@@ -69,6 +91,8 @@ const run = async (): Promise<void> => {
   );
   const expiry = requiredValue(args, "--expires-at");
   const outputPath = path.resolve(requiredValue(args, "--output"));
+  const currentFile = fileURLToPath(import.meta.url);
+  const repoRoot = path.resolve(path.dirname(currentFile), "../..");
   const handoff = await createDeploymentHandoff({
     baseUrl: requiredValue(args, "--base-url"),
     releaseId: requiredValue(args, "--release-id"),
@@ -76,6 +100,9 @@ const run = async (): Promise<void> => {
     skillCommit: requiredValue(args, "--skill-commit"),
     skillVersion: requiredValue(args, "--skill-version"),
     openapiPath: path.resolve(requiredValue(args, "--openapi-file")),
+    skillRoot: path.resolve(
+      optionalValue(args, "--skill-root") ?? path.join(repoRoot, "skills"),
+    ),
     credentialId: requiredValue(args, "--credential-id"),
     expiresAt: expiry === "none" ? null : expiry,
     issuedAt: requiredValue(args, "--issued-at"),

@@ -75,14 +75,16 @@ distributed with installation instructions.
 | `baseUrl` | string | Yes | operator | Canonical HTTPS origin; loopback HTTP only under explicit test flag |
 | `openapiUrl` | string | Yes | generator | Exactly `<baseUrl>/openapi.json` |
 | `releaseId` | bounded safe ID | Yes | release operator | 1–120 chars; not authorization |
-| `sourceCommit` | 40-char Git SHA | Yes | release operator | Exact deployed source claim |
-| `skillCommit` | 40-char Git SHA | Yes | release operator | Commit containing both Skills |
-| `skillVersion` | string | Yes | Skill metadata | Semantic version-like bounded value |
+| `sourceCommit` | 40-char Git SHA | Yes | release operator | Existing commit whose LP-03 OpenAPI digest equals the handoff and observed endpoint |
+| `skillCommit` | 40-char Git SHA | Yes | release operator | Existing commit containing the exact local `skills/` tree |
+| `skillVersion` | string | Yes | Skill metadata | Must equal repository package version at `skillCommit` |
+| `skillTreeSha256` | 64 lowercase hex | Yes | generator | Canonical digest of the exact local `skills/` bytes proven against `skillCommit` |
 | `openapiSha256` | 64 lowercase hex | Yes | generator | Digest of expected LP-03 OpenAPI artifact |
 | `declaredAiScopes` | string array | Yes | operator | Closed allowlist; declarative only |
 | `credentialId` | bounded safe ID | Yes | operator | Non-secret rotation identity |
 | `expiresAt` | RFC3339 or `null` | Yes | operator | Unknown/no known expiry is explicit `null` |
 | `issuedAt` | RFC3339 | Yes | generator | Deterministic explicit input in tests |
+| `authoritySha256` | 64 lowercase hex | Yes | generator | Canonical binding of every preceding non-secret handoff field |
 
 The handoff contains neither credential source nor token fingerprint because those are client-local facts.
 
@@ -100,7 +102,7 @@ because local paths and operational labels are not intended as public release co
 | `profileRevision` | positive integer | Yes | initializer | `1`; increments only on explicit replacement |
 | `baseUrl` / `openapiUrl` | strings | Yes | handoff | Must retain canonical origin and exact endpoint |
 | `releaseId` | string | Yes | handoff | Must equal the active handoff |
-| `sourceCommit` | Git SHA | Yes | handoff | Informational deployed-source binding |
+| `sourceCommit` | Git SHA | Yes | handoff | Verified source/OpenAPI binding |
 | `skill` | object | Yes | handoff/local Skill | `commit`, `version`, `treeSha256` |
 | `clientId` | string | Yes | client operator | 1–120 chars; `^[A-Za-z0-9][A-Za-z0-9._:-]*$` |
 | `displayName` | string | Yes | client operator | Trimmed 1–120 chars; no control characters |
@@ -169,9 +171,12 @@ writes atomically after all checks pass.
 6. Require 200 success envelopes from `/health/live` and `/health/ready`.
 7. Require `/openapi.json` to be OpenAPI 3.1, contain the existing LP-03 core read/write routes,
    use the `aiWrite` HTTP bearer security scheme and match the handoff `openapiSha256` compatibility artifact.
+8. Before reading a credential, verify the authority digest, both Git commits, exact `skills/` file set/bytes/modes,
+   repository version at `skillCommit`, and the LP-03 OpenAPI at `sourceCommit`.
 
 The live document need not byte-equal the repository artifact because generated ordering may differ. The
-compatibility digest is computed from a canonical projection of required paths, methods, schemas and security.
+compatibility digest is computed from the complete canonical OpenAPI document, covering every parameter,
+request/response schema, actor field, security declaration and referenced component consumed by either Skill.
 
 ## Credential Verification
 
@@ -251,9 +256,9 @@ sequenceDiagram
 | State | Entry | Allowed next step | Failure behavior |
 | --- | --- | --- | --- |
 | Absent | No profile | Validate all inputs | No file on failure |
-| Configured | Secure source present | Connection/OpenAPI probe | Keep prior valid profile unchanged |
+| Configured | Secure source present | Authority plus connection/OpenAPI probe | Fail without changing the prior file |
 | Connection verified | Public checks pass | Write profile with usability `UNVERIFIED` | Do not call business writes automatically |
-| Write verified | Real auth success + public read match | Use existing business Skill | Evidence contains sanitized IDs only |
+| Write verified | Real auth success + public read match | Use existing business Skill | A current 401/403 durably downgrades to `UNVERIFIED`; unknown result returns non-success without a stale success claim |
 | Update required | Identity input changed | Explicit `--replace` | Never silently reuse old proof |
 | Invalid/corrupt | Schema/digest mismatch | Reinitialize | Fail closed before token use |
 | Removed | Explicit uninstall command | Reinitialize later | Remove profile only; never delete secret source |
@@ -300,7 +305,8 @@ longer authorized before recording rotation complete.
 
 - Closed handoff/profile schemas and canonical digest stability.
 - URL normalization, userinfo/query/fragment/path rejection, HTTPS and loopback exception.
-- Redirect rejection and OpenAPI compatibility projection.
+- Redirect rejection and complete canonical OpenAPI compatibility binding.
+- Nonexistent source/Skill commits, wrong local Skill tree, wrong Skill version and release-authority tampering.
 - `clientId`/`displayName`, credential ID, expiry and scope validation.
 - Environment/file source restrictions, symlink/mode checks and exact secret redaction.
 - Identical replay, explicit replacement, revision increment, lock contention and atomic-write recovery.

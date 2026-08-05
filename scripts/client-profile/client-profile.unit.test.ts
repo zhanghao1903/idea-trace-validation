@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import {
   chmodSync,
   mkdtempSync,
@@ -14,6 +15,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { canonicalJson, canonicalSha256 } from "./canonical-json.js";
 import {
   assertCredentialReferenceName,
+  deploymentHandoffAuthoritySha256,
   parseHandoff,
   parseProfile,
   type ClientConnectionProfileV1,
@@ -28,6 +30,7 @@ import {
 } from "./profile-store.js";
 import { normalizeBaseUrl } from "./url.js";
 import { verifyClientEvidence } from "./verify-client-evidence.js";
+import { openapiCompatibilityDigest } from "./verify.js";
 
 const roots: string[] = [];
 const temporaryRoot = (): string => {
@@ -43,21 +46,32 @@ afterEach(() => {
     rmSync(root, { recursive: true, force: true });
 });
 
-const handoff = () => ({
-  schemaVersion: 1,
-  kind: "idea-validation-deployment-handoff",
-  baseUrl: "https://idea.example.test",
-  openapiUrl: "https://idea.example.test/openapi.json",
-  releaseId: "release-1",
-  sourceCommit: "a".repeat(40),
-  skillCommit: "b".repeat(40),
-  skillVersion: "0.1.0",
-  openapiSha256: "c".repeat(64),
-  declaredAiScopes: ["idea:write"],
-  credentialId: "ai-primary",
-  expiresAt: null,
-  issuedAt: "2026-08-05T00:00:00Z",
-});
+const currentCommit = execFileSync("git", ["rev-parse", "HEAD"], {
+  encoding: "utf8",
+}).trim();
+
+const handoff = () => {
+  const authority = {
+    schemaVersion: 1 as const,
+    kind: "idea-validation-deployment-handoff" as const,
+    baseUrl: "https://idea.example.test",
+    openapiUrl: "https://idea.example.test/openapi.json",
+    releaseId: "release-1",
+    sourceCommit: currentCommit,
+    skillCommit: currentCommit,
+    skillVersion: "0.1.0",
+    skillTreeSha256: "d".repeat(64),
+    openapiSha256: "c".repeat(64),
+    declaredAiScopes: ["idea:write"],
+    credentialId: "ai-primary",
+    expiresAt: null,
+    issuedAt: "2026-08-05T00:00:00Z",
+  };
+  return {
+    ...authority,
+    authoritySha256: deploymentHandoffAuthoritySha256(authority),
+  };
+};
 
 const profile = (): ClientConnectionProfileV1 => {
   const value: ClientConnectionProfileV1 = {
@@ -124,6 +138,12 @@ describe("client profile contracts", () => {
     expect(() => assertCredentialReferenceName("HUMAN_CONTROL_TOKEN")).toThrow(
       "HUMAN_CONTROL_CREDENTIAL_FORBIDDEN",
     );
+  });
+
+  it("rejects a release claim changed outside the bound authority envelope", () => {
+    expect(() =>
+      parseHandoff({ ...handoff(), releaseId: "release-2" }),
+    ).toThrow("HANDOFF_AUTHORITY_MISMATCH");
   });
 
   it("normalizes only HTTPS origins and explicit loopback HTTP", () => {
@@ -242,6 +262,38 @@ describe("profile store", () => {
     expect(await removeProfile(outputPath)).toBe(true);
     expect(readFileSync(tokenPath, "utf8")).toContain("operator-owned");
   });
+
+  it("durably downgrades stale verified evidence after failed revalidation", async () => {
+    const root = temporaryRoot();
+    const outputPath = path.join(root, "client.json");
+    const verified = profile();
+    verified.validation.credentialUsability = "VERIFIED";
+    verified.validation.credentialEvidence = {
+      kind: "SYNTHETIC_IDEA_READBACK",
+      requestId: "req_01KYZMC5YD76BMCGXBCPERA3M1",
+      resourceId: "idea_01KYZMC5YD76BMCGXBCPERA3M1",
+      idempotencyKeySha256: "f".repeat(64),
+      observedClient: verified.clientId,
+      observedDisplayName: verified.displayName,
+      verifiedAt: "2026-08-05T00:00:00Z",
+    };
+    await storeProfile({ outputPath, candidate: verified, replace: false });
+
+    const rejected = profile();
+    rejected.updatedAt = "2026-08-05T01:00:00Z";
+    const result = await storeProfile({
+      outputPath,
+      candidate: rejected,
+      replace: false,
+    });
+    expect(result.changed).toBe(true);
+    expect(result.profile.validation.credentialUsability).toBe("UNVERIFIED");
+    expect(result.profile.validation.credentialEvidence).toBeNull();
+    expect(
+      parseProfile(JSON.parse(readFileSync(outputPath, "utf8"))).validation
+        .credentialUsability,
+    ).toBe("UNVERIFIED");
+  });
 });
 
 describe("deployment handoff and client evidence", () => {
@@ -251,10 +303,11 @@ describe("deployment handoff and client evidence", () => {
     const generated = await createDeploymentHandoff({
       baseUrl: "https://idea.example.test",
       releaseId: "release-1",
-      sourceCommit: "a".repeat(40),
-      skillCommit: "b".repeat(40),
+      sourceCommit: currentCommit,
+      skillCommit: currentCommit,
       skillVersion: "0.1.0",
       openapiPath: path.resolve("openapi/lp03.v1.json"),
+      skillRoot: path.resolve("skills"),
       credentialId: "ai-primary",
       expiresAt: null,
       issuedAt: "2026-08-05T00:00:00Z",
@@ -268,6 +321,64 @@ describe("deployment handoff and client evidence", () => {
     expect(parseHandoff(JSON.parse(readFileSync(output, "utf8")))).toEqual(
       generated,
     );
+    expect(generated.authoritySha256).toHaveLength(64);
+    expect(generated.skillTreeSha256).toHaveLength(64);
+  });
+
+  it("changes the OpenAPI digest for consumed contract drift", () => {
+    const source = JSON.parse(
+      readFileSync(path.resolve("openapi/lp03.v1.json"), "utf8"),
+    ) as Record<string, unknown>;
+    const original = openapiCompatibilityDigest(source);
+    const mutate = (
+      action: (copy: Record<string, unknown>) => void,
+    ): string => {
+      const copy = structuredClone(source);
+      action(copy);
+      return openapiCompatibilityDigest(copy);
+    };
+    expect(
+      mutate((copy) => {
+        const operation = (
+          (copy.paths as Record<string, unknown>)["/api/v1/ideas"] as Record<
+            string,
+            unknown
+          >
+        ).post as Record<string, unknown>;
+        operation.requestBody = {
+          required: true,
+          content: { "application/json": { schema: { type: "string" } } },
+        };
+      }),
+    ).not.toBe(original);
+    expect(
+      mutate((copy) => {
+        const components = copy.components as Record<string, unknown>;
+        components.schemas = {};
+      }),
+    ).not.toBe(original);
+    expect(
+      mutate((copy) => {
+        const operation = (
+          (copy.paths as Record<string, unknown>)["/api/v1/ideas"] as Record<
+            string,
+            unknown
+          >
+        ).get as Record<string, unknown>;
+        operation.parameters = [];
+      }),
+    ).not.toBe(original);
+    expect(
+      mutate((copy) => {
+        const operation = (
+          (copy.paths as Record<string, unknown>)["/api/v1/ideas"] as Record<
+            string,
+            unknown
+          >
+        ).post as Record<string, unknown>;
+        operation.security = [];
+      }),
+    ).not.toBe(original);
   });
 
   it("requires a same-authority Codex and Claude evidence pair", async () => {

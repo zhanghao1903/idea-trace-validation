@@ -55,14 +55,14 @@ export const storeProfile = async (input: {
         canonicalSha256(profileIdentity(input.candidate))
       ) {
         if (
-          existing.validation.credentialUsability === "UNVERIFIED" &&
-          input.candidate.validation.credentialUsability === "VERIFIED"
+          existing.validation.credentialUsability !==
+          input.candidate.validation.credentialUsability
         ) {
           input.candidate.profileId = existing.profileId;
           input.candidate.profileRevision = existing.profileRevision;
-          const upgraded = parseProfile(input.candidate);
-          await atomicWrite0600(input.outputPath, canonicalJson(upgraded));
-          return { profile: upgraded, changed: true };
+          const revalidated = parseProfile(input.candidate);
+          await atomicWrite0600(input.outputPath, canonicalJson(revalidated));
+          return { profile: revalidated, changed: true };
         }
         await chmod(input.outputPath, 0o600);
         return { profile: existing, changed: false };
