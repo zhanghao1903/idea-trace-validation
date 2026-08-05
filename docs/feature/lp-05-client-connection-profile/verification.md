@@ -3,7 +3,7 @@
 - FeatureId: `lp-05-client-connection-profile-6a2d9f4c1b70`
 - DeliveryMode: `AGILE_REVIEWED`
 - Confirmed plan: `d7b0b86ac067700b8cbdb6e4534fe1ecd75c94b0`
-- Status: Cycle 1 remediation, refreshed client evidence and final local verification complete; exact-head CI pending
+- Status: Cycle 1 remediation, refreshed client evidence, local verification and GitHub required checks complete
 
 ## Scope boundary
 
@@ -23,7 +23,7 @@ credentials, release attempts or publication state. All write verification uses 
 | Compatible Markdown-Skill execution | `evidence/compatible-8a64e50.json` | PASS |
 | Sanitized evidence authority | `npm run client:profile:verify-evidence -- docs/feature/lp-05-client-connection-profile/evidence/codex-8a64e50.json docs/feature/lp-05-client-connection-profile/evidence/compatible-8a64e50.json` | PASS |
 | Full repository gate | `npm run verify` | PASS after evidence refresh |
-| Exact-head GitHub CI | required checks | Cycle 2 rerun pending after shallow-checkout remediation |
+| Exact-head GitHub CI | `verify` and `lp05-candidate` | PASS after shallow-checkout remediation |
 
 ## Security assertions
 
@@ -75,5 +75,6 @@ credentials, release attempts or publication state. All write verification uses 
   authority regression.
 - Both jobs now use `fetch-depth: 0`, preserving their exact-head checkouts while making the immutable
   historical commit available. Product code, public contracts, credentials and production state are unchanged.
-- `npm run test:client-profile:integration` remains PASS (5/5) after the workflow-only remediation. A new
-  exact-head GitHub run is required before Cycle 2 review dispatch.
+- `npm run test:client-profile:integration` remains PASS (5/5) after the workflow-only remediation. GitHub run
+  `31016884835` then passed `verify` and `lp05-candidate`; both jobs exercised the exact PR snapshot without
+  weakening the authority regression.
