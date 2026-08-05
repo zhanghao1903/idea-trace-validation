@@ -1,0 +1,468 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 9,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/9",
+    "title": "LP-05: add secure client connection profiles",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "d181bf9a02a8c47da909050faa213fbc5efb71e7",
+    "head_ref": "codex/lp-05-client-connection-profile",
+    "head_sha": "c637f2140b54f6d56318841e30cad1881e4eee09",
+    "reviewed_at": "2026-08-05T15:37:34Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "all five remediation commits and all 16 previous-head-to-current-head changed files",
+      "revalidation of Cycle 1 findings PRR-001, PRR-002 and PRR-003",
+      "forward-risk review of credential state transitions, full OpenAPI hashing, handoff authority and Git object verification",
+      "effective 41-file current base-to-head PR diff reconciled through the Cycle 1 full review plus the complete Cycle 2 delta",
+      "exact-head GitHub metadata and required checks"
+    ],
+    "excluded_scope": [
+      "production endpoints, secrets, deployment, release, publication and merge execution",
+      "raw client transcripts, which are intentionally unversioned"
+    ]
+  },
+  "review_context": {
+    "kind": "RE_REVIEW",
+    "previous_review": {
+      "report": "docs/feature/lp-05-client-connection-profile/pr-review-9-3ada81ed5d93.md",
+      "result_path": "docs/feature/lp-05-client-connection-profile/pr-review-9-3ada81ed5d93.json",
+      "result_sha256": "ec28fcba279dc56f382b392076813e01aadcf40298b64efc40c736cfd0a61f0e",
+      "repository": "zhanghao1903/idea-trace-validation",
+      "pr_number": 9,
+      "reviewed_at": "2026-08-05T07:02:14Z",
+      "base_sha": "d181bf9a02a8c47da909050faa213fbc5efb71e7",
+      "head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+      "decision": "REQUEST_CHANGES",
+      "finding_ids": ["PRR-001", "PRR-002", "PRR-003"],
+      "blocking_finding_ids": ["PRR-001", "PRR-002", "PRR-003"]
+    },
+    "delta_review": {
+      "previous_base_sha": "d181bf9a02a8c47da909050faa213fbc5efb71e7",
+      "previous_head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+      "current_base_sha": "d181bf9a02a8c47da909050faa213fbc5efb71e7",
+      "current_head_sha": "c637f2140b54f6d56318841e30cad1881e4eee09",
+      "triggers": ["HEAD_CHANGED", "EVIDENCE_CHANGED"],
+      "commit_range": "3ada81ed5d937083bdaa82d44eadd1a211770679..c637f2140b54f6d56318841e30cad1881e4eee09",
+      "commits_reviewed": [
+        "8a64e50c7f9fa2823ea64fe775e553c4058c55b1",
+        "2bf80e801fcab32ea0bd04745f52ad21905cd58b",
+        "be812ad102103d3099e3e17f047fa0733f541351",
+        "08cf79442795b1945b24897c066501002a0bb8e6",
+        "c637f2140b54f6d56318841e30cad1881e4eee09"
+      ],
+      "changed_files": [
+        ".github/workflows/ci.yml",
+        "README.md",
+        "docs/feature/lp-05-client-connection-profile/design.md",
+        "docs/feature/lp-05-client-connection-profile/evidence/codex-8a64e50.json",
+        "docs/feature/lp-05-client-connection-profile/evidence/compatible-8a64e50.json",
+        "docs/feature/lp-05-client-connection-profile/implementation-plan.md",
+        "docs/feature/lp-05-client-connection-profile/verification.md",
+        "docs/operations/lp05.md",
+        "scripts/client-profile/client-profile.integration.test.ts",
+        "scripts/client-profile/client-profile.unit.test.ts",
+        "scripts/client-profile/contracts.ts",
+        "scripts/client-profile/create-deployment-handoff.ts",
+        "scripts/client-profile/git-authority.ts",
+        "scripts/client-profile/initialize.ts",
+        "scripts/client-profile/profile-store.ts",
+        "scripts/client-profile/verify.ts"
+      ],
+      "reviewed_files": [
+        ".github/workflows/ci.yml",
+        "README.md",
+        "docs/feature/lp-05-client-connection-profile/design.md",
+        "docs/feature/lp-05-client-connection-profile/evidence/codex-8a64e50.json",
+        "docs/feature/lp-05-client-connection-profile/evidence/compatible-8a64e50.json",
+        "docs/feature/lp-05-client-connection-profile/implementation-plan.md",
+        "docs/feature/lp-05-client-connection-profile/verification.md",
+        "docs/operations/lp05.md",
+        "scripts/client-profile/client-profile.integration.test.ts",
+        "scripts/client-profile/client-profile.unit.test.ts",
+        "scripts/client-profile/contracts.ts",
+        "scripts/client-profile/create-deployment-handoff.ts",
+        "scripts/client-profile/git-authority.ts",
+        "scripts/client-profile/initialize.ts",
+        "scripts/client-profile/profile-store.ts",
+        "scripts/client-profile/verify.ts"
+      ],
+      "excluded_files": [],
+      "unclassified_changes": [],
+      "full_pr_diff_reconciled": true,
+      "summary": "Five remediation commits changed 16 files. Runtime changes close the three prior blockers; evidence and documentation record the new authority; workflow changes fetch full Git history for both exact-head jobs. The current 41-file effective PR diff is reconciled by the Cycle 1 full review plus this complete delta review.",
+      "evidence": "git log/diff for the frozen range, manual code tracing of every delta file, exact-head tests, independent fresh-context trust-boundary review, and GitHub run 31017717002."
+    },
+    "finding_revalidation": [
+      {
+        "finding_id": "PRR-001",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "profile-store.ts now persists any credential-usability transition for identity-equal profiles. The real-HTTP regression proves VERIFIED -> transport unknown returns CREDENTIAL_RESULT_UNKNOWN without a current success claim, then VERIFIED -> 401 returns and persists UNVERIFIED with null evidence."
+      },
+      {
+        "finding_id": "PRR-002",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "verify.ts hashes the complete canonical OpenAPI document after required structural checks. Unit mutations of request body, components, parameters and security all change the digest; integration live schema drift returns OPENAPI_INCOMPATIBLE before writes."
+      },
+      {
+        "finding_id": "PRR-003",
+        "previous_status": "open",
+        "current_status": "resolved",
+        "evidence": "contracts.ts binds every handoff field in authoritySha256 and adds skillTreeSha256. git-authority.ts verifies source and Skill commits, source OpenAPI, exact tracked Skill file set/bytes/modes, package version and tree digest before bearer resolution. Negative tests reject each mismatch before a write."
+      }
+    ],
+    "forward_risk_review": [
+      {
+        "surface": "Credential revalidation state transition",
+        "risk_triggers": ["trust-boundary", "state-transition", "mutation-recovery", "security-privacy"],
+        "reason": "The remediation changes durable authorization evidence in both directions and must distinguish authoritative rejection from unknown transport outcomes.",
+        "affected_paths": [
+          "scripts/client-profile/profile-store.ts",
+          "scripts/client-profile/initialize.ts",
+          "scripts/client-profile/client-profile.integration.test.ts"
+        ],
+        "checks": [
+          "traced candidate creation through atomic profile persistence and CLI result",
+          "ran VERIFIED-to-unknown and VERIFIED-to-401 real-HTTP regression",
+          "verified rejected revalidation clears evidence and returns non-verified status"
+        ],
+        "finding_ids": ["PRR-001"],
+        "result": "PASS"
+      },
+      {
+        "surface": "Complete OpenAPI compatibility authority",
+        "risk_triggers": ["public-contract", "data-integrity", "deployment-compatibility", "test-adequacy"],
+        "reason": "Changing from a projection to the full document widens the compatibility envelope and must propagate through handoff generation, source-commit proof and live verification.",
+        "affected_paths": [
+          "scripts/client-profile/verify.ts",
+          "scripts/client-profile/create-deployment-handoff.ts",
+          "scripts/client-profile/git-authority.ts",
+          "scripts/client-profile/client-profile.unit.test.ts",
+          "scripts/client-profile/client-profile.integration.test.ts"
+        ],
+        "checks": [
+          "traced digest producer through authority serialization, parser, Git source proof and live endpoint consumer",
+          "mutated request body, parameters, security and component schemas",
+          "verified live drift stops before synthetic side effects"
+        ],
+        "finding_ids": ["PRR-002"],
+        "result": "PASS"
+      },
+      {
+        "surface": "Git-backed handoff and Skill authority",
+        "risk_triggers": ["trust-boundary", "data-integrity", "security-privacy", "deployment-compatibility"],
+        "reason": "The remediation introduces Git object inspection and a closed serialized authority before credential access.",
+        "affected_paths": [
+          "scripts/client-profile/contracts.ts",
+          "scripts/client-profile/create-deployment-handoff.ts",
+          "scripts/client-profile/git-authority.ts",
+          "scripts/client-profile/initialize.ts",
+          ".github/workflows/ci.yml"
+        ],
+        "checks": [
+          "traced handoff producer -> canonical authority digest -> closed parser -> initializer -> profile serialization",
+          "verified canonical repository Skill root, exact tracked file set, blob IDs, executable modes, version and tree digest",
+          "verified authority runs before credential resolution",
+          "verified full-history checkout for both exact-head jobs",
+          "ran wrong commit, source, tree, version, authority and Skill-root fail-closed cases"
+        ],
+        "finding_ids": ["PRR-003"],
+        "result": "PASS"
+      },
+      {
+        "surface": "Remediation evidence and documentation propagation",
+        "risk_triggers": ["public-contract", "test-adequacy", "other"],
+        "reason": "New handoff fields and remediation evidence must be consistently documented and consumable without leaking secrets.",
+        "affected_paths": [
+          "README.md",
+          "docs/feature/lp-05-client-connection-profile/design.md",
+          "docs/feature/lp-05-client-connection-profile/implementation-plan.md",
+          "docs/feature/lp-05-client-connection-profile/verification.md",
+          "docs/operations/lp05.md",
+          "docs/feature/lp-05-client-connection-profile/evidence/codex-8a64e50.json",
+          "docs/feature/lp-05-client-connection-profile/evidence/compatible-8a64e50.json"
+        ],
+        "checks": [
+          "reviewed all documentation deltas against the closed runtime contract",
+          "ran both-Skill checker and sanitized evidence verifier",
+          "scanned committed evidence and relevant documentation for credential material"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ],
+    "approval_renewal": {
+      "old_decision_invalidated": true,
+      "previous_findings_revalidated": true,
+      "forward_risk_review_completed": true,
+      "all_delta_changes_classified": true,
+      "current_head_validation_complete": true,
+      "decision_blocking_limitations": [],
+      "result": "GRANTED",
+      "independent_pass": {
+        "status": "PASS",
+        "reviewer": "Codex independent review agent /root/cycle2_independent_pass",
+        "summary": "Fresh-context review of the frozen remediation delta found all three prior blockers resolved, side effects ordered fail closed, and no critical remediation-induced regression. It independently passed typecheck, 13 unit tests, 5 loopback integration tests, Skill check and diff hygiene."
+      }
+    }
+  },
+  "decision": {
+    "status": "APPROVE",
+    "mergeable": true,
+    "rationale": "All three Cycle 1 critical findings are resolved at the exact current head, every remediation change is classified, forward-risk review is complete, reviewer-local changed-path validation passes, and both required GitHub jobs pass for the frozen head. AGILE_REVIEWED has no remaining critical blocker.",
+    "blocking_finding_ids": []
+  },
+  "summary": "APPROVE for exact head c637f2140b54f6d56318841e30cad1881e4eee09. Credential rejection now invalidates stale proof, OpenAPI authority covers the complete canonical contract, and handoff release/Skill claims are closed and verified against Git commits, local bytes, modes, version and tree before credential use.",
+  "change_map": [
+    {
+      "area": "Credential state lifecycle",
+      "change": "Persist authoritative credential-usability transitions in either direction for an identity-identical profile.",
+      "external_behavior": "A current 401/403 can no longer be reported as stale VERIFIED; unknown transport remains non-success.",
+      "risk": "High",
+      "validation": "Unit state transition plus isolated real-HTTP success, transport-loss and rejection sequence."
+    },
+    {
+      "area": "OpenAPI compatibility",
+      "change": "Hash the complete canonical OpenAPI contract and verify the same digest in source commit, handoff and live endpoint.",
+      "external_behavior": "Schema, parameter, actor, security or referenced-component drift fails closed.",
+      "risk": "High",
+      "validation": "Four schema/security mutation classes and a live no-write drift regression."
+    },
+    {
+      "area": "Handoff and Skill authority",
+      "change": "Add closed handoff authority and Git-backed source/Skill commit, file-set, byte, mode, version and tree verification.",
+      "external_behavior": "A profile cannot claim an unrelated or nonexistent Skill/source authority, and verification happens before bearer access.",
+      "risk": "High",
+      "validation": "Positive exact binding and negative commit/source/tree/version/tamper/root cases; full-history CI."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "security",
+      "title": "Failed credential revalidation preserves stale VERIFIED authority",
+      "location": {
+        "path": "scripts/client-profile/profile-store.ts",
+        "line_start": 53,
+        "line_end": 68,
+        "symbol": "storeProfile",
+        "side": "RIGHT",
+        "commit_sha": "c637f2140b54f6d56318841e30cad1881e4eee09"
+      },
+      "observation": "The identity-equal branch now persists a candidate whenever credential usability changes, instead of supporting only UNVERIFIED-to-VERIFIED.",
+      "trigger": "Revalidate a previously VERIFIED profile after the same bearer becomes unknown or is rejected with 401/403.",
+      "impact": "Resolved: transport unknown returns non-success without a current success claim; authoritative rejection returns and persists UNVERIFIED with evidence cleared.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "Exact-head integration verifies VERIFIED -> unknown -> 401 and inspects both returned and persisted status.",
+          "reference": "scripts/client-profile/client-profile.integration.test.ts:235-284"
+        },
+        {
+          "kind": "code",
+          "description": "storeProfile atomically persists either credential-usability transition while preserving profile identity and revision.",
+          "reference": "scripts/client-profile/profile-store.ts:53-68"
+        }
+      ],
+      "remediation": "Completed in 8a64e50c7f9fa2823ea64fe775e553c4058c55b1.",
+      "verification": "Reviewer-local unit and isolated real-HTTP integration suites pass at the exact head.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "state:client-profile:failed-revalidation-preserves-verified"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "api-contract",
+      "title": "Incompatible request and response schemas produce the same OpenAPI digest",
+      "location": {
+        "path": "scripts/client-profile/verify.ts",
+        "line_start": 38,
+        "line_end": 64,
+        "symbol": "openapiCompatibilityProjection",
+        "side": "RIGHT",
+        "commit_sha": "c637f2140b54f6d56318841e30cad1881e4eee09"
+      },
+      "observation": "The compatibility function now returns and hashes the complete canonical document after checking the required LP-03 route and bearer structure.",
+      "trigger": "Change a consumed request, response, parameter, security declaration, actor field or referenced component while retaining route/status names.",
+      "impact": "Resolved: any such contract drift changes the digest or is rejected before profile creation or a synthetic write.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "Unit tests change request body, components, parameters and security and assert different digests.",
+          "reference": "scripts/client-profile/client-profile.unit.test.ts:328-377"
+        },
+        {
+          "kind": "test",
+          "description": "The live integration serves a drifted schema and proves OPENAPI_INCOMPATIBLE with zero writes.",
+          "reference": "scripts/client-profile/client-profile.integration.test.ts:292-357"
+        }
+      ],
+      "remediation": "Completed in 8a64e50c7f9fa2823ea64fe775e553c4058c55b1.",
+      "verification": "Reviewer-local unit and isolated real-HTTP integration suites pass at the exact head.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "contract:client-profile:openapi-projection-omits-schemas"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S1",
+      "blocking": false,
+      "confidence": "High",
+      "category": "requirements",
+      "title": "Release and Skill claims are not bound to the local Skill bytes",
+      "location": {
+        "path": "scripts/client-profile/git-authority.ts",
+        "line_start": 99,
+        "line_end": 234,
+        "symbol": "assertDeploymentAuthority",
+        "side": "RIGHT",
+        "commit_sha": "c637f2140b54f6d56318841e30cad1881e4eee09"
+      },
+      "observation": "The initializer now verifies a closed handoff against existing source/Skill commits, source OpenAPI, the canonical repository Skills root, exact tracked local bytes/modes, package version and expected tree digest before reading the credential.",
+      "trigger": "Supply a nonexistent or wrong source/Skill commit, alternate Skill root, changed file set/bytes/mode/version/tree or tampered handoff field.",
+      "impact": "Resolved: each mismatch fails closed before credential resolution, profile persistence or synthetic business writes.",
+      "evidence": [
+        {
+          "kind": "code",
+          "description": "assertDeploymentAuthority is called before verifyConnection and resolveCredential and verifies the full Git-backed authority chain.",
+          "reference": "scripts/client-profile/initialize.ts:44-55; scripts/client-profile/git-authority.ts:99-234"
+        },
+        {
+          "kind": "test",
+          "description": "Integration rejects nonexistent Skill commit, source/OpenAPI mismatch, wrong tree, wrong version and handoff tampering with zero writes.",
+          "reference": "scripts/client-profile/client-profile.integration.test.ts:286-357"
+        }
+      ],
+      "remediation": "Completed in 8a64e50c7f9fa2823ea64fe775e553c4058c55b1 with CI history portability fixes through 08cf79442795b1945b24897c066501002a0bb8e6.",
+      "verification": "Reviewer-local exact binding and negative authority tests pass; exact-head verify and candidate jobs pass with full history.",
+      "status": "resolved",
+      "origin": "BASE_DIFF",
+      "fingerprint": "authority:client-profile:skill-commit-tree-unbound"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Prevent current credential failure from preserving or reporting stale VERIFIED usability.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Make OpenAPI verification cover the full contract surface consumed by the Skills.",
+      "status": "completed"
+    },
+    {
+      "finding_id": "PRR-003",
+      "action": "Bind handoff source/Skill claims to exact Git authority and local Skill bytes before credential use.",
+      "status": "completed"
+    }
+  ],
+  "risks": [],
+  "validation": {
+    "overall_status": "PASSED",
+    "reviewer_runs": [
+      {
+        "command": "npm install --ignore-scripts --no-audit --no-fund --engine-strict=false; npm run build; npm run typecheck:lp05",
+        "environment": "macOS isolated exact-head review worktree; Node 24.14.0; npm 11.12.1 used only with install engine-strict override because bundled npm was older than repository pin",
+        "head_sha": "c637f2140b54f6d56318841e30cad1881e4eee09",
+        "status": "PASS",
+        "exit_code": 0,
+        "required_for_approval": true,
+        "summary": "Dependencies installed in the temporary review worktree; all workspaces built and LP-05 type checking passed."
+      },
+      {
+        "command": "npm run test:client-profile:unit; npm run test:client-profile:integration",
+        "environment": "macOS isolated exact-head review worktree; integration granted loopback-only bind permission",
+        "head_sha": "c637f2140b54f6d56318841e30cad1881e4eee09",
+        "status": "PASS",
+        "exit_code": 0,
+        "required_for_approval": true,
+        "summary": "All 13 unit and 5 real-HTTP integration tests passed, including the three prior-finding regressions."
+      },
+      {
+        "command": "npm run format:check; npm run lint; git diff --check; node --import tsx scripts/lp04/check-skill.ts; node --import tsx scripts/client-profile/verify-client-evidence.ts <Cycle 2 pair>",
+        "environment": "macOS isolated exact-head review worktree",
+        "head_sha": "c637f2140b54f6d56318841e30cad1881e4eee09",
+        "status": "PASS",
+        "exit_code": 0,
+        "required_for_approval": true,
+        "summary": "Formatting, lint, diff hygiene, both Skills and the refreshed Codex/compatible evidence pair passed."
+      },
+      {
+        "command": "Independent fresh-context trust-boundary and propagation review",
+        "environment": "Independent Codex review agent against frozen remediation delta and surrounding callers/consumers",
+        "head_sha": "c637f2140b54f6d56318841e30cad1881e4eee09",
+        "status": "PASS",
+        "exit_code": 0,
+        "required_for_approval": true,
+        "summary": "PASS with no critical regression; independently re-traced credential transitions, authority and OpenAPI propagation, side-effect order and exact-head regressions, and passed typecheck, 13 unit tests, 5 integration tests, Skill check and diff hygiene."
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-05T15:37:34Z",
+        "head_sha": "c637f2140b54f6d56318841e30cad1881e4eee09",
+        "status": "PASS",
+        "summary": "GitHub Actions run 31017717002, verify job 92346052871 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/31017717002/job/92346052871"
+      },
+      {
+        "name": "ci / lp05-candidate",
+        "observed_at": "2026-08-05T15:37:34Z",
+        "head_sha": "c637f2140b54f6d56318841e30cad1881e4eee09",
+        "status": "PASS",
+        "summary": "GitHub Actions run 31017717002, lp05-candidate job 92346962385 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/31017717002/job/92346962385"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local full npm run verify",
+        "reason": "The exact-head GitHub verify job passed the entire configured chain; Review independently reran all changed client-profile paths, build, typecheck, formatting, lint, Skill and evidence gates."
+      },
+      {
+        "check": "Production endpoint or real credential initialization",
+        "reason": "The request and Review role explicitly provide no production access, credential, deployment or release authorization."
+      }
+    ]
+  },
+  "limitations": [
+    "Raw client transcripts are intentionally unversioned and were not available; Review validated the refreshed committed records, verifier and shared authority fields.",
+    "Reviewer-local full npm run verify was not repeated because exact-head GitHub ci / verify passed it; changed runtime paths and risk-focused regressions were run independently."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #9 still points to the routed exact base and head and remains non-draft.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refreshed authoritative GitHub PR metadata after local validation and before report creation.",
+      "evidence": "GitHub reported OPEN, merged=false, draft=false, base d181bf9a..., head c637f214..., mergeable=true.",
+      "impact_if_false": "The exact-snapshot review would be stale and invalid."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The required checks belong to and pass for the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Fetched the pull-request workflow run and its jobs for commit c637f2140b54f6d56318841e30cad1881e4eee09.",
+      "evidence": "Run 31017717002 completed SUCCESS; verify job 92346052871 and lp05-candidate job 92346962385 both completed SUCCESS.",
+      "impact_if_false": "Required CI could not support approval of the routed snapshot."
+    }
+  ],
+  "non_blocking_recommendations": []
+}

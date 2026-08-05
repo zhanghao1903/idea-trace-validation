@@ -1,0 +1,370 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 9,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/9",
+    "title": "LP-05: add secure client connection profiles",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "d181bf9a02a8c47da909050faa213fbc5efb71e7",
+    "head_ref": "codex/lp-05-client-connection-profile",
+    "head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+    "reviewed_at": "2026-08-05T07:02:14Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete base-to-head diff for PR #9 across 37 changed files",
+      "client profile contracts, secure I/O, credential resolution, initialization, verification and persistence",
+      "initialization and business Skill authority, operator documentation, tests and committed client evidence",
+      "exact-head GitHub metadata and required checks"
+    ],
+    "excluded_scope": [
+      "production endpoints, secrets, deployment, release, publication and merge execution",
+      "raw Codex and compatible-client transcripts, which are intentionally unversioned"
+    ]
+  },
+  "review_context": {
+    "kind": "INITIAL",
+    "forward_risk_review": [
+      {
+        "surface": "Credential usability revalidation and profile replay",
+        "risk_triggers": ["trust-boundary", "state-transition", "security-privacy"],
+        "reason": "The profile is the durable gate for bearer-backed writes, so stale positive evidence must not override a current authorization failure.",
+        "affected_paths": [
+          "scripts/client-profile/initialize.ts",
+          "scripts/client-profile/profile-store.ts",
+          "scripts/client-profile/client-profile.integration.test.ts"
+        ],
+        "checks": [
+          "reviewed VERIFIED upgrade and replay branches",
+          "reproduced VERIFIED-to-UNVERIFIED replay",
+          "ran unit and isolated HTTP integration suites"
+        ],
+        "finding_ids": ["PRR-001"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "OpenAPI compatibility and client request contract",
+        "risk_triggers": ["public-contract", "deployment-compatibility", "test-adequacy"],
+        "reason": "Initialization claims contract compatibility before the business Skill relies on exact actor, request and response fields.",
+        "affected_paths": [
+          "scripts/client-profile/verify.ts",
+          "openapi/lp03.v1.json",
+          "skills/idea-validation-workflow/SKILL.md"
+        ],
+        "checks": [
+          "reviewed every field included in the compatibility projection",
+          "mutated Idea POST and component schemas and compared digests"
+        ],
+        "finding_ids": ["PRR-002"],
+        "result": "FAIL"
+      },
+      {
+        "surface": "Deployment handoff and exact release/Skill binding",
+        "risk_triggers": ["trust-boundary", "deployment-compatibility", "test-adequacy"],
+        "reason": "The profile advertises an exact release and Skill authority that must correspond to the bytes the client loads.",
+        "affected_paths": [
+          "scripts/client-profile/create-deployment-handoff.ts",
+          "scripts/client-profile/initialize.ts",
+          "scripts/client-profile/contracts.ts",
+          "scripts/client-profile/client-profile.integration.test.ts"
+        ],
+        "checks": [
+          "traced handoff claims into profile output",
+          "searched for commit/tree and profile/handoff authority checks",
+          "confirmed integration accepts a nonexistent Skill commit"
+        ],
+        "finding_ids": ["PRR-003"],
+        "result": "FAIL"
+      }
+    ]
+  },
+  "decision": {
+    "status": "REQUEST_CHANGES",
+    "mergeable": false,
+    "rationale": "Required CI is green, but three high-confidence critical defects break the credential authorization boundary, OpenAPI compatibility gate, and exact release/Skill binding of the confirmed core journey. AGILE_REVIEWED permits blocking only for critical findings, and all three meet that threshold.",
+    "blocking_finding_ids": ["PRR-001", "PRR-002", "PRR-003"]
+  },
+  "summary": "REQUEST_CHANGES for exact head 3ada81ed5d937083bdaa82d44eadd1a211770679. Current authorization failure can retain stale VERIFIED status, incompatible OpenAPI schemas can pass, and arbitrary Skill commit/tree claims can be recorded as verified.",
+  "change_map": [
+    {
+      "area": "Client profile runtime",
+      "change": "Adds closed handoff/profile contracts, safe credential references, HTTP probes, synthetic authorization verification and atomic local persistence.",
+      "external_behavior": "Codex and compatible clients can initialize a non-secret connection profile before business writes.",
+      "risk": "High",
+      "validation": "Code tracing, unit/integration tests and three adversarial checks."
+    },
+    {
+      "area": "Skills and documentation",
+      "change": "Adds idea-validation-init and makes idea-validation-workflow require a profile before writes.",
+      "external_behavior": "Client setup and write attribution are documented through one profile contract.",
+      "risk": "Medium",
+      "validation": "Skill checker, link/secret hygiene, evidence record verification and manual inspection."
+    }
+  ],
+  "findings": [
+    {
+      "id": "PRR-001",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "security",
+      "title": "Failed credential revalidation preserves stale VERIFIED authority",
+      "location": {
+        "path": "scripts/client-profile/profile-store.ts",
+        "line_start": 53,
+        "line_end": 68,
+        "symbol": "storeProfile",
+        "side": "RIGHT",
+        "commit_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679"
+      },
+      "observation": "For an identity-identical profile, storeProfile supports UNVERIFIED-to-VERIFIED but otherwise returns the existing file. A current UNVERIFIED candidate from a real 401/403 therefore cannot invalidate an existing VERIFIED result, and initializeProfile derives credentialVerified from the stale returned profile.",
+      "trigger": "Initialize a profile successfully, then revoke or invalidate the same bearer and rerun isolated synthetic verification with unchanged identity fields.",
+      "impact": "The CLI can claim PROFILE_VERIFIED for a credential that the authoritative API has just rejected, breaking the authentication boundary and credential revalidation requirements.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "An existing VERIFIED profile followed by an identity-identical UNVERIFIED candidate returned the old VERIFIED profile with changed=false.",
+          "reference": "Reviewer output: incoming=UNVERIFIED, stored=VERIFIED, changed=false"
+        },
+        {
+          "kind": "code",
+          "description": "initializeProfile reports stored.profile.validation.credentialUsability, so the stale state becomes the command result.",
+          "reference": "scripts/client-profile/initialize.ts:99-109"
+        }
+      ],
+      "remediation": "Make a current failed or unknown credential check fail closed and prevent old positive evidence from being reported as current. Define whether the file is downgraded, replaced, or preserved with an explicit failing result that cannot authorize a write.",
+      "verification": "Add an integration regression that verifies a profile, causes the same token to return 401/403, reruns initialization, and asserts no VERIFIED result or success claim survives.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "state:client-profile:failed-revalidation-preserves-verified"
+    },
+    {
+      "id": "PRR-002",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "api-contract",
+      "title": "Incompatible request and response schemas produce the same OpenAPI digest",
+      "location": {
+        "path": "scripts/client-profile/verify.ts",
+        "line_start": 38,
+        "line_end": 81,
+        "symbol": "openapiCompatibilityProjection",
+        "side": "RIGHT",
+        "commit_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679"
+      },
+      "observation": "The projection retains only route/method presence, response status names, bearer-security presence and request-body requiredness. It omits every consumed schema, field, parameter and component definition.",
+      "trigger": "Deploy an API that keeps the same paths/statuses/security but removes proposer/actor fields or replaces a required request/response schema.",
+      "impact": "Initialization records openapi=VERIFIED and permits handoff to a business Skill whose core requests can no longer be formed or read correctly.",
+      "evidence": [
+        {
+          "kind": "reproduction",
+          "description": "Replacing Idea POST with a required string body and deleting all component schemas produced the same compatibility digest as the canonical LP-03 document.",
+          "reference": "Digest before and after: 82bdf36171e03d2a1a177fb92cb674ce1dfead6573e62b068bb2b0cb17bd06e0"
+        },
+        {
+          "kind": "spec",
+          "description": "Acceptance criteria require OpenAPI contract compatibility and stable clientId/displayName attribution fields before continuing to the business Skill.",
+          "reference": "docs/feature/lp-05-client-connection-profile/requirements.md#acceptance-criteria"
+        }
+      ],
+      "remediation": "Hash the exact required contract or expand and normalize the compatibility projection to every request, response, parameter, actor and security shape consumed by both Skills.",
+      "verification": "Add negative fixtures for removed/renamed actor fields, changed request bodies, response envelopes, path parameters and referenced schemas; each must return OPENAPI_INCOMPATIBLE.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "contract:client-profile:openapi-projection-omits-schemas"
+    },
+    {
+      "id": "PRR-003",
+      "severity": "S1",
+      "blocking": true,
+      "confidence": "High",
+      "category": "requirements",
+      "title": "Release and Skill claims are not bound to the local Skill bytes",
+      "location": {
+        "path": "scripts/client-profile/initialize.ts",
+        "line_start": 63,
+        "line_end": 77,
+        "symbol": "initializeProfile",
+        "side": "RIGHT",
+        "commit_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679"
+      },
+      "observation": "The profile combines a caller-supplied handoff commit/version with a digest of a separately caller-selected Skill root without proving their relationship. No runtime call verifies the local tree against the declared commit/version or the endpoint against the declared release/source commit.",
+      "trigger": "Supply any syntactically valid or nonexistent Skill commit together with a different local Skill tree and an otherwise compatible loopback API.",
+      "impact": "The initializer can emit a fully VERIFIED profile whose advertised exact release/Skill authority does not identify the instructions actually loaded, defeating mismatch detection for the core client journey.",
+      "evidence": [
+        {
+          "kind": "test",
+          "description": "The passing HTTP integration uses skillCommit equal to forty b characters, computes the current repository Skill tree, and asserts credentialVerified=true.",
+          "reference": "scripts/client-profile/client-profile.integration.test.ts:129-161"
+        },
+        {
+          "kind": "analysis",
+          "description": "Repository search found no call to assertProfileMatchesHandoff and no Git/object or expected-tree verification in the initializer.",
+          "reference": "scripts/client-profile/contracts.ts:382-397; scripts/client-profile/initialize.ts"
+        }
+      ],
+      "remediation": "Define a closed handoff authority that carries or derives the expected Skill tree/version and deployed release identity, then verify those claims against the local bytes and observed target before writing a usable profile.",
+      "verification": "Add fail-closed tests for nonexistent/wrong Skill commit, wrong tree, wrong version, release/source mismatch and caller-selected alternate Skill roots, plus a positive exact-binding case.",
+      "status": "open",
+      "origin": "BASE_DIFF",
+      "fingerprint": "authority:client-profile:skill-commit-tree-unbound"
+    }
+  ],
+  "required_actions": [
+    {
+      "finding_id": "PRR-001",
+      "action": "Prevent current credential failure from preserving or reporting stale VERIFIED usability.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-002",
+      "action": "Make OpenAPI verification cover the full contract surface consumed by the Skills.",
+      "status": "open"
+    },
+    {
+      "finding_id": "PRR-003",
+      "action": "Cryptographically or deterministically bind release/Skill claims to the actual local Skill bytes and target authority.",
+      "status": "open"
+    }
+  ],
+  "risks": [
+    {
+      "category": "security-privacy",
+      "level": "High",
+      "description": "Stale authorization evidence can be reported as current after the API rejects the bearer.",
+      "mitigation": "Resolve PRR-001 and retain a revocation/revalidation regression.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "api-compatibility",
+      "level": "High",
+      "description": "The compatibility digest admits API shapes that cannot complete the core workflow.",
+      "mitigation": "Resolve PRR-002 with schema-sensitive compatibility tests.",
+      "owner": "Engineering Main"
+    },
+    {
+      "category": "deployment-rollback",
+      "level": "High",
+      "description": "Profile release and Skill identifiers need not correspond to the deployed or locally loaded bytes.",
+      "mitigation": "Resolve PRR-003 with explicit authority binding and mismatch tests.",
+      "owner": "Engineering Main"
+    }
+  ],
+  "validation": {
+    "overall_status": "FAILED",
+    "reviewer_runs": [
+      {
+        "command": "npm install --ignore-scripts --no-audit --no-fund --engine-strict=false; npm run build; npm run typecheck:lp05",
+        "environment": "macOS isolated exact-head review worktree; Node 24.14.0; npm 11.12.1 used only with install engine-strict override because bundled npm was older than repository pin",
+        "head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+        "status": "PASS",
+        "exit_code": 0,
+        "required_for_approval": true,
+        "summary": "Dependencies installed in the temporary worktree; all workspaces built and LP-05 type checking passed."
+      },
+      {
+        "command": "npm run test:client-profile:unit; npm run test:client-profile:integration",
+        "environment": "macOS isolated exact-head review worktree; integration granted loopback-only local bind after sandbox EPERM",
+        "head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+        "status": "PASS",
+        "exit_code": 0,
+        "required_for_approval": true,
+        "summary": "All 10 unit and 3 real-HTTP integration tests passed."
+      },
+      {
+        "command": "npm run format:check; npm run lint; git diff --check; node --import tsx scripts/lp04/check-skill.ts; node --import tsx scripts/client-profile/verify-client-evidence.ts <pair>",
+        "environment": "macOS isolated exact-head review worktree",
+        "head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+        "status": "PASS",
+        "exit_code": 0,
+        "required_for_approval": true,
+        "summary": "Formatting, lint, diff hygiene, both Skills, and the sanitized Codex/compatible evidence pair passed."
+      },
+      {
+        "command": "Adversarial VERIFIED-to-UNVERIFIED store replay",
+        "environment": "Node 24.14.0 against exact-head profile-store implementation",
+        "head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+        "status": "FAIL",
+        "exit_code": 0,
+        "required_for_approval": true,
+        "summary": "Input UNVERIFIED returned stale stored VERIFIED with changed=false, reproducing PRR-001."
+      },
+      {
+        "command": "Adversarial OpenAPI schema mutation digest comparison",
+        "environment": "Node 24.14.0 against exact-head verify implementation",
+        "head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+        "status": "FAIL",
+        "exit_code": 0,
+        "required_for_approval": true,
+        "summary": "An incompatible Idea POST schema and empty component schemas produced the canonical digest, reproducing PRR-002."
+      },
+      {
+        "command": "Trace and execute integration initialization with nonexistent Skill commit",
+        "environment": "Exact-head integration suite and repository search",
+        "head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+        "status": "FAIL",
+        "exit_code": 0,
+        "required_for_approval": true,
+        "summary": "The initializer accepted a forty-b-character nonexistent commit with unrelated current Skill bytes and produced VERIFIED, reproducing PRR-003."
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-05T07:02:14Z",
+        "head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30980775925, verify job 92224507706 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30980775925/job/92224507706"
+      },
+      {
+        "name": "ci / lp05-candidate",
+        "observed_at": "2026-08-05T07:02:14Z",
+        "head_sha": "3ada81ed5d937083bdaa82d44eadd1a211770679",
+        "status": "PASS",
+        "summary": "GitHub Actions run 30980775925, lp05-candidate job 92225055619 completed successfully for the exact reviewed head.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/30980775925/job/92225055619"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local full npm run verify",
+        "reason": "The exact-head GitHub verify job passed the full configured chain; Review independently ran changed client-profile paths plus build, typecheck, formatting and lint."
+      },
+      {
+        "check": "Production endpoint or real credential initialization",
+        "reason": "The feature and review explicitly have no production access, credential, deployment or release authorization."
+      }
+    ]
+  },
+  "limitations": [
+    "Raw Codex and compatible-client transcripts are intentionally unversioned and were not available; Review validated the committed sanitized records and their shared authority fields only.",
+    "Reviewer-local full npm run verify was not repeated because exact-head GitHub ci / verify already passed; changed runtime paths and risk-focused adversarial cases were run independently."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #9 still points to the routed exact base and head and remains non-draft.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Refreshed authoritative GitHub PR metadata immediately before finalizing the report.",
+      "evidence": "GitHub reported OPEN, draft=false, base d181bf9a..., head 3ada81ed..., mergeable=true.",
+      "impact_if_false": "The exact-snapshot review would be stale and invalid."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The observed required checks belong to the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Fetched workflow runs and jobs for exact commit 3ada81ed5d937083bdaa82d44eadd1a211770679.",
+      "evidence": "ci / verify and ci / lp05-candidate completed SUCCESS in run 30980775925.",
+      "impact_if_false": "Required CI could not support the routed snapshot."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
