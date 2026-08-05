@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "kind": "idea-validation-client-compatibility-evidence",
+  "client": "COMPATIBLE",
+  "clientVersion": "markdown-skill-reference-runner 1.0.0",
+  "executionSurface": "Node.js Markdown-Skill reference client against an isolated loopback synthetic service",
+  "skillCommit": "e1f0d91656703ecedd031e75376698a58e837998",
+  "skillTreeSha256": "097d5386052b90612a893d940155df950e9ff98de7cf62d55329b9584aaa051b",
+  "profileSha256": "bbcd6ca593f6c4207e85997a1c39543fb1c21a8507e568b1dc84b4dcc69ace1a",
+  "profileSchemaVersion": 1,
+  "releaseId": "isolated-e1f0d91",
+  "profileId": "profile_226c2a7a5452d1c0cc76fe2b",
+  "credentialId": "isolated-ai-e1f0d91",
+  "requestId": "req_00000000000000000000000003",
+  "resourceId": "idea_00000000000000000000000002",
+  "clientId": "compatible-evidence-e1f0d91",
+  "displayName": "Compatible Markdown-Skill evidence client",
+  "rawTranscriptSha256": "18a5585be52a7c2da7ae18e1cef46233916d2bf1ac39e4a83766caeca39afcad",
+  "executedAt": "2026-08-05T06:09:06.601Z",
+  "checks": {
+    "initializationLoaded": true,
+    "workflowLoaded": true,
+    "authorizedWrite": true,
+    "publicRead": true,
+    "attributionMatch": true
+  }
+}
