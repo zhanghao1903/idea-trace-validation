@@ -23,7 +23,7 @@ credentials, release attempts or publication state. All write verification uses 
 | Compatible Markdown-Skill execution | `evidence/compatible-8a64e50.json` | PASS |
 | Sanitized evidence authority | `npm run client:profile:verify-evidence -- docs/feature/lp-05-client-connection-profile/evidence/codex-8a64e50.json docs/feature/lp-05-client-connection-profile/evidence/compatible-8a64e50.json` | PASS |
 | Full repository gate | `npm run verify` | PASS after evidence refresh |
-| Exact-head GitHub CI | required checks | Pending push |
+| Exact-head GitHub CI | required checks | Cycle 2 rerun pending after shallow-checkout remediation |
 
 ## Security assertions
 
@@ -64,3 +64,13 @@ credentials, release attempts or publication state. All write verification uses 
 | PRR-001 stale credential proof | verified → unknown returns `CREDENTIAL_RESULT_UNKNOWN`; verified → 401 persists/returns `UNVERIFIED` | PASS |
 | PRR-002 incomplete OpenAPI projection | request body, referenced components, parameters, security and live served schema drift all change or reject the digest | PASS |
 | PRR-003 unbound release/Skill claims | nonexistent source/Skill commit, wrong tree, wrong version and changed release authority stop before synthetic writes | PASS |
+
+## GitHub Actions portability remediation
+
+- Exact head `2bf80e801fcab32ea0bd04745f52ad21905cd58b` failed only because
+  `actions/checkout` supplied a depth-one repository while the authority regression intentionally reads the
+  historical source commit `b562a3c0ede8384afef2007b8057a1250650a39f`.
+- The `verify` job now uses `fetch-depth: 0`, preserving the exact-head checkout while making the immutable
+  historical commit available. Product code, public contracts, credentials and production state are unchanged.
+- `npm run test:client-profile:integration` remains PASS (5/5) after the workflow-only remediation. A new
+  exact-head GitHub run is required before Cycle 2 review dispatch.
