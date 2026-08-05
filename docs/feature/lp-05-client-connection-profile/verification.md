@@ -70,7 +70,10 @@ credentials, release attempts or publication state. All write verification uses 
 - Exact head `2bf80e801fcab32ea0bd04745f52ad21905cd58b` failed only because
   `actions/checkout` supplied a depth-one repository while the authority regression intentionally reads the
   historical source commit `b562a3c0ede8384afef2007b8057a1250650a39f`.
-- The `verify` job now uses `fetch-depth: 0`, preserving the exact-head checkout while making the immutable
+- Exact head `be812ad102103d3099e3e17f047fa0733f541351` proved the `verify` fix (PASS), then exposed the
+  same depth-one checkout in the independent `lp05-candidate` job while its candidate build reran the same
+  authority regression.
+- Both jobs now use `fetch-depth: 0`, preserving their exact-head checkouts while making the immutable
   historical commit available. Product code, public contracts, credentials and production state are unchanged.
 - `npm run test:client-profile:integration` remains PASS (5/5) after the workflow-only remediation. A new
   exact-head GitHub run is required before Cycle 2 review dispatch.
