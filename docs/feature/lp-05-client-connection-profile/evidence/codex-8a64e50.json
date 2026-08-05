@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "kind": "idea-validation-client-compatibility-evidence",
+  "client": "CODEX",
+  "clientVersion": "codex-cli 0.147.0-alpha.1.2",
+  "executionSurface": "Codex against an isolated loopback synthetic service",
+  "skillCommit": "8a64e50c7f9fa2823ea64fe775e553c4058c55b1",
+  "skillTreeSha256": "097d5386052b90612a893d940155df950e9ff98de7cf62d55329b9584aaa051b",
+  "profileSha256": "31bf3137e464625d788df6710ed5c975923c0c758cfb27c72ebafc39b7295730",
+  "profileSchemaVersion": 1,
+  "releaseId": "isolated-8a64e50",
+  "profileId": "profile_23210497bc8acdb60bd228f3",
+  "credentialId": "isolated-ai-8a64e50",
+  "requestId": "req_00000000000000000000000004",
+  "resourceId": "idea_00000000000000000000000003",
+  "clientId": "codex-evidence-8a64e50",
+  "displayName": "Codex Cycle 2 isolated client",
+  "rawTranscriptSha256": "859a2a6fc5b1b2fc2822a225d32b027582ecebbe6b3823175dca921a735c0381",
+  "executedAt": "2026-08-05T07:56:59.508Z",
+  "checks": {
+    "initializationLoaded": true,
+    "workflowLoaded": true,
+    "authorizedWrite": true,
+    "publicRead": true,
+    "attributionMatch": true
+  }
+}

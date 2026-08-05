@@ -7,14 +7,24 @@ export interface SkillCheckOptions {
   skillRoot: string;
 }
 
-const requiredFiles = [
-  "SKILL.md",
-  "agents/openai.yaml",
-  "references/api-workflows.md",
-  "references/error-recovery.md",
-  "references/structured-reports.md",
-  "references/client-setup.md",
-] as const;
+const requiredFiles: Readonly<Record<string, readonly string[]>> = {
+  "idea-validation-workflow": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/api-workflows.md",
+    "references/error-recovery.md",
+    "references/structured-reports.md",
+    "references/client-setup.md",
+  ],
+  "idea-validation-init": [
+    "SKILL.md",
+    "agents/openai.yaml",
+    "references/initialization.md",
+    "references/security.md",
+    "references/client-compatibility.md",
+    "references/client-connection-profile.v1.schema.json",
+  ],
+};
 
 const walkMarkdown = (root: string): string[] => {
   const found: string[] = [];
@@ -62,7 +72,15 @@ export const checkSkill = ({
   skillRoot,
 }: SkillCheckOptions): string[] => {
   const errors: string[] = [];
-  for (const relative of requiredFiles) {
+  const discoveredName = existsSync(path.join(skillRoot, "SKILL.md"))
+    ? parseFrontmatter(
+        readFileSync(path.join(skillRoot, "SKILL.md"), "utf8"),
+      )?.get("name")
+    : undefined;
+  const skillName = discoveredName ?? path.basename(skillRoot);
+  const required = requiredFiles[skillName];
+  if (required === undefined) return ["SKILL_NAME_UNSUPPORTED"];
+  for (const relative of required) {
     if (!existsSync(path.join(skillRoot, relative)))
       errors.push(`MISSING_FILE:${relative}`);
   }
@@ -76,10 +94,13 @@ export const checkSkill = ({
     const keys = [...frontmatter.keys()].sort();
     if (keys.join(",") !== "description,name")
       errors.push(`FRONTMATTER_KEYS:${keys.join(",")}`);
-    if (frontmatter.get("name") !== "idea-validation-workflow")
-      errors.push("FRONTMATTER_NAME");
+    if (frontmatter.get("name") !== skillName) errors.push("FRONTMATTER_NAME");
     const description = frontmatter.get("description") ?? "";
-    for (const trigger of ["Idea", "project", "report", "recovery", "human"]) {
+    const triggers =
+      skillName === "idea-validation-workflow"
+        ? ["Idea", "project", "report", "recovery", "human"]
+        : ["initialize", "profile", "credential", "clientId", "displayName"];
+    for (const trigger of triggers) {
       if (!description.toLowerCase().includes(trigger.toLowerCase()))
         errors.push(`DESCRIPTION_TRIGGER:${trigger}`);
     }
@@ -89,10 +110,17 @@ export const checkSkill = ({
   const markdown = markdownFiles
     .map((file) => readFileSync(file, "utf8"))
     .join("\n");
-  if (!markdown.includes("openapi/lp03.v1.json"))
-    errors.push("CANONICAL_OPENAPI_LINK_MISSING");
-  if (!markdown.includes("structured-report.v1.schema.json"))
-    errors.push("CANONICAL_REPORT_SCHEMA_LINK_MISSING");
+  if (skillName === "idea-validation-workflow") {
+    if (!markdown.includes("openapi/lp03.v1.json"))
+      errors.push("CANONICAL_OPENAPI_LINK_MISSING");
+    if (!markdown.includes("structured-report.v1.schema.json"))
+      errors.push("CANONICAL_REPORT_SCHEMA_LINK_MISSING");
+  } else {
+    if (!markdown.includes("client-connection-profile.v1.schema.json"))
+      errors.push("CANONICAL_PROFILE_SCHEMA_LINK_MISSING");
+    if (!markdown.includes("npm run client:init"))
+      errors.push("CLIENT_INIT_COMMAND_MISSING");
+  }
 
   for (const file of markdownFiles) {
     const source = readFileSync(file, "utf8");
@@ -111,26 +139,29 @@ export const checkSkill = ({
     }
   }
 
-  const openapi = readFileSync(
-    path.join(repoRoot, "openapi/lp03.v1.json"),
-    "utf8",
-  );
-  const routes = new Set(
-    [...markdown.matchAll(/`(\/(?:api\/v1|health)\/[^` ]+)`/gu)].map(
-      (match) => match[1] ?? "",
-    ),
-  );
-  for (const route of routes) {
-    if (!openapi.includes(`\"${route}\"`))
-      errors.push(`UNKNOWN_ROUTE:${route}`);
-  }
-  const errorCodes = new Set(
-    [...markdown.matchAll(/`([A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+)`/gu)].map(
-      (match) => match[1] ?? "",
-    ),
-  );
-  for (const code of errorCodes) {
-    if (!openapi.includes(`\"${code}\"`)) errors.push(`UNKNOWN_ERROR:${code}`);
+  if (skillName === "idea-validation-workflow") {
+    const openapi = readFileSync(
+      path.join(repoRoot, "openapi/lp03.v1.json"),
+      "utf8",
+    );
+    const routes = new Set(
+      [...markdown.matchAll(/`(\/(?:api\/v1|health)\/[^` ]+)`/gu)].map(
+        (match) => match[1] ?? "",
+      ),
+    );
+    for (const route of routes) {
+      if (!openapi.includes(`\"${route}\"`))
+        errors.push(`UNKNOWN_ROUTE:${route}`);
+    }
+    const errorCodes = new Set(
+      [...markdown.matchAll(/`([A-Z][A-Z0-9]+(?:_[A-Z0-9]+)+)`/gu)].map(
+        (match) => match[1] ?? "",
+      ),
+    );
+    for (const code of errorCodes) {
+      if (!openapi.includes(`\"${code}\"`))
+        errors.push(`UNKNOWN_ERROR:${code}`);
+    }
   }
 
   const forbiddenSecrets = [
@@ -163,8 +194,14 @@ if (
     repoRoot,
     skillRoot: path.join(repoRoot, "skills/idea-validation-workflow"),
   });
+  errors.push(
+    ...checkSkill({
+      repoRoot,
+      skillRoot: path.join(repoRoot, "skills/idea-validation-init"),
+    }),
+  );
   if (errors.length > 0) {
     console.error(errors.join("\n"));
     process.exitCode = 1;
-  } else console.log("idea-validation-workflow: PASS");
+  } else console.log("idea-validation-workflow + idea-validation-init: PASS");
 }

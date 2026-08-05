@@ -1,0 +1,6 @@
+interface:
+  display_name: "Idea Validation Init"
+  short_description: "Securely initialize an IdeaTrace client profile"
+  default_prompt:
+    "Use $idea-validation-init to configure and verify this client without
+    exposing credentials."

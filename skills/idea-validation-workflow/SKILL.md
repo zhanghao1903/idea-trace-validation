@@ -16,28 +16,33 @@ project state.
 
 ## Run The Decision Loop
 
-1. Classify the request as Idea capture, Idea clarification, explicit promotion,
+1. Resolve an initialized `ClientConnectionProfileV1` before any AI write. If it
+   is absent, invalid, stale or mismatched, load `$idea-validation-init` and
+   stop the write. Public reads may continue without a bearer or profile.
+2. Classify the request as Idea capture, Idea clarification, explicit promotion,
    execution fact, structured report, role-oriented read, or human-governed
    action.
-2. Separate user-supplied facts, labelled hypotheses, and unknowns. Never invent
+3. Separate user-supplied facts, labelled hypotheses, and unknowns. Never invent
    a proposer, outcome, evidence, decision, version, or confirmation.
-3. Ask one bounded clarification when a required field or explicit high-impact
+4. Ask one bounded clarification when a required field or explicit high-impact
    intent is missing.
-4. Read the current public authority and allowed state immediately before every
+5. Read the current public authority and allowed state immediately before every
    versioned write.
-5. Propose the exact existing API action, declared actor attribution, known
+6. Propose the exact existing API action, declared actor attribution, known
    inputs, and expected effect.
-6. For an allowed AI write, freeze the method, path, canonical body, and
-   deterministic `Idempotency-Key`; send the request with an operator-injected
-   AI bearer credential.
-7. Recover only under
+7. For an allowed AI write, use the profile `clientId` as `client` and
+   `displayName` as the declared display attribution only where the existing
+   request schema exposes those fields. Freeze method, path, canonical body and
+   deterministic `Idempotency-Key`; resolve the bearer from the profile's secure
+   source reference at runtime.
+8. Recover only under
    [the error and replay rules](./references/error-recovery.md). Never change a
    frozen request while reusing its key.
-8. Re-read the public resource after success or replay. Report only the observed
+9. Re-read the public resource after success or replay. Report only the observed
    result, remaining unknowns, and the next allowed step.
-9. For human-governed confirmation, explain the public human step and stop. Do
-   not request, read, forward, cache, or use a human-control token or capability
-   cookie.
+10. For human-governed confirmation, explain the public human step and stop. Do
+    not request, read, forward, cache, or use a human-control token or
+    capability cookie.
 
 ## Choose The Existing Workflow
 
@@ -60,6 +65,8 @@ References summarize decisions; they do not replace those artifacts.
 
 - Actor and proposer fields declare attribution. They are not authentication or
   permission evidence.
+- Server-owned report attribution remains deployment-configured. Do not invent
+  actor fields, headers or query parameters for routes that lack them.
 - Proposer/executor Web role selection changes presentation only.
 - Use only the existing API; do not call internal services or the database for a
   user workflow.

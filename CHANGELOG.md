@@ -68,6 +68,10 @@
 
 ### Added
 
+- Add the client-neutral `idea-validation-init` Skill, closed non-secret
+  deployment handoff/profile contracts, secure environment/file credential
+  references, HTTPS/OpenAPI validation, explicit attribution, idempotent local
+  profile lifecycle and isolated Codex/Claude compatibility evidence gate.
 - Add the reproducible Node.js 24/npm workspace, TypeBox contracts, generated
   OpenAPI, strict configuration, health/readiness behavior, and CI gates.
 - Add PostgreSQL 17 persistence, the LP-01 migration, global idempotency,
