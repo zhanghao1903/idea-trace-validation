@@ -40,6 +40,12 @@
     "test:acceptance:lp03": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp03-*.acceptance.test.ts",
     "test:acceptance:lp04": "vitest run --config vitest.acceptance.config.ts apps/api/test/lp04-demo.acceptance.test.ts",
     "skill:check": "tsx scripts/lp04/check-skill.ts",
+    "client:init": "tsx scripts/client-profile/initialize.ts",
+    "client:profile:deployment": "tsx scripts/client-profile/create-deployment-handoff.ts",
+    "client:profile:remove": "tsx scripts/client-profile/remove.ts",
+    "client:profile:verify-evidence": "tsx scripts/client-profile/verify-client-evidence.ts",
+    "test:client-profile:unit": "vitest run --config vitest.unit.config.ts scripts/client-profile",
+    "test:client-profile:integration": "vitest run --config vitest.integration.config.ts scripts/client-profile",
     "demo:lp04": "tsx scripts/lp04/run.ts",
     "demo:lp04:verify": "tsx scripts/lp04/verify-run.ts",
     "demo:lp04:human": "tsx scripts/lp04/human-facilitator.ts",
@@ -72,7 +78,7 @@
     "db:migrate:test": "tsx packages/db/src/cli/migrate.ts --test",
     "test:db:up": "tsx scripts/test-db.ts up",
     "test:db:down": "tsx scripts/test-db.ts down",
-    "verify": "npm run format:check && npm run lint && npm run skill:check && npm run report-types:check && npm run typecheck && npm run typecheck:lp05 && npm run build && npm run openapi:check && npm run test && npm run test:deployment:unit && npm run deploy:lp05:validate && npm run test:deployment:hotfix && npm run test:browser && npm run test:browser:lp04"
+    "verify": "npm run format:check && npm run lint && npm run skill:check && npm run report-types:check && npm run typecheck && npm run typecheck:lp05 && npm run build && npm run openapi:check && npm run test && npm run test:deployment:unit && npm run deploy:lp05:validate && npm run test:deployment:hotfix && npm run test:client-profile:unit && npm run test:client-profile:integration && npm run test:browser && npm run test:browser:lp04"
   },
   "devDependencies": {
     "@playwright/test": "1.62.1",

@@ -121,6 +121,31 @@ AI
 bearer 只通过环境注入；命令参数和证据不包含真实值。实际客户端、独立人工交接、失败恢复、Web 验收和精确清理见
 [LP-04 本地演示指南](./docs/demo/lp04.md)。
 
+## 客户端初始化
+
+Codex、Claude 和兼容 Markdown-Skill 客户端先加载
+[`idea-validation-init`](./skills/idea-validation-init/SKILL.md)，再加载业务
+[`idea-validation-workflow`](./skills/idea-validation-workflow/SKILL.md)。初始化使用两份彼此分离的输入：
+
+- 部署操作者可安全分发的 `DeploymentConnectionHandoffV1`，包含 HTTPS
+  origin、release、Skill/OpenAPI 与非秘密 credential identity；
+- 只存在于客户端安全运行时的 AI bearer 环境变量或 `0600` token file。raw
+  token 不进入 profile、命令参数、prompt、Git、日志或证据。
+
+```bash
+npm run client:init -- \
+  --handoff /absolute/path/deployment-handoff.json \
+  --client-id codex-workstation-01 \
+  --display-name "Validation assistant" \
+  --credential-env IDEA_VALIDATION_AI_TOKEN \
+  --output /absolute/path/client-profile.json
+```
+
+连接、OpenAPI、credential presence 与 credential
+usability 是四个独立状态；公开 GET 不需要 token，公开 GET 成功也不能证明 bearer 有效。`HUMAN_CONTROL_TOKEN`
+和确认 cookie 永远不是初始化或业务 Skill 的输入。仅隔离 loopback 环境可以自动执行合成写入验证；生产访问、token 生成/轮换、部署、发布与 profile 外部交付仍需各自的显式授权。完整更新、移除和恢复步骤见
+[`idea-validation-init` 初始化参考](./skills/idea-validation-init/references/initialization.md)。
+
 ## LP-05 发布就绪
 
 LP-05 的生产资产位于 [`deploy/`](./deploy)，运维手册位于

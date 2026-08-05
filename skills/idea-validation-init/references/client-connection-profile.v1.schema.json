@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://idea-validation.invalid/schemas/client-connection-profile.v1.schema.json",
+  "title": "ClientConnectionProfileV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "kind",
+    "profileId",
+    "profileRevision",
+    "baseUrl",
+    "openapiUrl",
+    "releaseId",
+    "sourceCommit",
+    "skill",
+    "clientId",
+    "displayName",
+    "credential",
+    "declaredAiScopes",
+    "validation",
+    "issuedAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "idea-validation-client-profile" },
+    "profileId": { "type": "string", "pattern": "^profile_[a-f0-9]{24}$" },
+    "profileRevision": { "type": "integer", "minimum": 1 },
+    "baseUrl": { "type": "string", "format": "uri", "maxLength": 2048 },
+    "openapiUrl": { "type": "string", "format": "uri", "maxLength": 2048 },
+    "releaseId": { "$ref": "#/$defs/safeId" },
+    "sourceCommit": { "$ref": "#/$defs/gitSha" },
+    "skill": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "version", "treeSha256"],
+      "properties": {
+        "commit": { "$ref": "#/$defs/gitSha" },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[A-Za-z0-9.-]+)?$"
+        },
+        "treeSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "clientId": { "$ref": "#/$defs/safeId" },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "pattern": "^[^\\u0000-\\u001f\\u007f]+$"
+    },
+    "credential": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "fingerprint", "source", "expiresAt"],
+      "properties": {
+        "id": { "$ref": "#/$defs/safeId" },
+        "fingerprint": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" },
+        "source": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "name"],
+              "properties": {
+                "kind": { "const": "ENV" },
+                "name": {
+                  "type": "string",
+                  "pattern": "^[A-Z][A-Z0-9_]{0,127}$"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "path"],
+              "properties": {
+                "kind": { "const": "FILE" },
+                "path": { "type": "string", "pattern": "^/", "maxLength": 4096 }
+              }
+            }
+          ]
+        },
+        "expiresAt": {
+          "oneOf": [
+            { "type": "string", "format": "date-time" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "declaredAiScopes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9:._-]{0,119}$" }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connection",
+        "openapi",
+        "credentialPresence",
+        "credentialUsability",
+        "verifiedAt",
+        "credentialEvidence"
+      ],
+      "properties": {
+        "connection": { "const": "VERIFIED" },
+        "openapi": { "const": "VERIFIED" },
+        "credentialPresence": { "const": "PRESENT" },
+        "credentialUsability": { "enum": ["VERIFIED", "UNVERIFIED"] },
+        "verifiedAt": { "type": "string", "format": "date-time" },
+        "credentialEvidence": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "requestId",
+                "resourceId",
+                "idempotencyKeySha256",
+                "observedClient",
+                "observedDisplayName",
+                "verifiedAt"
+              ],
+              "properties": {
+                "kind": { "const": "SYNTHETIC_IDEA_READBACK" },
+                "requestId": {
+                  "type": "string",
+                  "pattern": "^req_[0-9A-HJKMNP-TV-Z]{26}$"
+                },
+                "resourceId": {
+                  "type": "string",
+                  "pattern": "^idea_[0-9A-HJKMNP-TV-Z]{26}$"
+                },
+                "idempotencyKeySha256": { "$ref": "#/$defs/sha256" },
+                "observedClient": { "$ref": "#/$defs/safeId" },
+                "observedDisplayName": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 120
+                },
+                "verifiedAt": { "type": "string", "format": "date-time" }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "issuedAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "safeId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,119}$"
+    },
+    "gitSha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

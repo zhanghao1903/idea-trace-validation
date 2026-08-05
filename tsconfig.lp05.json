@@ -8,6 +8,9 @@
     "noUncheckedIndexedAccess": false,
     "sourceMap": false
   },
-  "include": ["scripts/lp05/**/*.ts"],
-  "exclude": ["scripts/lp05/**/*.test.ts"]
+  "include": ["scripts/lp05/**/*.ts", "scripts/client-profile/**/*.ts"],
+  "exclude": [
+    "scripts/lp05/**/*.test.ts",
+    "scripts/client-profile/**/*.test.ts"
+  ]
 }

@@ -13,6 +13,7 @@ import { checkSkill } from "./check-skill.js";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 const sourceSkill = path.join(repoRoot, "skills/idea-validation-workflow");
+const initSkill = path.join(repoRoot, "skills/idea-validation-init");
 const temporaryRoots: string[] = [];
 
 const fixture = () => {
@@ -30,6 +31,23 @@ afterEach(() => {
 describe("LP-04 Skill hygiene", () => {
   it("accepts the repository Skill", () => {
     expect(checkSkill({ repoRoot, skillRoot: sourceSkill })).toEqual([]);
+    expect(checkSkill({ repoRoot, skillRoot: initSkill })).toEqual([]);
+  });
+
+  it("rejects a missing initializer profile schema", () => {
+    const root = mkdtempSync(path.join(tmpdir(), "client-init-skill-"));
+    temporaryRoots.push(root);
+    const skillRoot = path.join(root, "idea-validation-init");
+    cpSync(initSkill, skillRoot, { recursive: true });
+    rmSync(
+      path.join(
+        skillRoot,
+        "references/client-connection-profile.v1.schema.json",
+      ),
+    );
+    expect(checkSkill({ repoRoot, skillRoot })).toContain(
+      "MISSING_FILE:references/client-connection-profile.v1.schema.json",
+    );
   });
 
   it("rejects stale links and secret fixtures", () => {
