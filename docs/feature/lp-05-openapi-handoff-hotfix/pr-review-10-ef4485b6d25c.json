@@ -1,0 +1,191 @@
+{
+  "schema_version": "1.1",
+  "review": {
+    "repository": "zhanghao1903/idea-trace-validation",
+    "pr_number": 10,
+    "url": "https://github.com/zhanghao1903/idea-trace-validation/pull/10",
+    "title": "LP-05: restore production OpenAPI handoff parity",
+    "author": "zhanghao1903",
+    "base_ref": "codex/v0-1-project-plan",
+    "base_sha": "31b5e42fa0c25fbc41d6a02f16abb64832861312",
+    "head_ref": "codex/lp-05-openapi-handoff-hotfix",
+    "head_sha": "ef4485b6d25c9f799c9422d45b96b6e38c78c3e1",
+    "reviewed_at": "2026-08-06T03:31:47Z",
+    "reviewer": "Codex Engineering Lifecycle Review",
+    "report_status": "CURRENT",
+    "review_mode": "READ_ONLY",
+    "reviewed_scope": [
+      "complete three-commit base-to-head diff and all seven changed files",
+      "SPA shell route registration and Swagger visibility boundary",
+      "production-equivalent static-host and complete OpenAPI parity regression",
+      "frozen OpenAPI digest and existing full-document compatibility checks",
+      "exact-head GitHub metadata and required checks"
+    ],
+    "excluded_scope": [
+      "production endpoints, credentials, deployment, handoff delivery, release and merge execution"
+    ]
+  },
+  "review_context": {
+    "kind": "INITIAL",
+    "forward_risk_review": [
+      {
+        "surface": "Browser shell route and machine API contract separation",
+        "risk_triggers": [
+          "public-contract",
+          "deployment-compatibility",
+          "test-adequacy"
+        ],
+        "reason": "The change deliberately removes six browser-only routes from runtime Swagger while preserving their HTTP behavior, so an over-broad hide or a Web regression would affect the production contract.",
+        "affected_paths": [
+          "apps/api/src/app.ts",
+          "apps/api/test/static-host.unit.test.ts",
+          "openapi/lp03.v1.json"
+        ],
+        "checks": [
+          "traced all six route registrations and verified only their shared schema metadata changed",
+          "verified the Web-enabled regression exercises every shell URL, static asset caching, CSP and both API/UI 404 boundaries",
+          "verified the same regression compares the complete runtime document to the frozen document before asserting all six shell paths are absent",
+          "confirmed the exact-head verify and candidate jobs completed successfully"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      },
+      {
+        "surface": "Complete OpenAPI digest and handoff authority preservation",
+        "risk_triggers": [
+          "trust-boundary",
+          "data-integrity",
+          "security-privacy"
+        ],
+        "reason": "The fix exists to restore handoff generation without weakening the complete-document authority or allowing browser routes to mask business API drift.",
+        "affected_paths": [
+          "apps/api/test/static-host.unit.test.ts",
+          "scripts/client-profile/verify.ts",
+          "scripts/client-profile/client-profile.unit.test.ts",
+          "docs/feature/lp-05-openapi-handoff-hotfix/requirements.md",
+          "docs/feature/lp-05-openapi-handoff-hotfix/verification.md"
+        ],
+        "checks": [
+          "independently recomputed the frozen canonical document digest with sorted JSON plus the required trailing newline",
+          "verified the compatibility function still validates required operations and hashes the complete document",
+          "verified existing tests mutate request body, components, parameters and security and require each mutation to change the digest",
+          "confirmed no handoff, credential, production, database or release implementation changed in the PR"
+        ],
+        "finding_ids": [],
+        "result": "PASS"
+      }
+    ]
+  },
+  "decision": {
+    "status": "APPROVE",
+    "mergeable": true,
+    "rationale": "The exact-head implementation is narrowly scoped to the six enumerated SPA routes, preserves their browser behavior, and adds a production-equivalent full-document equality regression. The frozen digest and complete-contract fail-closed boundary remain intact, and both required exact-head CI jobs pass. No critical finding remains under AGILE_REVIEWED policy.",
+    "blocking_finding_ids": []
+  },
+  "summary": "APPROVE / READY for exact head ef4485b6d25c9f799c9422d45b96b6e38c78c3e1. The six SPA shell routes remain served but are excluded from Swagger, and the Web-enabled runtime OpenAPI is required to equal the frozen complete document. Review is read-only and did not merge or touch production.",
+  "change_map": [
+    {
+      "area": "SPA shell route metadata",
+      "change": "Apply one immutable schema.hide route option to exactly six existing shell registrations.",
+      "external_behavior": "Browser URLs keep serving the shell but are no longer advertised as machine API operations.",
+      "risk": "Low",
+      "validation": "Manual route-by-route diff trace plus exact-head static-host regression in GitHub CI."
+    },
+    {
+      "area": "Production-equivalent OpenAPI regression",
+      "change": "A Web-enabled app now compares its complete runtime OpenAPI object and canonical digest with the frozen document.",
+      "external_behavior": "Any visible shell route or real API/schema/security drift fails the parity gate.",
+      "risk": "Low",
+      "validation": "Full object equality, frozen digest assertion, explicit hidden-path assertions and existing mutation coverage."
+    }
+  ],
+  "findings": [],
+  "required_actions": [],
+  "risks": [
+    {
+      "category": "api-compatibility",
+      "level": "Low",
+      "description": "Future browser shell routes must explicitly remain outside the machine API contract.",
+      "mitigation": "Preserve the full Web-enabled runtime-to-frozen OpenAPI equality regression when adding routes.",
+      "owner": "API/Web maintainers"
+    }
+  ],
+  "validation": {
+    "overall_status": "PASSED",
+    "reviewer_runs": [
+      {
+        "command": "git diff --check 31b5e42fa0c25fbc41d6a02f16abb64832861312..ef4485b6d25c9f799c9422d45b96b6e38c78c3e1",
+        "environment": "isolated exact-head review worktree",
+        "head_sha": "ef4485b6d25c9f799c9422d45b96b6e38c78c3e1",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "No whitespace or patch-hygiene errors were found in the complete base-to-head diff.",
+        "required_for_approval": true,
+        "evidence_ref": null
+      },
+      {
+        "command": "jq -cS . openapi/lp03.v1.json | shasum -a 256",
+        "environment": "isolated exact-head review worktree; canonical JSON with required trailing newline",
+        "head_sha": "ef4485b6d25c9f799c9422d45b96b6e38c78c3e1",
+        "status": "PASS",
+        "exit_code": 0,
+        "summary": "Independently reproduced frozen OpenAPI digest 5b2cbcd605e9a8304e1f22e331b36b67c54b1976d49a499af31ed6a8e0d6adb7.",
+        "required_for_approval": true,
+        "evidence_ref": "openapi/lp03.v1.json"
+      }
+    ],
+    "ci_checks": [
+      {
+        "name": "ci / verify",
+        "observed_at": "2026-08-06T03:31:47Z",
+        "head_sha": "ef4485b6d25c9f799c9422d45b96b6e38c78c3e1",
+        "status": "PASS",
+        "summary": "GitHub Actions run 31059590104, verify job 92484393795 completed successfully for the exact reviewed head, including npm run verify.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/31059590104/job/92484393795"
+      },
+      {
+        "name": "ci / lp05-candidate",
+        "observed_at": "2026-08-06T03:31:47Z",
+        "head_sha": "ef4485b6d25c9f799c9422d45b96b6e38c78c3e1",
+        "status": "PASS",
+        "summary": "GitHub Actions run 31059590104, candidate job 92484965466 completed successfully for the exact reviewed head, including candidate, deployment-authority, restore, backup, rotation and rollback gates.",
+        "evidence_ref": "https://github.com/zhanghao1903/idea-trace-validation/actions/runs/31059590104/job/92484965466"
+      }
+    ],
+    "not_run": [
+      {
+        "check": "Reviewer-local dependency-based Vitest and full npm run verify",
+        "reason": "The repository requires Node 24 and npm 11.16; the compatible npm was located, but dependency installation approval transport failed. Exact-head GitHub CI independently completed the full configured verify and candidate chains, while Review performed local digest, diff and code-path checks."
+      },
+      {
+        "check": "Production endpoint, credential, deployment or handoff generation",
+        "reason": "The request and Review role provide no production, credential, deployment, release or handoff-delivery authorization."
+      }
+    ]
+  },
+  "limitations": [
+    "Reviewer-local dependency-based test execution was unavailable after the dependency-install approval transport failed; the exact reviewed head has two successful authoritative GitHub jobs, including the full repository gate and LP-05 candidate suite."
+  ],
+  "open_questions": [],
+  "assumptions": [
+    {
+      "id": "ASM-001",
+      "statement": "PR #10 still points to the routed exact base and exact head, remains open and non-draft, and is mergeable.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Fetched authoritative GitHub PR metadata before report creation.",
+      "evidence": "GitHub reported OPEN, merged=false, draft=false, mergeable=true, base 31b5e42fa0c25fbc41d6a02f16abb64832861312 and head ef4485b6d25c9f799c9422d45b96b6e38c78c3e1.",
+      "impact_if_false": "The exact-snapshot review would be stale and invalid."
+    },
+    {
+      "id": "ASM-002",
+      "statement": "The required checks belong to and pass for the exact reviewed head.",
+      "decision_critical": true,
+      "status": "VERIFIED",
+      "method": "Fetched the pull-request workflow run and all latest-attempt jobs for the exact head SHA.",
+      "evidence": "Run 31059590104 completed SUCCESS; verify job 92484393795 and lp05-candidate job 92484965466 both completed SUCCESS.",
+      "impact_if_false": "Required green checks could not support approval of the routed snapshot."
+    }
+  ],
+  "non_blocking_recommendations": []
+}
