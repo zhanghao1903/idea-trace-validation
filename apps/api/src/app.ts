@@ -327,12 +327,13 @@ export const buildApp = async ({
       reply.header("cache-control", "no-cache");
       return reply.sendFile("index.html", { cacheControl: false });
     };
-    app.get("/", shell);
-    app.get("/proposer", shell);
-    app.get("/executor", shell);
-    app.get("/proposer/projects/:projectId", shell);
-    app.get("/executor/projects/:projectId", shell);
-    app.get("/confirmations/:confirmationId", shell);
+    const shellRouteOptions = { schema: { hide: true } } as const;
+    app.get("/", shellRouteOptions, shell);
+    app.get("/proposer", shellRouteOptions, shell);
+    app.get("/executor", shellRouteOptions, shell);
+    app.get("/proposer/projects/:projectId", shellRouteOptions, shell);
+    app.get("/executor/projects/:projectId", shellRouteOptions, shell);
+    app.get("/confirmations/:confirmationId", shellRouteOptions, shell);
   }
 
   void ErrorEnvelopeSchema;
