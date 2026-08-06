@@ -4,6 +4,10 @@
 
 ### Fixed
 
+- Keep production runtime OpenAPI identical to the frozen machine API contract
+  when SPA hosting is enabled by hiding the six browser-only shell routes from
+  Swagger, restoring truthful `DeploymentConnectionHandoffV1` generation without
+  weakening complete-document authority checks.
 - Bind both LP-05 production identity readers to the configured PostgreSQL
   principal and separate the strict application rollback projection from
   attempt-bound cleanup evidence. Fresh-install recovery now removes only empty,

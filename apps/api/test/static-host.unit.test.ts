@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -11,6 +11,7 @@ import type {
 } from "@idea/application";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { openapiCompatibilityDigest } from "../../../scripts/client-profile/verify.js";
 import { buildApp } from "../src/app.js";
 
 const unavailable = new Proxy({} as IdeaService, {
@@ -68,12 +69,22 @@ describe("LP-03 static hosting boundary", () => {
       readiness: ready,
     });
     try {
-      const deepLink = await app.inject(
+      const shellPaths = [
+        "/",
+        "/proposer",
+        "/executor",
         "/proposer/projects/proj_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-      );
-      expect(deepLink.statusCode).toBe(200);
-      expect(deepLink.body).toContain("LP03_SHELL");
-      expect(deepLink.headers["cache-control"]).toBe("no-cache");
+        "/executor/projects/proj_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "/confirmations/conf_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+      ];
+      for (const shellPath of shellPaths) {
+        const shell = await app.inject(shellPath);
+        expect(shell.statusCode).toBe(200);
+        expect(shell.body).toContain("LP03_SHELL");
+        expect(shell.headers["cache-control"]).toBe("no-cache");
+      }
+
+      const deepLink = await app.inject(shellPaths[3] as string);
       const csp = deepLink.headers["content-security-policy"];
       expect(csp).toContain("script-src 'self'");
       expect(csp).toContain("object-src 'none'");
@@ -93,6 +104,31 @@ describe("LP-03 static hosting boundary", () => {
       const uiMiss = await app.inject("/not-a-known-ui-route");
       expect(uiMiss.statusCode).toBe(404);
       expect(uiMiss.body).not.toContain("LP03_SHELL");
+
+      const runtimeResponse = await app.inject("/openapi.json");
+      expect(runtimeResponse.statusCode).toBe(200);
+      const runtimeOpenapi = runtimeResponse.json() as Record<string, unknown>;
+      const frozenOpenapi = JSON.parse(
+        await readFile(path.resolve("openapi/lp03.v1.json"), "utf8"),
+      ) as Record<string, unknown>;
+      expect(runtimeOpenapi).toEqual(frozenOpenapi);
+      const frozenDigest = openapiCompatibilityDigest(frozenOpenapi);
+      expect(frozenDigest).toBe(
+        "5b2cbcd605e9a8304e1f22e331b36b67c54b1976d49a499af31ed6a8e0d6adb7",
+      );
+      expect(openapiCompatibilityDigest(runtimeOpenapi)).toBe(frozenDigest);
+
+      const runtimePaths = runtimeOpenapi.paths as Record<string, unknown>;
+      for (const hiddenPath of [
+        "/",
+        "/proposer",
+        "/executor",
+        "/proposer/projects/{projectId}",
+        "/executor/projects/{projectId}",
+        "/confirmations/{confirmationId}",
+      ]) {
+        expect(runtimePaths).not.toHaveProperty(hiddenPath);
+      }
     } finally {
       await app.close();
     }
